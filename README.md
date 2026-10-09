@@ -19,6 +19,22 @@ browser.
     pnpm oracle           # build the patched C original and record golden frames
     pnpm test             # now also runs the golden frame comparisons
 
+## Status
+
+Sub-project 1 (Foundation) — intro, title screen and main menu, pixel-identical to the
+C original (verified by golden frame tests). Menu items other than navigation show
+placeholder screens. Audio, gameplay and the rest arrive in later sub-projects; see
+`docs/superpowers/specs/`.
+
+## Architecture (short)
+
+- `src/core` – C integer semantics, binary reader, Mersenne Twister.
+- `src/data` – loaders for the original data files.
+- `src/video` – 8-bit surfaces, blitters, fonts, palette fades, canvas presenter.
+- `src/platform` – clock, delays, input, audio interface.
+- `src/screens` – ported game screens. Blocking C loops are `async` functions.
+- `tools/oracle` – builds the original C with a frame-dump patch; golden tests compare.
+
 ## Credits & licence
 
 Code: GPL-2.0-or-later (see COPYING). Ported from OpenTyrian (© The OpenTyrian
