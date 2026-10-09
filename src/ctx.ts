@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import type { Assets } from './assets';
+import { createGameWorld, type GameWorld } from './game/world';
 import { MersenneTwister } from './core/mtrand';
 import { NullAudio, type Audio } from './platform/audio';
 import type { Clock } from './platform/clock';
@@ -36,6 +37,8 @@ export interface Ctx {
   shopSpriteSheet: Sprite2Sheet | null;
   mouse: MouseCursor;
   state: GameState;
+  /** All C gameplay globals (spec §2.1). */
+  game: GameWorld;
 }
 
 export function createCtx(opts: {
@@ -57,5 +60,6 @@ export function createCtx(opts: {
     shopSpriteSheet: null,
     mouse: createMouseCursor(),
     state: { versionString: opts.versionString ?? VERSION, moveTyrianLogoUp: false, xmas: false, playDemo: false, loadDestruct: false },
+    game: createGameWorld(),
   };
 }

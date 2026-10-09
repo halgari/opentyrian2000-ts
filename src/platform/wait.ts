@@ -18,6 +18,12 @@ export async function waitDelay(ctx: Ctx): Promise<void> {
   }
 }
 
+// port of wait_delay (nortsong.c): sleeps out the remaining delay, no input servicing
+export async function waitDelayPlain(ctx: Ctx): Promise<void> {
+  const delay = ctx.delay.remaining();
+  if (delay > 0) await ctx.clock.sleep(delay);
+}
+
 // port of wait_delayorinput (joysticks arrive in a later sub-project: joydown is always false)
 export async function waitDelayOrInput(ctx: Ctx): Promise<void> {
   for (;;) {

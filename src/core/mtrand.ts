@@ -59,6 +59,8 @@ export class MersenneTwister {
   private p0 = -1; // -1 = never seeded (C: p0 == NULL)
   private p1 = 0;
   private pm = 0;
+  /** Number of rand() calls so far (rand1/randLt1 count through rand); oracle_mt_calls in the C oracle. */
+  calls = 0;
 
   // port of mt_srand
   srand(seed: number): void {
@@ -75,6 +77,7 @@ export class MersenneTwister {
 
   // port of mt_rand
   rand(): number {
+    this.calls++;
     if (this.p0 < 0) this.srand(5489);
     const x = this.x;
     const a = x[this.p0]!;

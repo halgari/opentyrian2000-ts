@@ -32,4 +32,11 @@ describe('MersenneTwister (port of mtrand.c)', () => {
       expect(Math.fround(a)).toBe(a);
     }
   });
+  it('counts rand() calls, including rand1/randLt1', () => {
+    const mt = new MersenneTwister();
+    mt.srand(1);
+    expect(mt.calls).toBe(0);
+    mt.rand(); mt.rand1(); mt.randLt1();
+    expect(mt.calls).toBe(3);
+  });
 });
