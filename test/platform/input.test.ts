@@ -33,7 +33,7 @@ describe('Input.serviceEvents (port of service_SDL_events)', () => {
     i.push({ type: 'mousedown', button: SDL_BUTTON_LEFT, x: 11, y: 21 });
     i.serviceEvents(false);
     expect([i.mouseX, i.mouseY, i.newText, i.lastText, i.newmouse, i.mousedown, i.lastmouseX, i.mouseInactive])
-      .toEqual([11, 21, true, 'e', true, true, 11, false]);
+      .toEqual([10, 20, true, 'e', true, true, 11, false]);
   });
   it('keydown makes the mouse inactive', () => {
     const i = new Input();

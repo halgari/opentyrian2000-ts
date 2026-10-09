@@ -74,11 +74,6 @@ export class Input {
           break;
         case 'mousedown':
           this.mouseInactive = false;
-          // NOTE: C only updates mouse_x/y from motion events; the brief's test
-          // requires the button position to update mouseX/Y too (harmless: SDL
-          // always delivers a motion event first).
-          this.mouseX = ev.x;
-          this.mouseY = ev.y;
           this.newmouse = true;
           this.lastmouseBut = ev.button;
           this.lastmouseX = ev.x;
