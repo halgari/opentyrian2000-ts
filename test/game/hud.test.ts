@@ -299,8 +299,12 @@ describeData('drawTimers', () => {
     ctx.state.playDemo = false;
     ctx.game.varz.allPlayersGone = true;
     ctx.game.varz.firstGameOver = true;
-    expect(() => drawTimers(ctx)).toThrow(/unported/); // key wait is the non-demo path
+    drawTimers(ctx);
     expect(ctx.vga.gameScreen.pixels.some((p) => p !== 0)).toBe(true);
+    expect(ctx.game.varz.reallyEndLevel).toBe(false); // waits for a key (input-level.test.ts covers the wait itself)
+    ctx.input.push({ type: 'keydown', scancode: 44, mod: 0 });
+    drawTimers(ctx);
+    expect(ctx.game.varz.reallyEndLevel).toBe(true);
   });
 });
 

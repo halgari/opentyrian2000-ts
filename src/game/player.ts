@@ -19,6 +19,7 @@ import { drawSegmentedGauge, fillRectangleXY } from '../video/vga256d';
 import { replayDemoKeys } from './demo';
 import { setupExplosion, setupExplosionLarge } from './explosions';
 import { playerDamage } from './damage';
+import { readPlayerInput } from './input-level';
 import { drawArmor, drawOptions, drawPortConfigButtons, drawTextWindow, drawShield, HUD_SIDEKICK_Y, wipeShieldArmorBars } from './hud';
 import { playerShotCreate, portConfigs } from './shots';
 import { doSpecialShot, sfCodes } from './specials';
@@ -70,7 +71,7 @@ export function nortSparkPos(ctx: Ctx, baseX: number, baseY: number): [x: number
 }
 
 export function playerMovement(
-  ctx: Ctx, p: Player, _inputDevice: number, playerNum: number, shipGr: number, shipGrPtr: Sprite2Sheet | null,
+  ctx: Ctx, p: Player, inputDevice: number, playerNum: number, shipGr: number, shipGrPtr: Sprite2Sheet | null,
   mouse: MouseKeys,
 ): void {
   const g = ctx.game;
@@ -149,7 +150,7 @@ export function playerMovement(
   }
 
   let accelXC = 0, accelYC = 0;
-  // mouseXC/mouseYC only change in the joystick/mouse branches, which throw: always 0.
+  let mouseXC = 0, mouseYC = 0;
 
   if (!v.endLevel) {
     v[mx] = u16(p.x);
@@ -158,20 +159,40 @@ export function playerMovement(
 
     /* --- Movement Routine Beginning --- */
     // `if (endLevel) y -= 2` inside this !endLevel block is dead code in the C.
-    if (!ctx.state.playDemo) {
-      // TODO(sp4): mainint.c:3620-3830 keyboard/mouse/joystick input
-      throw new Error('unported: mainint.c:3620 non-demo player input');
-    }
-    // record_demo || play_demo => inputDevice = 1; the joystick and mouse blocks need inputDevice 0/2/3+.
-    if (!replayDemoKeys(ctx)) {
-      v.endLevel = true;
-      v.levelEnd = 40;
+    if (ctx.state.playDemo) {
+      // record_demo || play_demo => inputDevice = 1; the joystick and mouse blocks need inputDevice 0/2/3+,
+      // and the keyboard block is skipped for play_demo.
+      if (!replayDemoKeys(ctx)) {
+        v.endLevel = true;
+        v.levelEnd = 40;
+      }
+    } else {
+      // single player: inputDevice 0 = joystick + mouse + keyboard merged (mainint.c:4688)
+      ({ mouseXC, mouseYC } = readPlayerInput(ctx, p, inputDevice));
     }
 
-    if (c.smoothies[9 - 1]) v[my] = u16(p.y - (v[my] - p.y));
+    if (c.smoothies[9 - 1]) {
+      v[my] = u16(p.y - (v[my] - p.y));
+      mouseYC = -mouseYC;
+    }
 
     accelXC += p.x - v[mx];
     accelYC += p.y - v[my];
+
+    if (mouseXC > 30) mouseXC = 30;
+    else if (mouseXC < -30) mouseXC = -30;
+    if (mouseYC > 30) mouseYC = 30;
+    else if (mouseYC < -30) mouseYC = -30;
+
+    if (mouseXC > 0) p.x += idiv(mouseXC + 3, 4);
+    else if (mouseXC < 0) p.x += idiv(mouseXC - 3, 4);
+    if (mouseYC > 0) p.y += idiv(mouseYC + 3, 4);
+    else if (mouseYC < 0) p.y += idiv(mouseYC - 3, 4);
+
+    if (mouseXC > 3) accelXC++;
+    else if (mouseXC < -2) accelXC--;
+    if (mouseYC > 2) accelYC++;
+    else if (mouseYC < -2) accelYC--;
 
     /* --- Movement Routine Ending --- */
 

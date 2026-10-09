@@ -32,6 +32,7 @@ import {
   drawArmor, drawBossBar, drawLevelTopBars, drawOptionLevel, drawOptions, drawPortConfigButtons, drawShield,
   drawTextWindow, drawTimers, drawWarnings, gammaCorrect, inGameDisplays, type LevelLocals,
 } from './hud';
+import { levelInputTail } from './input-level';
 import { calcPurpleBallsNeeded, mainGamePlayerFunctions } from './player';
 import { runEpisodeScript } from './script';
 import { getShipInfo } from './shots';
@@ -233,7 +234,7 @@ async function levelSetup(ctx: Ctx): Promise<LevelLocals | null> {
 
   if (c.mainLevel === 0) return null; // if quit itemscreen: back to titlescreen
 
-  // (mouseSetRelative(true) is for !play_demo)
+  if (!ctx.state.playDemo) ctx.input.mouseSetRelative(true);
   ctx.audio.fadeSong();
 
   for (const p of g.players) p.isAlive = true;
@@ -482,10 +483,12 @@ function playSoundQueue(ctx: Ctx): void {
 }
 
 /**
- * One iteration of level_loop (tyrian2.c:1088-2396). Returns true for `goto start_level` (reallyEndLevel).
+ * One iteration of level_loop (tyrian2.c:1088-2396). Returns 'end' for `goto start_level` (reallyEndLevel),
+ * 'restart' for `goto level_loop` (the F1 path of the key handling), else 'next' (falls to the loop's end: `goto level_loop`
+ * after the normal tail; the distinction matters only to callers that count presented frames).
  * Slot order follows survey 6.2; every slot is wired (the demo goldens pin the order).
  */
-async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<boolean> {
+async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<'next' | 'restart' | 'end'> {
   const g = ctx.game;
   const c = g.config;
   const v = g.varz;
@@ -687,8 +690,8 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<boolean> {
       v.reallyEndLevel = true;
       g.demo.stoppedDemo = true;
     }
-  } else {
-    throw new Error('unported: tyrian2.c:2213 in-level keyboard/pause/menu input (non-demo)'); // TODO(sp4)
+  } else if ((await levelInputTail(ctx)) === 'restart') {
+    return 'restart'; // goto level_loop (F1 help): the frame is not shown or paced
   }
 
   /** Test **/
@@ -738,7 +741,7 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<boolean> {
   }
 
   // (JE_handleChat: network only)
-  return v.reallyEndLevel;
+  return v.reallyEndLevel ? 'end' : 'next';
 }
 
 // port of JE_main (tyrian2.c:621), demo path: start_level_first -> level_loop -> start_level -> return.
@@ -751,11 +754,12 @@ export async function runLevel(ctx: Ctx): Promise<void> {
   const loc = await levelSetup(ctx);
   if (loc === null) return;
 
-  while (!(await levelFrame(ctx, loc))) { /* level_loop */ }
+  while ((await levelFrame(ctx, loc)) !== 'end') { /* level_loop */ }
 
   // start_level:
   const c = g.config;
-  // (mouseSetRelative(false); `if (galagaMode) twoPlayerMode = false` cannot apply: galaga is rejected above)
+  ctx.input.mouseSetRelative(false);
+  // (`if (galagaMode) twoPlayerMode = false` cannot apply: galaga is rejected above)
   // JE_clearKeyboard() is a no-op in the C
   g.sprites.enemySpriteSheets.fill(null); // free_sprite2s(&enemySpriteSheets[0..3])
 

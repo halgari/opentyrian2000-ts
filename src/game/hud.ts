@@ -12,6 +12,7 @@ import { blitSprite2, blitSprite2x2 } from '../video/sprite2';
 import { dString, FULL_SHADE, outText, outTextAndDarken, textShade, textWidth } from '../video/fonthand';
 import { S_CLICK, S_WARNING, SONG_GAMEOVER } from '../audio/ids';
 import { eventJump, newEnemy } from './enemies';
+import { gameOverKeyWait } from './input-level';
 import type { Surface } from '../video/surface';
 import { drawSegmentedGauge, fillRectangleXY, rectangle } from '../video/vga256d';
 
@@ -353,8 +354,7 @@ export function drawTimers(ctx: Ctx): void {
         v.firstGameOver = false;
       }
 
-      if (!ctx.state.playDemo)
-        throw new Error('unported: tyrian2.c:2185 game-over key wait (non-demo)'); // TODO(sp4)
+      if (!ctx.state.playDemo) gameOverKeyWait(ctx);
     }
   }
 }

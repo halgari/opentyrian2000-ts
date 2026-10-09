@@ -20,58 +20,140 @@ function isBrowserShortcut(e: KeyboardEvent): boolean {
 
 const DOM_TO_SDL_BUTTON: Record<number, number> = { 0: 1, 1: 2, 2: 3 };
 
+/** The parts of `document` the pointer-lock handling needs (injectable for tests). */
+export interface PointerLockDoc extends EventTarget {
+  pointerLockElement: unknown;
+  exitPointerLock(): void;
+}
+
+/** A pointerlockchange that follows an Escape keydown by less than this is the same keypress. */
+const ESC_DEDUPE_MS = 250;
+const SC_ESCAPE = 41, SC_F11 = 68;
+
 export function attachDomInput(opts: {
   target: EventTarget;
-  canvas: { getBoundingClientRect(): DOMRect };
+  canvas: { getBoundingClientRect(): DOMRect; requestPointerLock?(): unknown };
   input: Input;
   onToggleFullscreen: () => void;
+  /** Defaults to `document` when present; without it pointer lock is disabled. */
+  doc?: PointerLockDoc;
+  now?: () => number;
 }): () => void {
   const { target, canvas, input } = opts;
-  const listeners: [string, EventListener][] = [];
-  const on = <E extends Event>(type: string, fn: (e: E) => void) => {
+  const doc = opts.doc ?? (typeof document !== 'undefined' ? (document as unknown as PointerLockDoc) : undefined);
+  const now = opts.now ?? (() => performance.now());
+  const listeners: [EventTarget, string, EventListener][] = [];
+  const on = <E extends Event>(t: EventTarget, type: string, fn: (e: E) => void) => {
     const l = fn as unknown as EventListener;
-    target.addEventListener(type, l);
-    listeners.push([type, l]);
+    t.addEventListener(type, l);
+    listeners.push([t, type, l]);
   };
 
-  on<KeyboardEvent>('keydown', (e) => {
-    if ((e.altKey && e.code === 'Enter') || e.code === 'F11') {
+  const updateOutputRect = (): DOMRect => {
+    const rect = canvas.getBoundingClientRect();
+    // last_output_rect (video.c): integer size; keep the divisor non-zero for a hidden canvas
+    input.outputRect = { w: Math.max(1, Math.round(rect.width)), h: Math.max(1, Math.round(rect.height)) };
+    return rect;
+  };
+  updateOutputRect();
+
+  // ---- pointer lock: SDL_SetRelativeMouseMode(enable && windowHasFocus) ----
+  let wantRelative = false;
+  let hasFocus = true;
+  let pendingUnlocks = 0; // exitPointerLock() calls whose pointerlockchange has not arrived yet
+  let lastEscDown = -Infinity;
+
+  const tryLock = (): void => {
+    if (!doc || !wantRelative || !hasFocus || doc.pointerLockElement || !canvas.requestPointerLock) return;
+    try {
+      const r = canvas.requestPointerLock();
+      // Browsers reject without a user gesture: the next click or key retries (see below).
+      if (r && typeof (r as Promise<void>).catch === 'function') (r as Promise<void>).catch(() => {});
+    } catch { /* not allowed right now */ }
+  };
+  input.onRelativeMode = (enable) => {
+    wantRelative = enable;
+    if (!doc) return;
+    if (enable) tryLock();
+    else if (doc.pointerLockElement) {
+      pendingUnlocks++;
+      doc.exitPointerLock();
+    }
+  };
+  if (doc) {
+    on(doc, 'pointerlockchange', () => {
+      if (doc.pointerLockElement) return;
+      if (pendingUnlocks > 0) { // the game released it; it may have asked for it back before this event arrived
+        pendingUnlocks--;
+        tryLock();
+        return;
+      }
+      // The browser took the lock away. On focus loss the blur path handles it; otherwise the player pressed
+      // Esc (Chrome swallows that keydown while locked): deliver it as the in-game-menu key unless the
+      // keydown arrived anyway (Firefox).
+      if (!hasFocus || !wantRelative) return;
+      if (now() - lastEscDown < ESC_DEDUPE_MS) return;
+      input.push({ type: 'keydown', scancode: SC_ESCAPE, mod: 0 });
+      input.push({ type: 'keyup', scancode: SC_ESCAPE });
+    });
+  }
+
+  on<KeyboardEvent>(target, 'keydown', (e) => {
+    if ((e.altKey && e.code === 'Enter') || (e.code === 'F11' && !e.shiftKey)) {
       e.preventDefault();
       opts.onToggleFullscreen();
       return;
     }
-    const sc = scancodeFromCode(e.code);
+    // Shift+F11 is the game's gamma key (JE_gammaCheck); plain F11 stays the browser's fullscreen key.
+    const sc = e.code === 'F11' ? SC_F11 : scancodeFromCode(e.code);
     if (sc === undefined) return;
     if (!isBrowserShortcut(e)) e.preventDefault();
+    if (sc === SC_ESCAPE) lastEscDown = now();
+    tryLock();
     const mod = (e.shiftKey ? KMOD_LSHIFT : 0) | (e.ctrlKey ? KMOD_LCTRL : 0) | (e.altKey ? KMOD_LALT : 0);
     input.push({ type: 'keydown', scancode: sc, mod });
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) input.push({ type: 'text', text: e.key });
   });
-  on<KeyboardEvent>('keyup', (e) => {
-    const sc = scancodeFromCode(e.code);
+  on<KeyboardEvent>(target, 'keyup', (e) => {
+    const sc = e.code === 'F11' ? SC_F11 : scancodeFromCode(e.code);
     if (sc === undefined) return;
+    // A bare Alt release focuses the menu bar on Windows/Linux browsers; Alt is a default sidekick key.
+    if (!isBrowserShortcut(e)) e.preventDefault();
     input.push({ type: 'keyup', scancode: sc });
   });
-  on<MouseEvent>('mousemove', (e) => {
-    const [x, y] = mapToScreen(e.clientX, e.clientY, canvas.getBoundingClientRect());
-    input.push({ type: 'mousemove', x, y, moved: e.movementX !== 0 || e.movementY !== 0 });
+  on<MouseEvent>(target, 'mousemove', (e) => {
+    const rect = updateOutputRect();
+    const [x, y] = mapToScreen(e.clientX, e.clientY, rect);
+    const dx = Math.trunc(e.movementX || 0), dy = Math.trunc(e.movementY || 0);
+    input.push({ type: 'mousemove', x, y, moved: dx !== 0 || dy !== 0, dx, dy });
   });
-  on<MouseEvent>('mousedown', (e) => {
+  on<MouseEvent>(target, 'mousedown', (e) => {
     const button = DOM_TO_SDL_BUTTON[e.button];
     if (button === undefined) return;
-    const [x, y] = mapToScreen(e.clientX, e.clientY, canvas.getBoundingClientRect());
+    tryLock();
+    const [x, y] = mapToScreen(e.clientX, e.clientY, updateOutputRect());
     input.push({ type: 'mousedown', button, x, y });
   });
-  on<MouseEvent>('mouseup', (e) => {
+  on<MouseEvent>(target, 'mouseup', (e) => {
     const button = DOM_TO_SDL_BUTTON[e.button];
     if (button === undefined) return;
-    const [x, y] = mapToScreen(e.clientX, e.clientY, canvas.getBoundingClientRect());
+    const [x, y] = mapToScreen(e.clientX, e.clientY, updateOutputRect());
     input.push({ type: 'mouseup', button, x, y });
   });
-  on('contextmenu', (e) => e.preventDefault());
-  on('blur', () => input.releaseAll());
+  on(target, 'contextmenu', (e) => e.preventDefault());
+  // SDL releases held keys when the window loses focus and reports FOCUS_LOST / FOCUS_GAINED; the DOM does neither.
+  on(target, 'blur', () => {
+    hasFocus = false;
+    input.releaseAll();
+    input.push({ type: 'focus', gained: false });
+  });
+  on(target, 'focus', () => {
+    hasFocus = true;
+    input.push({ type: 'focus', gained: true });
+  });
 
   return () => {
-    for (const [type, l] of listeners) target.removeEventListener(type, l);
+    for (const [t, type, l] of listeners) t.removeEventListener(type, l);
+    input.onRelativeMode = null;
   };
 }

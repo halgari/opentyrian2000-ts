@@ -50,10 +50,13 @@ export function createCtx(opts: {
 }): Ctx {
   const rng = new MersenneTwister();
   rng.srand(opts.seed ?? (Date.now() / 1000) >>> 0); // main(): mt_srand(time(NULL))
+  const game = createGameWorld();
+  const input = new Input();
+  input.mouseSettings = game.config.mouseSettings; // service_SDL_events reads the live config
   return {
     clock: opts.clock,
     delay: new DelayTimer(opts.clock),
-    input: new Input(),
+    input,
     audio: opts.audio ?? new NullAudio(),
     presenter: opts.presenter,
     frameSink: null,
@@ -65,6 +68,6 @@ export function createCtx(opts: {
     mouse: createMouseCursor(),
     state: { versionString: opts.versionString ?? VERSION, moveTyrianLogoUp: false, xmas: false, playDemo: false, loadDestruct: false },
     storage: opts.storage ?? memoryAdapter(),
-    game: createGameWorld(),
+    game,
   };
 }

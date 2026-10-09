@@ -11,10 +11,16 @@ export const SDL_BUTTON_RIGHT = 3;
 export type InputEvent =
   | { type: 'keydown'; scancode: number; mod: number }
   | { type: 'keyup'; scancode: number }
-  | { type: 'mousemove'; x: number; y: number; moved: boolean }
+  /** dx/dy: SDL xrel/yrel in window pixels (integers); `moved` is `xrel != 0 || yrel != 0`. */
+  | { type: 'mousemove'; x: number; y: number; moved: boolean; dx?: number; dy?: number }
   | { type: 'mousedown'; button: number; x: number; y: number }
   | { type: 'mouseup'; button: number; x: number; y: number }
-  | { type: 'text'; text: string };
+  | { type: 'text'; text: string }
+  /** SDL_WINDOWEVENT_FOCUS_GAINED / FOCUS_LOST */
+  | { type: 'focus'; gained: boolean };
+
+/** config.c defaultMouseSettings: left = fire main, right = both sidekicks, middle = change rear mode. */
+export const DEFAULT_MOUSE_SETTINGS = [1, 4, 5] as const;
 
 export class Input {
   readonly keysactive = new Uint8Array(512);
@@ -32,6 +38,19 @@ export class Input {
   newText = false;
   lastText = '';
   mouseInactive = true; // mouse.c
+  /** keyboard.c: initial false in the C; SDL delivers FOCUS_GAINED at window creation, so true here (survey 4). */
+  windowHasFocus = true;
+  /** keyboard.c mouse_pressed[4]: fire main, left sidekick, right sidekick, change rear mode. */
+  readonly mousePressed: boolean[] = [false, false, false, false];
+  /** config.c mouseSettings[3] (left, right, middle); createCtx points this at game.config.mouseSettings. */
+  mouseSettings: ArrayLike<number> = DEFAULT_MOUSE_SETTINGS;
+  /** video.c last_output_rect size: the canvas in CSS pixels (320x200 until the DOM layer reports it). */
+  outputRect = { w: 320, h: 200 };
+  /** Platform hook: SDL_SetRelativeMouseMode(enable && windowHasFocus) == pointer lock on/off. */
+  onRelativeMode: ((enable: boolean) => void) | null = null;
+  private mouseRelativeEnabled = false;
+  private mouseWindowXRelative = 0;
+  private mouseWindowYRelative = 0;
   private readonly queue: InputEvent[] = [];
 
   push(e: InputEvent): void {
@@ -43,6 +62,32 @@ export class Input {
     for (let sc = 0; sc < this.keysactive.length; sc++) {
       if (this.keysactive[sc]) this.push({ type: 'keyup', scancode: sc });
     }
+  }
+
+  // port of mouseSetRelative (keyboard.c:109). Resets the accumulated motion.
+  mouseSetRelative(enable: boolean): void {
+    this.onRelativeMode?.(enable && this.windowHasFocus);
+    this.mouseRelativeEnabled = enable;
+    this.mouseWindowXRelative = 0;
+    this.mouseWindowYRelative = 0;
+  }
+
+  get relativeEnabled(): boolean { return this.mouseRelativeEnabled; }
+
+  // port of JE_mousePosition (keyboard.c:120): returns the held button or 0; mouseX/mouseY are the fields
+  mousePosition(): number {
+    this.serviceEvents(false);
+    return this.mousedown ? this.lastmouseBut : 0;
+  }
+
+  // port of mouseGetRelativePosition (keyboard.c:127) + scaleWindowDistanceToScreen (video.c:418): C int math
+  mouseGetRelativePosition(): [x: number, y: number] {
+    this.serviceEvents(false);
+    const x = Math.trunc(((2 * this.mouseWindowXRelative + 1) * 320) / (2 * this.outputRect.w)) | 0; // |0: no -0
+    const y = Math.trunc(((2 * this.mouseWindowYRelative + 1) * 200) / (2 * this.outputRect.h)) | 0;
+    this.mouseWindowXRelative = 0;
+    this.mouseWindowYRelative = 0;
+    return [x, y];
   }
 
   // port of service_SDL_events (Alt+Enter fullscreen is handled by the DOM layer)
@@ -70,6 +115,10 @@ export class Input {
         case 'mousemove':
           this.mouseX = ev.x;
           this.mouseY = ev.y;
+          if (this.mouseRelativeEnabled && this.windowHasFocus) {
+            this.mouseWindowXRelative += ev.dx ?? 0;
+            this.mouseWindowYRelative += ev.dy ?? 0;
+          }
           if (ev.moved) this.mouseInactive = false;
           break;
         case 'mousedown':
@@ -79,16 +128,37 @@ export class Input {
           this.lastmouseX = ev.x;
           this.lastmouseY = ev.y;
           this.mousedown = true;
+          this.setMousePressed(ev.button);
           break;
         case 'mouseup':
           // C: only clears mousedown (no mouseInactive change, no position update)
           this.mousedown = false;
+          this.setMousePressed(ev.button);
+          break;
+        case 'focus':
+          this.windowHasFocus = ev.gained;
+          this.mouseSetRelative(this.mouseRelativeEnabled);
           break;
         case 'text':
           this.lastText = ev.text;
           this.newText = true;
           break;
       }
+    }
+  }
+
+  /** The `mouseSettings[whichMB]` switch of service_SDL_events (keyboard.c:233-262), using the current `mousedown`. */
+  private setMousePressed(button: number): void {
+    const which = button === SDL_BUTTON_LEFT ? 0 : button === SDL_BUTTON_RIGHT ? 1 : button === SDL_BUTTON_MIDDLE ? 2 : -1;
+    if (which < 0) return;
+    const d = this.mousedown;
+    const mp = this.mousePressed;
+    switch (this.mouseSettings[which]) {
+      case 1: mp[0] = d; break; // Fire Main Weapons
+      case 2: mp[1] = d; break; // Fire Left Sidekick
+      case 3: mp[2] = d; break; // Fire Right Sidekick
+      case 4: mp[1] = d; mp[2] = d; break; // Fire BOTH Sidekicks
+      case 5: mp[3] = d; break; // Change Rear Mode
     }
   }
 }
