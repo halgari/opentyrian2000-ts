@@ -24,6 +24,7 @@ function alignX(x: number, text: string, tables: Tables, font: Font, align: Alig
 
 // port of draw_font_hv
 export function drawFontHv(s: Surface, tables: Tables, x: number, y: number, text: string, font: Font, align: Align, hue: number, value: number): void {
+  value = s8(value); // C parameter is Sint8
   x = alignX(x, text, tables, font, align);
   const t = tables[font]!;
   let highlight = false;
@@ -42,6 +43,7 @@ export function drawFontHv(s: Surface, tables: Tables, x: number, y: number, tex
 
 // port of draw_font_hv_blend
 export function drawFontHvBlend(s: Surface, tables: Tables, x: number, y: number, text: string, font: Font, align: Align, hue: number, value: number): void {
+  value = s8(value); // C parameter is Sint8
   x = alignX(x, text, tables, font, align);
   const t = tables[font]!;
   for (const ch of text) {

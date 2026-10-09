@@ -6,7 +6,7 @@
 // Ported from: src/sprite.c
 
 import { BinaryReader } from '../core/binary-reader';
-import { u8 } from '../core/int';
+import { s8, u8 } from '../core/int';
 import type { Surface } from './surface';
 
 export const FONT_SHAPES = 0;
@@ -99,6 +99,7 @@ export function blitSpriteBlend(s: Surface, x: number, y: number, t: SpriteTable
 
 // port of blit_sprite_hv_unsafe (JE_newDrawCShapeBright) — value may overflow into hue
 export function blitSpriteHvUnsafe(s: Surface, x: number, y: number, t: SpriteTable, i: number, hue: number, value: number): void {
+  value = s8(value); // C parameter is Sint8
   const h = u8(hue << 4);
   blitWith(s, x, y, t, i, (_d, v) => u8(h | ((v & 0x0f) + value)));
 }
@@ -111,12 +112,14 @@ function hvValue(v: number, value: number): number {
 
 // port of blit_sprite_hv (JE_newDrawCShapeAdjust)
 export function blitSpriteHv(s: Surface, x: number, y: number, t: SpriteTable, i: number, hue: number, value: number): void {
+  value = s8(value); // C parameter is Sint8
   const h = u8(hue << 4);
   blitWith(s, x, y, t, i, (_d, v) => h | hvValue(v, value));
 }
 
 // port of blit_sprite_hv_blend (JE_newDrawCShapeModify)
 export function blitSpriteHvBlend(s: Surface, x: number, y: number, t: SpriteTable, i: number, hue: number, value: number): void {
+  value = s8(value); // C parameter is Sint8
   const h = u8(hue << 4);
   blitWith(s, x, y, t, i, (d, v) => h | (((d & 0x0f) + hvValue(v, value)) >> 1));
 }

@@ -15,6 +15,21 @@ function table(width: number, height: number, data: number[]): SpriteTable {
 }
 const at = (s: { pixels: Uint8Array }, x: number, y: number) => s.pixels[y * 320 + x];
 
+describe('blitSpriteHv value wrap', () => {
+  it('treats value 250 like -6 (Sint8 parameter)', () => {
+    const t = table(2, 1, [0x0a, 0x03]);
+    const a = createSurface(), b = createSurface();
+    blitSpriteHv(a, 0, 0, t, 0, 3, 250);
+    blitSpriteHv(b, 0, 0, t, 0, 3, -6);
+    expect([a.pixels[0], a.pixels[1]]).toEqual([b.pixels[0], b.pixels[1]]);
+    expect([b.pixels[0], b.pixels[1]]).toEqual([0x34, 0x30]);
+    const c = createSurface(), d = createSurface();
+    blitSpriteHvUnsafe(c, 0, 0, t, 0, 3, 250);
+    blitSpriteHvUnsafe(d, 0, 0, t, 0, 3, -6);
+    expect([c.pixels[0], c.pixels[1]]).toEqual([d.pixels[0], d.pixels[1]]);
+  });
+});
+
 describe('blitSprite', () => {
   it('handles literals, 253, 255 n and 254 row ends', () => {
     // 3 wide: row0 = [1, skip, 2]; row1 = [skip 2 via 255 2, 3]; row2 = [4, end-of-row]
