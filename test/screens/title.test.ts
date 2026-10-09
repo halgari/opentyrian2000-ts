@@ -34,4 +34,17 @@ describeData('titleScreen', () => {
     expect(frames).toBe(142);
     expect(ctx.state.moveTyrianLogoUp).toBe(false);
   });
+  it('the idle demo stub dismisses itself and returns to the title without input', async () => {
+    const ctx = testCtx()!;
+    let frames = 0, demoFrames = 0, sawDemo = false;
+    const stop = new Error('stop');
+    ctx.frameSink = () => {
+      frames++;
+      if (ctx.state.playDemo) { sawDemo = true; demoFrames++; }
+      else if (sawDemo) throw stop; // loop restarted: back at the title
+      if (frames > 100000) throw new Error('never returned to the title');
+    };
+    await expect(runGame(ctx)).rejects.toBe(stop);
+    expect(demoFrames).toBeGreaterThan(0);
+  });
 });

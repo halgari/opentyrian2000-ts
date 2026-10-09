@@ -21,7 +21,7 @@ export async function runGame(ctx: Ctx): Promise<never> {
       continue;
     }
     if (ctx.state.loadDestruct) await stubScreen(ctx, 'Destruct');
-    else if (ctx.state.playDemo) await stubScreen(ctx, 'Demo');
+    else if (ctx.state.playDemo) await stubScreen(ctx, 'Demo', 'Not yet implemented', 200);
     else await stubScreen(ctx, 'Game');
   }
 }
