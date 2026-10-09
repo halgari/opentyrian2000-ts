@@ -5,9 +5,13 @@ import { ALL_DEMO_LEVELS, demoScenarioName, maxFramesFor } from './demo-levels';
 export interface KeyPress { frame: number; scancode: number; hold?: number }
 /** m: relative motion (a=dx, b=dy, window pixels); d / u: button down / up (a = SDL button, 1 left 2 middle 3 right). */
 export interface MouseEvent { frame: number; type: 'm' | 'd' | 'u'; a: number; b?: number }
+/** A typed printable character: key down `scancode`, an SDL_TEXTINPUT event with `char`, key up (OT_TEXT). */
+export interface TypedChar { frame: number; scancode: number; char: string }
 export interface Scenario {
   maxFrames: number;
   keys: KeyPress[];
+  /** Typed characters (text input events, JE_operation's name entry). */
+  text?: TypedChar[];
   mouse?: MouseEvent[];
   /** Also write <name>.state2 (OT_STATE2, see test/helpers/state-trace.ts). */
   state2?: boolean;

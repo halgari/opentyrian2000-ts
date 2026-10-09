@@ -20,7 +20,7 @@ import { loadCompShapes } from '../data/shapes';
 import { getShipInfo } from '../game/shots';
 import { SA_NONE } from '../game/world';
 import { waitDelayPlain, waitNoInput } from '../platform/wait';
-import { fadeBlack } from '../video/fade';
+import { fadeBlack, fadePalette } from '../video/fade';
 import { barDrawShadow } from '../video/glow-text';
 import { DARKEN, FULL_SHADE, dString, outTextAdjust, textShade, textWidth } from '../video/fonthand';
 import { MOUSE_POINTER_NORMAL, mouseReplace, mouseStart } from '../video/mouse';
@@ -43,12 +43,18 @@ import {
   upgradeSubSelectClick, upgradeSubSlash, weaponSimUpdate,
 } from './shop-weapon';
 
+import { shopHelp } from './help-system';
+import { quickSaveLoad } from './save-ui';
+import { cubeReaderFrame, cubeScrollInput, cubesHomeEnd, cubesMouse, drawCubePanel, drawCubeTitle, drawFlashyCube, loadCubes } from './shop-cubes';
+import { drawConfigLists, drawVolumeBars, menuFunctionC, optionsLeftRight, optionsMouse } from './shop-options';
 export { ShopState } from './shop-draw';
 
-const SC_L = 15, SC_S = 22, SC_SLASH = 56; // SDL_SCANCODE_L / _S / _SLASH
+const SC_SLASH = 56; // SDL_SCANCODE_SLASH
 
 /** Menus whose draw step, input handling and Enter handler exist. Everything else is Task 10/11 (or sp5). */
-const PORTED_MENUS: ReadonlySet<number> = new Set([MENU_FULL_GAME, MENU_UPGRADES, MENU_PLAY_NEXT_LEVEL, MENU_UPGRADE_SUB, MENU_1_PLAYER_ARCADE]);
+const PORTED_MENUS: ReadonlySet<number> = new Set([MENU_FULL_GAME, MENU_UPGRADES, MENU_PLAY_NEXT_LEVEL, MENU_UPGRADE_SUB, MENU_1_PLAYER_ARCADE,
+  MENU_OPTIONS, 5 /* KEYBOARD_CONFIG */, MENU_LOAD_SAVE, MENU_DATA_CUBES, MENU_DATA_CUBE_SUB, MENU_LIMITED_OPTIONS,
+  12 /* JOYSTICK_CONFIG */, 14 /* MOUSE_CONFIG */]);
 
 function unported(what: string): never {
   throw new Error(`unported: ${what}`);
@@ -173,7 +179,6 @@ async function menuFunction(ctx: Ctx, s: ShopState, select: number): Promise<voi
     case MENU_FULL_GAME:
       switch (select) {
         case 2: // cubes
-          // TASK 11: the draw step of MENU_DATA_CUBES (load_cubes data is already requested by the prologue hook)
           s.curMenu = MENU_DATA_CUBES;
           s.curSel[MENU_DATA_CUBES] = 2;
           break;
@@ -252,9 +257,9 @@ async function menuFunction(ctx: Ctx, s: ShopState, select: number): Promise<voi
       break;
 
     default:
-      // TASK 11: OPTIONS, KEYBOARD_CONFIG, LOAD_SAVE, DATA_CUBES, DATA_CUBE_SUB, LIMITED_OPTIONS,
-      // JOYSTICK_CONFIG, MOUSE_CONFIG; TODO(sp5): 2_PLAYER_ARCADE, SUPER_TYRIAN
-      unportedMenu(s.curMenu);
+      // OPTIONS, KEYBOARD_CONFIG, LOAD_SAVE, DATA_CUBES, DATA_CUBE_SUB, LIMITED_OPTIONS, JOYSTICK_CONFIG, MOUSE_CONFIG: shop-options.ts
+      // TODO(sp5): 2_PLAYER_ARCADE, SUPER_TYRIAN
+      if (!(await menuFunctionC(ctx, s, select, curSelect))) unportedMenu(s.curMenu);
   }
 
   s.oldItems[0].copyFrom(g.players[0].items);
@@ -270,8 +275,8 @@ async function handleMouse(ctx: Ctx, s: ShopState): Promise<void> {
   mousePosition(ctx, s);
   const mouseX = g.varz.mouseX, mouseY = g.varz.mouseY;
 
-  // TASK 11: DATA_CUBES with cubeMax == 0 (back out), DATA_CUBE_SUB "Done" button, OPTIONS volume sliders (they run for
-  // OPTIONS / LIMITED_OPTIONS and end with set_volume + S_CURSOR)
+  cubesMouse(ctx, s); // DATA_CUBES with cubeMax == 0 (back out), DATA_CUBE_SUB "Done" button
+  optionsMouse(ctx, s); // OPTIONS / LIMITED_OPTIONS volume sliders (end with set_volume + S_CURSOR)
 
   if (mouseY > 20 && mouseX > 170 && mouseX < 308 && s.curMenu !== MENU_DATA_CUBE_SUB) {
     const mouseSelectionY = [16, 16, 16, 16, 26, 12, 11, 28, 0, 16, 16, 16, 8, 16, 24];
@@ -334,7 +339,7 @@ async function handleKey(ctx: Ctx, s: ShopState): Promise<void> {
       s.keyboardUsed = true;
       audio.playSample(S_SPRING);
       if (s.curMenu === MENU_LOAD_SAVE && s.quikSave) {
-        s.curMenu = s.oldMenu; // TASK 11
+        s.curMenu = s.oldMenu;
         s.newPal = s.oldPal;
       } else if (MENU_ESC[s.curMenu] === 0) {
         if (await quitRequest(ctx)) {
@@ -349,8 +354,7 @@ async function handleKey(ctx: Ctx, s: ShopState): Promise<void> {
       break;
 
     case Scancode.F1:
-      // isNetworkGame is never set: fade_black(10); JE_helpSystem(2); reload the shop picture and palette
-      unported('shop F1 help, JE_helpSystem (task 11)');
+      await shopHelp(ctx, s); // isNetworkGame is never set: fade_black(10); JE_helpSystem(2); reload the shop picture and palette
       break;
 
     case Scancode.Up:
@@ -373,7 +377,7 @@ async function handleKey(ctx: Ctx, s: ShopState): Promise<void> {
 
     case Scancode.Home:
     case Scancode.End:
-      // TASK 11: DATA_CUBE_SUB scroll to top / bottom
+      cubesHomeEnd(s, input.lastkeyScan === Scancode.End); // DATA_CUBE_SUB scroll to top / bottom
       break;
 
     case Scancode.Left:
@@ -381,6 +385,7 @@ async function handleKey(ctx: Ctx, s: ShopState): Promise<void> {
       // TASK 11: joystick config, 2-player input devices, OPTIONS volume (4/5) (they share the S_CURSOR sample of UPGRADE_SUB).
       // For FULL_GAME, PLAY_NEXT_LEVEL and 1_PLAYER_ARCADE the C does nothing.
       if (s.curMenu === MENU_UPGRADE_SUB) upgradeSubLeftRight(ctx, s, input.lastkeyScan === Scancode.Left ? -1 : 1);
+      optionsLeftRight(ctx, s, input.lastkeyScan === Scancode.Left ? -1 : 1); // OPTIONS / LIMITED_OPTIONS volume
       break;
 
     default:
@@ -405,7 +410,7 @@ export async function itemScreen(ctx: Ctx, state: ShopState = new ShopState()): 
 
   if (!ctx.shopSpriteSheet) ctx.shopSpriteSheet = loadCompShapes(assets.archive, '1');
 
-  // TASK 11: load_cubes() (reads cubeFile into s.cubes; no side effects on the globals)
+  loadCubes(ctx, s); // load_cubes(): reads cubeFile into s.cubes; no side effects on the globals
 
   s.menuChoices.set(MENU_CHOICES_DEFAULT);
   s.menuInt = assets.helpText.menuInt.map((row) => row.slice()); // strcpy targets (rows 4 and 5) are per game
@@ -518,7 +523,7 @@ export async function itemScreen(ctx: Ctx, state: ShopState = new ShopState()): 
       }
     }
 
-    // TASK 11: MENU_MOUSE_CONFIG / LOAD_SAVE / KEYBOARD_CONFIG / JOYSTICK_CONFIG list drawing
+    drawConfigLists(ctx, s); // MOUSE_CONFIG / LOAD_SAVE / KEYBOARD_CONFIG / JOYSTICK_CONFIG lists
     if (s.curMenu === MENU_UPGRADE_SUB) drawUpgradeSub(ctx, s);
 
     /* Draw current money and shield/armor bars, when appropriate */
@@ -542,7 +547,8 @@ export async function itemScreen(ctx: Ctx, state: ShopState = new ShopState()): 
       }
     }
 
-    // TASK 11: OPTIONS volume bars, DATA_CUBES panel; 2-player input devices (sp5)
+    drawVolumeBars(ctx, s);
+    drawCubePanel(ctx, s); // DATA_CUBES / DATA_CUBE_SUB panel; TODO(sp5): 2-player input devices
 
     /* JE: { - Step VI - Help text for current cursor location } */
     v.flash = 0;
@@ -560,7 +566,7 @@ export async function itemScreen(ctx: Ctx, state: ShopState = new ShopState()): 
       s.newPal = 0;
     }
 
-    // TASK 11: datacube title under face
+    drawCubeTitle(ctx, s);
 
     /* SYN: Everything above was just drawing the screen. In the rest of it, we process
        any user input (and do a few other things) */
@@ -574,7 +580,7 @@ export async function itemScreen(ctx: Ctx, state: ShopState = new ShopState()): 
       s.col += s.colC;
       if (s.col < -2 || s.col > 6) s.colC = -1 * s.colC;
 
-      // TASK 11: MENU_DATA_CUBE_SUB scrolling text reader (setDelay(1)); MENU_DATA_CUBES flashing cube
+      drawFlashyCube(ctx, s); // MENU_DATA_CUBES flashing cube
 
       if (s.curMenu === MENU_PLAY_NEXT_LEVEL) {
         updateNavScreen(ctx, s, nav);
@@ -584,7 +590,9 @@ export async function itemScreen(ctx: Ctx, state: ShopState = new ShopState()): 
         if (c.extraGame) dString(screen, tables, 170, 140, assets.helpText.miscText[68 - 1]!, FONT_SHAPES);
       }
 
-      if (isWeaponSimMenu(s)) { // IF (curmenu = 5) AND (cursel [2] IN [3, 4, 6, 7, 8])
+      if (s.curMenu === MENU_DATA_CUBE_SUB) { // data cube reading (its own draw; setDelay(1))
+        await cubeReaderFrame(ctx, s);
+      } else if (isWeaponSimMenu(s)) { // IF (curmenu = 5) AND (cursel [2] IN [3, 4, 6, 7, 8])
         ctx.delay.setDelay(3);
         weaponSimUpdate(ctx, s);
         drawScore(ctx, s);
@@ -605,7 +613,10 @@ export async function itemScreen(ctx: Ctx, state: ShopState = new ShopState()): 
 
         showVGA(ctx); /* SYN: This is where it updates the screen for the weapon sim */
 
-        // TASK 11: backFromHelp: fade_palette(colors, 10, 0, 255) goes here (before mouseReplace) in the weapon sim branch
+        if (s.backFromHelp) {
+          await fadePalette(ctx, palette.colors, 10, 0, 255);
+          s.backFromHelp = false;
+        }
 
         mouseReplace(ctx);
       } else {
@@ -633,7 +644,10 @@ export async function itemScreen(ctx: Ctx, state: ShopState = new ShopState()): 
 
       }
 
-      // backFromHelp: fade_palette(colors, 10, 0, 255) -- only set by F1 help (TASK 11)
+      if (s.backFromHelp) { // the other branches clear it themselves
+        await fadePalette(ctx, palette.colors, 10, 0, 255);
+        s.backFromHelp = false;
+      }
 
       await waitDelayPlain(ctx);
 
@@ -642,13 +656,9 @@ export async function itemScreen(ctx: Ctx, state: ShopState = new ShopState()): 
       const mouseButton = mousePosition(ctx, s);
       inputDetected = input.newkey || mouseButton > 0;
 
-      if (s.curMenu !== MENU_LOAD_SAVE) {
-        const alt = input.keysactive[Scancode.LAlt] || input.keysactive[Scancode.RAlt];
-        if (input.keysactive[SC_S] && alt) unported('shop quick save, Alt+S (task 11)');
-        if (input.keysactive[SC_L] && alt) unported('shop quick load, Alt+L (task 11)');
-      }
+      quickSaveLoad(ctx, s); // Alt+S / Alt+L
 
-      // TASK 11: MENU_DATA_CUBE_SUB scroll keys / mouse arrows (they clear inputDetected)
+      if (s.curMenu === MENU_DATA_CUBE_SUB) inputDetected = cubeScrollInput(ctx, s, inputDetected); // scroll keys / mouse arrows
     } while (!inputDetected);
 
     s.keyboardUsed = false;

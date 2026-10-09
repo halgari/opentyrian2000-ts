@@ -74,6 +74,8 @@ export class ShopState {
   menuInt: string[][] = [];
   cubes: Cube[] = [];                      // Task 11
   currentCube = 0;
+  yLoc = 0; yChg = 0;                      // data cube reader scroll (JE_word, JE_shortint)
+  joystickConfig = 0;                      // which joystick is being configured
   nav: NavState | null = null;
 }
 

@@ -10,6 +10,26 @@ index b1bd0ae..ebe1f1d 100644
  static JE_byte curSel[MENU_MAX]; /* [1..maxmenu] */
  static JE_byte curItemType, curItem, cursor;
  static JE_boolean leftPower, rightPower, rightPowerAfford;
+diff --git a/src/keyboard.c b/src/keyboard.c
+index e0af229..ab9dbc3 100644
+--- a/src/keyboard.c
++++ b/src/keyboard.c
+@@ -272,6 +272,15 @@ void service_SDL_events(JE_boolean clear_new)
+ 			case SDL_TEXTEDITING:
+ 				break;
+ 
++			case SDL_USEREVENT: /* oracle: OT_TEXT typed character */
++				if (ev.user.code == 0x7e57)
++				{
++					last_text[0] = (char)(intptr_t)ev.user.data1;
++					last_text[1] = '\0';
++					new_text = true;
++				}
++				break;
++
+ 			case SDL_QUIT:
+ 				/* TODO: Call the cleanup code here. */
+ 				exit(0);
 diff --git a/src/mtrand.c b/src/mtrand.c
 index ca3160f..8c5334b 100644
 --- a/src/mtrand.c
@@ -73,10 +93,10 @@ index 9c73dda..0f6ff31 100644
  #include <stdbool.h>
 diff --git a/src/oracle.c b/src/oracle.c
 new file mode 100644
-index 0000000..053d83e
+index 0000000..ce4fd17
 --- /dev/null
 +++ b/src/oracle.c
-@@ -0,0 +1,441 @@
+@@ -0,0 +1,465 @@
 +/* Reference-oracle hooks for opentyrian2000-ts (not part of upstream).
 + * OT_DUMP=path       append one raw record per JE_showVGA: u32 frame, 768 palette bytes, 64000 pixels
 + * OT_RAW_EVERY=n     with OT_DUMP: only dump frames where frame % n == 0 ...
@@ -94,12 +114,14 @@ index 0000000..053d83e
 + * OT_MOUSE=f:m:dx:dy | f:d:btn | f:u:btn, ...  after frame f: relative motion / button down / button up
 + *                    (SDL button numbers: 1 left, 2 middle, 3 right). Motion coordinates are window
 + *                    coordinates accumulated from (0,0).
++ * OT_TEXT=f:sc:code,...  after frame f: a typed character: keydown sc, a text input event with the ASCII character `code`
++ *                    (decimal), keyup sc (the order SDL delivers a printable key in)
 + * OT_IDLE_POLLS=n    (default 2000; intro logo waits exceed 250 polls) if no frame is presented for n SDL_Delay polls, the next pending
 + *                    OT_KEYS/OT_MOUSE entry (and every other entry with the same frame number) is injected
 + *                    anyway, so keys reach screens that draw once and then block. Entries stay in the order
 + *                    given to the environment (sorted by frame, stable).
 + * OT_IDLELOG=path  append one line (last presented frame index) each time the idle rule fires (discovery runner)
-+ * OT_SAVEDUMP=dir    at exit, copy tyrian.sav / tyrian.cfg from the user dir into dir
++ * OT_SAVEDUMP=dir    at exit, copy tyrian.sav / tyrian.cfg / opentyrian.cfg from the user dir into dir
 + */
 +#define ORACLE_NO_CLOCK_MACROS
 +#include "oracle.h"
@@ -194,7 +216,7 @@ index 0000000..053d83e
 +}
 +
 +/* ---- key / mouse injection ---- */
-+enum { ACT_TAP, ACT_DOWN, ACT_UP, ACT_MOTION, ACT_BTN_DOWN, ACT_BTN_UP };
++enum { ACT_TAP, ACT_DOWN, ACT_UP, ACT_MOTION, ACT_BTN_DOWN, ACT_BTN_UP, ACT_TYPE };
 +typedef struct { unsigned long frame; int kind; int a, b; int fired; } Action;
 +static Action *acts;
 +static size_t nacts, capacts, nextact;
@@ -267,6 +289,19 @@ index 0000000..053d83e
 +			add_act(mf, t == 'd' ? ACT_BTN_DOWN : ACT_BTN_UP, a, 0);
 +		if (*mouse == ',') mouse++;
 +	}
++	const char *text = getenv("OT_TEXT");
++	while (text && *text)
++	{
++		unsigned long tf = strtoul(text, (char **)&text, 10);
++		if (*text != ':') break;
++		text++;
++		int sc = (int)strtol(text, (char **)&text, 10);
++		if (*text != ':') break;
++		text++;
++		int code = (int)strtol(text, (char **)&text, 10);
++		add_act(tf, ACT_TYPE, sc, code);
++		if (*text == ',') text++;
++	}
 +	for (size_t i = 0; i < nacts; ++i) acts[i].fired = (int)i;
 +	qsort(acts, nacts, sizeof(*acts), act_cmp_stable);
 +	for (size_t i = 0; i < nacts; ++i) acts[i].fired = 0;
@@ -289,6 +324,15 @@ index 0000000..053d83e
 +	switch (a->kind)
 +	{
 +	case ACT_TAP: push_key(1, a->a); push_key(0, a->a); break;
++	case ACT_TYPE:
++		push_key(1, a->a);
++		/* SDL_PushEvent of a real SDL_TEXTINPUT crashes under sdl2-compat; keyboard.c turns this user event into one */
++		ev.type = SDL_USEREVENT;
++		ev.user.code = 0x7e57;
++		ev.user.data1 = (void *)(intptr_t)a->b;
++		SDL_PushEvent(&ev);
++		push_key(0, a->a);
++		break;
 +	case ACT_DOWN: push_key(1, a->a); break;
 +	case ACT_UP: push_key(0, a->a); break;
 +	case ACT_MOTION:
@@ -337,10 +381,10 @@ index 0000000..053d83e
 +static void save_dump(void)
 +{
 +	const char *dir = getenv("OT_SAVEDUMP");
-+	static const char *const names[] = { "tyrian.sav", "tyrian.cfg" };
++	static const char *const names[] = { "tyrian.sav", "tyrian.cfg", "opentyrian.cfg" };
 +	if (!dir) return;
 +	mkdir(dir, 0755);
-+	for (int i = 0; i < 2; ++i)
++	for (int i = 0; i < 3; ++i)
 +	{
 +		char src[600], dst[600];
 +		snprintf(src, sizeof(src), "%s/%s", get_user_directory(), names[i]);

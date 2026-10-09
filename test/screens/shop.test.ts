@@ -125,15 +125,6 @@ describeData('shop (Shop A)', () => {
     expect(q.ctx.game.config.mainLevel).toBe(0);
   });
 
-  it('menus of Task 11 are extension points that throw "unported: shop menu N (task 10/11)"', async () => {
-    // row 5 = Options
-    const opt = shopCtx({ 3: tap(Scancode.Down), 5: tap(Scancode.Down), 7: tap(Scancode.Down), 9: tap(Scancode.Return) });
-    await expect(itemScreen(opt.ctx)).rejects.toThrow('unported: shop menu 2 (task 10/11)');
-    // row 2 = Data Cubes
-    const cube = shopCtx({ 3: tap(Scancode.Return) });
-    await expect(itemScreen(cube.ctx)).rejects.toThrow('unported: shop menu 7 (task 10/11)');
-  });
-
   it('two-player and SuperTyrian shops are unported (sp5)', async () => {
     const a = shopCtx({});
     a.ctx.game.config.twoPlayerMode = true;

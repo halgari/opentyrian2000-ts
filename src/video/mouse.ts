@@ -23,10 +23,11 @@ const POINTERS: readonly PointerInfo[] = [
   { index: 281, x: 8, y: 0, w: 16, h: 21, fx: 7, fy: 10 },
 ];
 
-export interface MouseCursor { hasMouse: boolean; cursor: number; grabX: number; grabY: number; grab: Uint8Array }
+/** `button` is the mouse.c global `mouseButton` as JE_mouseStart(Filter) writes it (mouse.c:121,143); JE_operation reads it. */
+export interface MouseCursor { hasMouse: boolean; cursor: number; grabX: number; grabY: number; grab: Uint8Array; button: number }
 
 export function createMouseCursor(): MouseCursor {
-  return { hasMouse: true, cursor: MOUSE_POINTER_NORMAL, grabX: 0, grabY: 0, grab: new Uint8Array(24 * 28) };
+  return { hasMouse: true, cursor: MOUSE_POINTER_NORMAL, grabX: 0, grabY: 0, grab: new Uint8Array(24 * 28), button: 0 };
 }
 
 // port of JE_grabShapeTypeOne / JE_drawShapeTypeOne
@@ -55,6 +56,7 @@ function grabPosition(ctx: Ctx, info: PointerInfo): void {
 export function mouseStart(ctx: Ctx): void {
   if (!ctx.mouse.hasMouse) return;
   ctx.input.serviceEvents(false);
+  ctx.mouse.button = ctx.input.mousedown ? ctx.input.lastmouseBut : 0; /* incorrect, possibly unimportant (C comment) */
   const info = POINTERS[ctx.mouse.cursor]!;
   grabPosition(ctx, info);
   copyBlock(ctx, false);
@@ -66,6 +68,7 @@ export function mouseStart(ctx: Ctx): void {
 // port of JE_mouseStartFilter
 export function mouseStartFilter(ctx: Ctx, filter: number): void {
   if (!ctx.mouse.hasMouse) return;
+  ctx.mouse.button = ctx.input.mousedown ? ctx.input.lastmouseBut : 0;
   const info = POINTERS[ctx.mouse.cursor]!;
   grabPosition(ctx, info);
   copyBlock(ctx, false);

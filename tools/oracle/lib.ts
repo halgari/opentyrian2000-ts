@@ -7,12 +7,14 @@ import { fileURLToPath } from 'node:url';
 import type { Scenario } from './scenarios';
 
 export const ROOT = fileURLToPath(new URL('../..', import.meta.url));
-export const BIN = join(ROOT, 'reference/oracle/opentyrian2000');
+export const BIN = process.env.OT_ORACLE_BIN ?? join(ROOT, 'reference/oracle/opentyrian2000');
 export const DATA = join(ROOT, 'data/tyrian2000');
 export const OUT = join(ROOT, 'test-data/oracle');
 
 export const keysEnv = (sc: Pick<Scenario, 'keys'>): string =>
   sc.keys.map((k) => (k.hold ? `${k.frame}:${k.scancode}:${k.hold}` : `${k.frame}:${k.scancode}`)).join(',');
+export const textEnv = (sc: Pick<Scenario, 'text'>): string =>
+  (sc.text ?? []).map((t) => `${t.frame}:${t.scancode}:${t.char.charCodeAt(0)}`).join(',');
 export const mouseEnv = (sc: Pick<Scenario, 'mouse'>): string =>
   (sc.mouse ?? []).map((m) => `${m.frame}:${m.type}:${m.a}${m.type === 'm' ? `:${m.b ?? 0}` : ''}`).join(',');
 
@@ -39,7 +41,7 @@ export function runOracle(name: string, sc: Scenario, paths: OraclePaths, timeou
       HOME: home, XDG_CONFIG_HOME: home, XDG_DATA_HOME: home,
       SDL_VIDEODRIVER: 'dummy', SDL_AUDIODRIVER: 'dummy',
       OT_SEED: '1', OT_MAX_FRAMES: String(sc.maxFrames), OT_FAST: '1',
-      OT_KEYS: keysEnv(sc), OT_MOUSE: mouseEnv(sc),
+      OT_KEYS: keysEnv(sc), OT_MOUSE: mouseEnv(sc), OT_TEXT: textEnv(sc),
       ...(sc.idlePolls !== undefined ? { OT_IDLE_POLLS: String(sc.idlePolls) } : {}),
       ...(paths.dump ? { OT_DUMP: paths.dump } : {}),
       ...(paths.rawFrames !== undefined ? { OT_RAW_FRAMES: paths.rawFrames } : {}),
