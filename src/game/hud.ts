@@ -4,11 +4,14 @@
 // Copyright (C) 2026 OpenTyrian2000-TS contributors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Ported from: src/mainint.c, src/varz.c, src/nortvars.c
-import { u8 } from '../core/int';
+import { idiv, s8, u16, u32, u8 } from '../core/int';
 import { f32, roundf32 } from '../core/cmath';
 import type { Ctx } from '../ctx';
-import { blitSprite, OPTION_SHAPES } from '../video/sprite';
-import { outText } from '../video/fonthand';
+import { blitSprite, FONT_SHAPES, OPTION_SHAPES, SMALL_FONT_SHAPES, TINY_FONT } from '../video/sprite';
+import { blitSprite2, blitSprite2x2 } from '../video/sprite2';
+import { dString, FULL_SHADE, outText, outTextAndDarken, textShade, textWidth } from '../video/fonthand';
+import { S_CLICK, S_WARNING, SONG_GAMEOVER } from '../audio/ids';
+import { eventJump } from './enemies';
 import type { Surface } from '../video/surface';
 import { drawSegmentedGauge, fillRectangleXY, rectangle } from '../video/vga256d';
 
@@ -167,22 +170,302 @@ export function drawOptionLevel(ctx: Ctx): void {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Stub slots of the level loop (task 8 owns the bodies)
+// Level-loop HUD slots (tyrian2.c, mainint.c)
 // ---------------------------------------------------------------------------------------------
 
-// STUB(task 8): tyrian2.c:1143-1252 -- message-bar restore, shield regen (+drawShield), weapon-power pips,
-// power bar. Runs only `if (!endLevel)`, on VGAScreenSeg, before the event system.
-export function drawLevelTopBars(_ctx: Ctx, _loc: LevelLocals): void {}
+// port of the `if (!endLevel) // draw HUD` block of JE_main (tyrian2.c:1143-1252, excluding oldMapX3Ofs/enemyOnScreen):
+// message bar, shield regen, weapon-power pips, power bar. All on VGAScreenSeg (`VGAScreen = VGAScreenSeg`).
+export function drawLevelTopBars(ctx: Ctx, loc: LevelLocals): void {
+  const g = ctx.game;
+  const seg = ctx.vga.screen;
+  const v = g.varz;
+  const c = g.config;
+  const sc = g.scratch;
+  const [p0, p1] = g.players;
 
-// STUB(task 8): tyrian2.c:1989-2045 -- low-armor warning bars, "WARNING" text, warning enemy.
-export function drawWarnings(_ctx: Ctx): void {}
+  /*-----------------------Message Bar------------------------*/
+  if (v.textErase > 0 && --v.textErase === 0)
+    blitSprite(seg, 16, 189, ctx.assets.shapes.tables[OPTION_SHAPES]!, 36); // in-game message area
 
-// STUB(task 8): tyrian2.c:2086-2200 -- displayTime text, pentium speed toggle, level timer, GAME OVER.
-// NOTE: the GAME OVER branch is what sets reallyEndLevel for a demo whose ship died.
-export function drawTimers(_ctx: Ctx): void {}
+  /*------------------------Shield Gen-------------------------*/
+  if (c.galagaMode) {
+    throw new Error('unported: tyrian2.c:1156 galaga shield/life block'); // TODO(sp4)
+  } else if (c.twoPlayerMode) {
+    c.shieldWait = u8(c.shieldWait - 1); // JE_byte
+    if (c.shieldWait === 0) {
+      c.shieldWait = 15;
+      for (const p of g.players) if (p.shield < p.shieldMax && p.isAlive) ++p.shield;
+      drawShield(ctx, seg);
+    }
+  } else if (p0.isAlive && p0.shield < p0.shieldMax && c.power > c.shieldT) {
+    c.shieldWait = u8(c.shieldWait - 1);
+    if (c.shieldWait === 0) {
+      c.shieldWait = 15;
+      c.power = u32(c.power - c.shieldT);
+      ++p0.shield;
+      if (p1.shield < p0.shieldMax) ++p1.shield;
+      drawShield(ctx, seg);
+    }
+  }
 
-// STUB(task 8): draw_boss_bar (tyrian2.c:5297)
-export function drawBossBar(_ctx: Ctx): void {}
+  /*---------------------Weapon Display-------------------------*/
+  for (let i = 0; i < 2; ++i) {
+    const itemPower = g.players[c.twoPlayerMode ? i : 0]!.items.weapon[i]!.power;
+    if (loc.oldWeaponBar[i] !== itemPower) {
+      loc.oldWeaponBar[i] = itemPower;
+      let x = c.twoPlayerMode ? 286 : 289;
+      const y = (i === 0) ? (c.twoPlayerMode ? 6 : 17) : (c.twoPlayerMode ? 100 : 38);
+      fillRectangleXY(seg, x, y, x + 1 + 10 * 2, y + 2, 0);
+      for (let j = 1; j <= itemPower; ++j) {
+        rectangle(seg, x, y, x + 1, y + 2, 115 + j);
+        x += 2;
+      }
+    }
+  }
 
-// STUB(task 8): JE_inGameDisplays (mainint.c:3072)
-export function inGameDisplays(_ctx: Ctx): void {}
+  /*------------------------Power Bar-------------------------*/
+  if (c.twoPlayerMode || c.onePlayerAction) {
+    c.power = 900;
+  } else {
+    c.power = u32(c.power + c.powerAdd);
+    if (c.power > 900) c.power = 900;
+
+    sc.temp = u8(idiv(c.power, 10));
+    const temp = sc.temp;
+    if (temp !== c.lastPower) {
+      if (temp > c.lastPower)
+        fillRectangleXY(seg, 269, 113 - 11 - temp, 276, 114 - 11 - c.lastPower, 113 + idiv(temp, 7));
+      else
+        fillRectangleXY(seg, 269, 113 - 11 - c.lastPower, 276, 114 - 11 - temp, 0);
+      c.lastPower = temp;
+    }
+  }
+}
+
+/** JE_newEnemy (task 9) is not ported yet; the warning-ship spawn below needs it. */
+function spawnWarningEnemy(_ctx: Ctx): number {
+  throw new Error('unported: tyrian2.c:2003 JE_newEnemy(50, 560, 0) warning ship (task 9)'); // TODO(task 9)
+}
+
+// port of the Warning block of JE_main (tyrian2.c:1989-2045). `VGAScreen` is game_screen here.
+export function drawWarnings(ctx: Ctx): void {
+  const g = ctx.game;
+  const v = g.varz;
+  const sc = g.scratch;
+  const gs = ctx.vga.gameScreen;
+  const [p0, p1] = g.players;
+  const twoNotGalaga = g.config.twoPlayerMode && !g.config.galagaMode;
+
+  if ((p0.isAlive && p0.armor < 6) || (twoNotGalaga && p1.isAlive && p1.armor < 6)) {
+    const armorAmount = (p0.isAlive && p0.armor < 6) ? p0.armor : p1.armor;
+
+    if (v.armorShipDelay > 0) {
+      v.armorShipDelay--;
+    } else {
+      sc.tempW = 560;
+      sc.b = u8(spawnWarningEnemy(ctx)); // JE_newEnemy(50, tempW, 0) then enemy[b-1] setup (task 9)
+      v.armorShipDelay = 500;
+    }
+
+    if ((p0.isAlive && p0.armor < 6) || (g.config.twoPlayerMode && p1.isAlive && p1.armor < 6)) {
+      sc.tempW = u16(armorAmount * 4 + 8);
+      if (v.warningSoundDelay > sc.tempW) v.warningSoundDelay = sc.tempW;
+
+      if (v.warningSoundDelay > 1) {
+        v.warningSoundDelay--;
+      } else {
+        v.soundQueue[7] = S_WARNING;
+        v.warningSoundDelay = sc.tempW;
+      }
+
+      v.warningCol = u8(v.warningCol + v.warningColChange);
+      if (v.warningCol > 113 + (14 - (armorAmount * 2))) {
+        v.warningColChange = s8(-v.warningColChange);
+        v.warningCol = 113 + (14 - (armorAmount * 2));
+      } else if (v.warningCol < 113) {
+        v.warningColChange = s8(-v.warningColChange);
+      }
+      fillRectangleXY(gs, 24, 181, 138, 183, v.warningCol);
+      fillRectangleXY(gs, 175, 181, 287, 183, v.warningCol);
+      fillRectangleXY(gs, 24, 0, 287, 3, v.warningCol);
+
+      outText(gs, ctx.assets.shapes.tables, 140, 178, 'WARNING', 7, idiv(v.warningCol % 16, 2));
+    }
+  }
+}
+
+// port of the displayTime / pentium / level-timer / GAME OVER blocks of JE_main (tyrian2.c:2086-2200).
+// The `if (debug)` block is never taken. `VGAScreen` is game_screen here.
+export function drawTimers(ctx: Ctx): void {
+  const g = ctx.game;
+  const v = g.varz;
+  const gs = ctx.vga.gameScreen;
+  const tables = ctx.assets.shapes.tables;
+  const miscText = ctx.assets.helpText.miscText;
+
+  if (v.displayTime > 0) {
+    v.displayTime--;
+    outTextAndDarken(gs, tables, 90, 10, miscText[59] ?? '', 15, u8(v.flash) - 8, FONT_SHAPES);
+    v.flash = u8(v.flash + v.flashChange);
+    if (v.flash > 4 || v.flash === 0) v.flashChange = s8(-v.flashChange);
+  }
+
+  /*Pentium Speed Mode?*/
+  if (g.config.pentiumMode) g.config.frameCountMax = (g.config.frameCountMax === 2) ? 3 : 2;
+
+  /*--------  Level Timer    ---------*/
+  if (v.levelTimer && v.levelTimerCountdown > 0) {
+    v.levelTimerCountdown--;
+    if (v.levelTimerCountdown === 0) eventJump(ctx, v.levelTimerJumpTo);
+
+    if (g.config.timedBattleMode) {
+      // No-op; play no sound effects
+    } else if (v.levelTimerCountdown > 200) {
+      if (v.levelTimerCountdown % 100 === 0) v.soundQueue[7] = S_WARNING;
+      if (v.levelTimerCountdown % 10 === 0) v.soundQueue[6] = S_CLICK;
+    } else if (v.levelTimerCountdown % 20 === 0) {
+      v.soundQueue[7] = S_WARNING;
+    }
+
+    textShade(gs, tables, 140, 6, miscText[66] ?? '', 7, idiv(v.levelTimerCountdown % 20, 3), FULL_SHADE);
+    // Don't use floats due to rounding.
+    dString(gs, tables, 100, 2,
+      `${idiv(v.levelTimerCountdown, 100)}.${idiv(v.levelTimerCountdown, 10) % 10}`, SMALL_FONT_SHAPES);
+  }
+
+  /*GAME OVER*/ // constantPlay / constantDie are never set in a normal build
+  if (v.allPlayersGone) {
+    if (g.players[0].explodingTicks > 0 || g.players[1].explodingTicks > 0) {
+      if (g.config.galagaMode) g.players[1].explodingTicks = 0;
+      v.musicFade = true;
+    } else {
+      if (ctx.state.playDemo || v.normalBonusLevelCurrent || v.bonusLevelCurrent)
+        v.reallyEndLevel = true;
+      else
+        dString(gs, tables, 120, 60, miscText[21] ?? '', FONT_SHAPES); // game over
+
+      if (v.firstGameOver) {
+        if (!ctx.state.playDemo) {
+          ctx.audio.playSong(SONG_GAMEOVER);
+          ctx.audio.setVolume(g.config.tyrMusicVolume, g.config.fxVolume);
+        }
+        v.firstGameOver = false;
+      }
+
+      if (!ctx.state.playDemo)
+        throw new Error('unported: tyrian2.c:2185 game-over key wait (non-demo)'); // TODO(sp4)
+    }
+  }
+}
+
+/** port of JE_barX (tyrian2.c:5297): three-band bar on VGAScreen (game_screen) */
+export function barX(ctx: Ctx, x1: number, y1: number, x2: number, y2: number, col: number): void {
+  const gs = ctx.vga.gameScreen;
+  fillRectangleXY(gs, x1, y1, x2, y1, col + 1);
+  fillRectangleXY(gs, x1, y1 + 1, x2, y2 - 1, col);
+  fillRectangleXY(gs, x1, y2, x2, y2, col - 1);
+}
+
+// port of draw_boss_bar (tyrian2.c:5303). `VGAScreen` is game_screen here.
+export function drawBossBar(ctx: Ctx): void {
+  const e = ctx.game.enemies;
+  const bars = e.bossBar;
+
+  for (const bar of bars) {
+    if (bar.linkNum === 0) continue;
+
+    let armor = 256; // higher than armor max
+    for (let i = 0; i < e.enemy.length; i++) { // find most damaged
+      if (e.enemyAvail[i] !== 1 && e.enemy[i]!.linknum === bar.linkNum)
+        if (e.enemy[i]!.armorleft < armor) armor = e.enemy[i]!.armorleft;
+    }
+
+    if (armor > 255 || armor === 0) // boss dead?
+      bar.linkNum = 0;
+    else
+      bar.armor = (armor === 255) ? 254 : armor; // 255 would make the bar too long
+  }
+
+  const count = (bars[0]!.linkNum !== 0 ? 1 : 0) + (bars[1]!.linkNum !== 0 ? 1 : 0);
+
+  // if only one bar left, make it the first one
+  if (count === 1 && bars[0]!.linkNum === 0) {
+    Object.assign(bars[0]!, bars[1]!);
+    bars[1]!.linkNum = 0;
+  }
+
+  const timer = ctx.game.varz.levelTimer;
+  for (let b = 0; b < count; b++) {
+    const bar = bars[b]!;
+    const x = (count === 2) ? ((b === 0) ? 125 : 185) : (timer ? 250 : 155); // level timer and boss bar would overlap
+    const y = timer ? 15 : 7;
+
+    barX(ctx, x - 25, y, x + 25, y + 5, 115);
+    barX(ctx, x - idiv(bar.armor, 10), y, x + idiv(bar.armor + 5, 10), y + 5, 118 + bar.color);
+
+    if (bar.color > 0) bar.color--;
+  }
+}
+
+// port of JE_inGameDisplays (mainint.c:3072). `VGAScreen` is game_screen here.
+export function inGameDisplays(ctx: Ctx): void {
+  const g = ctx.game;
+  const gs = ctx.vga.gameScreen;
+  const sc = g.scratch;
+  const tables = ctx.assets.shapes.tables;
+  const sheet9 = ctx.assets.shapes.spriteSheet9;
+  const sheet10 = ctx.assets.shapes.spriteSheet10;
+  const miscText = ctx.assets.helpText.miscText;
+  const two = g.config.twoPlayerMode;
+
+  for (let i = 0; i < ((two && !g.config.galagaMode) ? 2 : 1); ++i) {
+    const cash = String(g.players[i]!.cash);
+    if (g.config.smoothies[6 - 1]) textShade(gs, tables, 30 + 200 * i, 175, cash, 8, 8, FULL_SHADE);
+    else textShade(gs, tables, 30 + 200 * i, 175, cash, 2, 4, FULL_SHADE);
+  }
+
+  /*Special Weapon?*/
+  if (g.players[0].items.special > 0)
+    blitSprite2x2(gs, 25, 1, sheet10, g.items.special[g.players[0].items.special]!.itemgraphic);
+
+  /*Lives Left*/
+  if (g.config.onePlayerAction || two) {
+    for (let temp = 0; temp < (g.config.onePlayerAction ? 1 : 2); temp++) {
+      const extraLives = u32(g.players[temp]!.lives - 1);
+
+      const y = (temp === 0 && g.players[0].items.special > 0) ? 35 : 15;
+      sc.tempW = (temp === 0) ? 30 : 270;
+
+      if (extraLives >= 5) {
+        blitSprite2(gs, sc.tempW, y, sheet9, 285);
+        sc.tempW = (temp === 0) ? 45 : 250;
+        outTextShadeLives(ctx, gs, sc.tempW, y + 3, String(extraLives | 0));
+      } else if (extraLives >= 1) {
+        for (let i = 0; i < extraLives; ++i) {
+          blitSprite2(gs, sc.tempW, y, sheet9, 285);
+          sc.tempW = u16(sc.tempW + ((temp === 0) ? 12 : -12));
+        }
+      }
+
+      const stemp = (temp === 0) ? (miscText[49 - 1] ?? '') : (miscText[50 - 1] ?? '');
+      sc.tempW = u16((temp === 0) ? 28 : (285 - textWidth(stemp, tables, TINY_FONT)));
+      textShade(gs, tables, sc.tempW, y - 7, stemp, 2, 6, FULL_SHADE);
+    }
+  }
+
+  /*Super Bombs!!*/
+  for (let i = 0; i < g.players.length; ++i) {
+    let x = (i === 0) ? 30 : 270;
+    for (let j = g.players[i]!.superbombs; j > 0; --j) {
+      blitSprite2(gs, x, 160, sheet9, 304);
+      x += (i === 0) ? 12 : -12;
+    }
+  }
+
+  if (g.config.youAreCheating) outText(gs, tables, 90, 170, 'Cheaters always prosper.', 3, 4);
+}
+
+// sprintf("%d", extra_lives) with the unsigned wrap: lives 0 gives 4294967295 -> printed as -1
+function outTextShadeLives(ctx: Ctx, gs: Surface, x: number, y: number, text: string): void {
+  textShade(gs, ctx.assets.shapes.tables, x, y, text, 15, 1, FULL_SHADE);
+}
