@@ -32,8 +32,9 @@ browser.
 
 Sub-project 1 (Foundation) — intro, title screen and main menu, pixel-identical to the
 C original (verified by golden frame tests). Menu items other than navigation show
-placeholder screens. Audio, gameplay and the rest arrive in later sub-projects; see
-`docs/superpowers/specs/`.
+placeholder screens. Sub-project 2 (Audio) — music (OPL2/LDS) and sound effects, verified
+against the C oracle and played in the browser through an AudioWorklet. Gameplay and the
+rest arrive in later sub-projects; see `docs/superpowers/specs/`.
 
 ## Architecture (short)
 

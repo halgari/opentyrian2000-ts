@@ -6,23 +6,39 @@ import { DATA_URL, fetchArchive } from './data/archive';
 import { runGame } from './game';
 import { BrowserClock } from './platform/clock';
 import { attachDomInput } from './platform/dom-input';
+import { WebAudio, createAudioOrNull } from './platform/web-audio';
 import { CanvasPresenter } from './video/presenter';
 
 const canvas = document.getElementById('screen') as HTMLCanvasElement;
 const overlay = document.getElementById('overlay') as HTMLDivElement;
 
-function waitForStartGesture(): Promise<void> {
+function waitForStartGesture(): Promise<AudioContext | null> {
   overlay.textContent = 'OpenTyrian2000\n\nClick or press any key to start';
   return new Promise((resolve) => {
     const go = (e: Event) => {
       e.preventDefault();
+      // Created synchronously inside the gesture so the browser lets it start.
+      let ac: AudioContext | null = null;
+      try {
+        ac = new AudioContext({ sampleRate: 44100 });
+        void ac.resume();
+      } catch (err) {
+        console.warn('AudioContext unavailable:', err);
+      }
       window.removeEventListener('keydown', go);
       window.removeEventListener('pointerdown', go);
-      resolve();
+      resolve(ac);
     };
     window.addEventListener('keydown', go);
     window.addEventListener('pointerdown', go);
   });
+}
+
+function exposeDebug(audio: WebAudio): void {
+  (window as unknown as { __audio: unknown }).__audio = {
+    get peak() { return audio.peak; },
+    get playing() { return audio.playing; },
+  };
 }
 
 async function boot(): Promise<void> {
@@ -31,10 +47,13 @@ async function boot(): Promise<void> {
     overlay.textContent = total ? `Loading game data… ${Math.round((loaded / total) * 100)}%` : 'Loading game data…';
   });
   const assets = loadAssets(archive);
-  await waitForStartGesture();
+  const ac = await waitForStartGesture();
   overlay.hidden = true;
   canvas.focus();
-  const ctx = createCtx({ assets, clock: new BrowserClock(), presenter: new CanvasPresenter(canvas) });
+  const audio = await createAudioOrNull(ac, assets.music, assets.tyrianSnd, assets.voicesSnd);
+  audio.setVolume(191, 191); // C config default when no config file exists (volume = 191 / sample volume = 191)
+  if (location.search.includes('debug') && audio instanceof WebAudio) exposeDebug(audio);
+  const ctx = createCtx({ assets, clock: new BrowserClock(), presenter: new CanvasPresenter(canvas), audio });
   attachDomInput({
     target: window,
     canvas,
