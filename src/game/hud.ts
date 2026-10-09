@@ -4,14 +4,14 @@
 // Copyright (C) 2026 OpenTyrian2000-TS contributors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Ported from: src/mainint.c, src/varz.c, src/nortvars.c
-import { idiv, s8, u16, u32, u8 } from '../core/int';
+import { idiv, s16, s8, u16, u32, u8 } from '../core/int';
 import { f32, roundf32 } from '../core/cmath';
 import type { Ctx } from '../ctx';
 import { blitSprite, FONT_SHAPES, OPTION_SHAPES, SMALL_FONT_SHAPES, TINY_FONT } from '../video/sprite';
 import { blitSprite2, blitSprite2x2 } from '../video/sprite2';
 import { dString, FULL_SHADE, outText, outTextAndDarken, textShade, textWidth } from '../video/fonthand';
 import { S_CLICK, S_WARNING, SONG_GAMEOVER } from '../audio/ids';
-import { eventJump } from './enemies';
+import { eventJump, newEnemy } from './enemies';
 import type { Surface } from '../video/surface';
 import { drawSegmentedGauge, fillRectangleXY, rectangle } from '../video/vga256d';
 
@@ -24,7 +24,7 @@ export interface LevelLocals {
 }
 
 /** varz.h hud_sidekick_y[twoPlayerMode ? 1 : 0][sidekick] */
-const HUD_SIDEKICK_Y = [[64, 82], [108, 126]] as const;
+export const HUD_SIDEKICK_Y = [[64, 82], [108, 126]] as const;
 
 // port of JE_drawTextWindow (mainint.c)
 export function drawTextWindow(ctx: Ctx, text: string): void {
@@ -242,11 +242,6 @@ export function drawLevelTopBars(ctx: Ctx, loc: LevelLocals): void {
   }
 }
 
-/** JE_newEnemy (task 9) is not ported yet; the warning-ship spawn below needs it. */
-function spawnWarningEnemy(_ctx: Ctx): number {
-  throw new Error('unported: tyrian2.c:2003 JE_newEnemy(50, 560, 0) warning ship (task 9)'); // TODO(task 9)
-}
-
 // port of the Warning block of JE_main (tyrian2.c:1989-2045). `VGAScreen` is game_screen here.
 export function drawWarnings(ctx: Ctx): void {
   const g = ctx.game;
@@ -263,7 +258,13 @@ export function drawWarnings(ctx: Ctx): void {
       v.armorShipDelay--;
     } else {
       sc.tempW = 560;
-      sc.b = u8(spawnWarningEnemy(ctx)); // JE_newEnemy(50, tempW, 0) then enemy[b-1] setup (task 9)
+      sc.b = s16(newEnemy(ctx, 50, sc.tempW, 0));
+      if (sc.b > 0) {
+        const we = g.enemies.enemy[sc.b - 1]!;
+        we.enemydie = u16(560 + (ctx.rng.rand() % 3) + 1);
+        we.eyc = s8(we.eyc - g.backgrounds.backMove3);
+        we.armorleft = 4;
+      }
       v.armorShipDelay = 500;
     }
 
