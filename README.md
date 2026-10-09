@@ -46,8 +46,9 @@ Scenarios may also set `mouse`, `state2`, `saveDump` (-> `<name>.save/`), `homeS
 oracle HOME) and `dataDir` (alternate `-t` data dir).
 
 Session goldens (`test/golden/session.test.ts`) run `runGame` from boot with the scenario's input and compare every
-frame and STATE2 record; the `session-*` and `ts-save-load` scenarios come from `tools/oracle/specs/*.json`
-(discover, then `pnpm oracle:run <name>`). `ts-save-load` seeds the oracle HOME with a save written by the TS port
+frame and STATE2 record. `session-ep1-easy` came from the discovery runner; the other `session-*` scenarios and
+`ts-save-load` are authored from the TS port's own timeline (`pnpm tsx tools/oracle/ts-scenario.ts <name>`, then
+`pnpm oracle:run <name>`): the C oracle and the session test decide whether that timeline was right. `ts-save-load` seeds the oracle HOME with a save written by the TS port
 (`pnpm tsx tools/oracle/ts-save.ts` makes `test-data/ts-save/tyrian.sav` first).
 
 Add `--fixture` to write `<name>.raw.frames` instead; the tests read those as fixtures
