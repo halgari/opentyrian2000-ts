@@ -42,7 +42,8 @@ export async function fetchArchive(
   const res = await fetch(url);
   if (!res.ok) throw new Error(`could not download game data from ${url} (HTTP ${res.status})`);
   const total = Number(res.headers.get('content-length') ?? 0);
-  const reader = res.body!.getReader();
+  if (!res.body) throw new Error(`could not download game data from ${url} (empty response)`);
+  const reader = res.body.getReader();
   const chunks: Uint8Array[] = [];
   let loaded = 0;
   for (;;) {
