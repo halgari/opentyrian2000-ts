@@ -206,7 +206,7 @@ describe('drawBackground2Layer (tyrian2.c:1313-1340)', () => {
     game.config.background2notTransparent = false;
     game.config.background2 = true;
     gameScreen.pixels.fill(0x01);
-    return { game, vga: { screen: createSurface(), screen2: createSurface(), gameScreen } } as unknown as Ctx;
+    return { game, vga: { screen: createSurface(), screen2: createSurface(), gameScreen, cur: gameScreen } } as unknown as Ctx;
   }
   const px = (ctx: Ctx) => ctx.vga.gameScreen.pixels[100 * 320 + 100];
 
@@ -222,5 +222,20 @@ describe('drawBackground2Layer (tyrian2.c:1313-1340)', () => {
       drawBackground2Layer(ctx, over);
       expect(px(ctx), `over ${over}`).toBe(0x33);
     }
+  });
+
+  it('water (processorType < 4) and lava (processorType 3) skip layers 0..2 entirely, but not layer 3', () => {
+    for (const [pt, idx, drawn] of [[3, 1, false], [4, 1, true], [3, 0, false], [4, 0, true], [2, 1, false], [2, 0, true]] as const) {
+      const ctx = mk();
+      ctx.game.config.processorType = pt;
+      ctx.game.config.smoothies[idx] = true;
+      ctx.game.config.wild = false;
+      drawBackground2Layer(ctx, 0);
+      expect(px(ctx), `pt ${pt} smoothie ${idx + 1}`).toBe(drawn ? 0x35 : 0x01);
+    }
+    const ctx = mk();
+    ctx.game.config.smoothies[1] = true;
+    drawBackground2Layer(ctx, 3);
+    expect(px(ctx)).toBe(0x35);
   });
 });

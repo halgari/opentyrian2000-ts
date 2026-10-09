@@ -11,7 +11,9 @@ import { createSurface } from '../../src/video/surface';
 function mk(seed = 7): Ctx {
   const rng = new MersenneTwister();
   rng.srand(seed);
-  return { rng, game: createGameWorld(), vga: { screen: createSurface(), screen2: createSurface(), gameScreen: createSurface() } } as unknown as Ctx;
+  const vga = { screen: createSurface(), screen2: createSurface(), gameScreen: createSurface(), cur: null as unknown };
+  vga.cur = vga.gameScreen;
+  return { rng, game: createGameWorld(), vga } as unknown as Ctx;
 }
 
 describe('setupExplosion', () => {

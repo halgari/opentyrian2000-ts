@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Ported from: src/tyrian2.c (JE_main, JE_starShowVGA, JE_loadMap)
 import { DEFAULT_SONG_BUY, S_NONE, V_GOOD_LUCK } from '../audio/ids';
-import { f32 } from '../core/cmath';
+import { f32, rngMod } from '../core/cmath';
 import { idiv, s8, u16, u8 } from '../core/int';
 import type { Ctx } from '../ctx';
 import { analyzeLevel, buildShapeRefs, loadLevelRecord, REF_NULL, REF_UNINIT, SHAPE_SIZE, type LevelData, type ShapeRefs } from '../data/level';
@@ -27,7 +27,8 @@ import { loadNextDemo } from './demo';
 import { drawEnemy, eventJump, randomEnemySpawn, updateEnemyShots } from './enemies';
 import { levelFileName } from './episodes';
 import { eventSystem } from './events';
-import { drawExplosions, drawSP, updateRepeatingExplosions } from './explosions';
+import { drawExplosions, drawSP, setupExplosionLarge, updateRepeatingExplosions } from './explosions';
+import { blurFilter, icedBlurFilter, lavaFilter, waterFilter } from './smoothies';
 import {
   drawArmor, drawBossBar, drawLevelTopBars, drawOptionLevel, drawOptions, drawPortConfigButtons, drawShield,
   drawTextWindow, drawTimers, drawWarnings, gammaCorrect, inGameDisplays, type LevelLocals,
@@ -148,10 +149,42 @@ export async function starShowVGA(ctx: Ctx): Promise<void> {
     }
 
     const code = g.config.starShowVGASpecialCode;
-    if (code === 1) throw new Error('unported: tyrian2.c:96 starShowVGASpecialCode 1 (flip smoothie)'); // TODO(sp4)
-    if (code === 2 && g.config.processorType >= 2) throw new Error('unported: tyrian2.c:107 starShowVGASpecialCode 2 (lighting smoothie)'); // TODO(sp4)
-    for (let y = 0; y < 184; y++) { // memmove(s, src, 264) per row, src = game_screen + 24
-      dst.pixels.set(src.pixels.subarray(y * src.pitch + 24, y * src.pitch + 24 + 264), y * dst.pitch);
+    if (code === 1) { // vertical flip: rows are copied bottom-up
+      for (let y = 0; y < 184; y++) {
+        const so = 24 + src.pitch * (183 - y);
+        dst.pixels.set(src.pixels.subarray(so, so + 264), y * dst.pitch);
+      }
+    } else if (code === 2 && g.config.processorType >= 2) { // lighting: darkness with a lit area around the ship
+      const sp = src.pixels, dp = dst.pixels;
+      const p0 = g.players[0];
+      const lighty = 172 - p0.y;
+      const lightx = 281 - p0.x;
+      let s = 0; // dst index
+      let r = 24; // src index
+      for (let y = 184; y; y--) {
+        if (lighty > y) {
+          for (let x = 320 - 56; x; x--) {
+            const c = sp[r]!;
+            dp[s] = (c & 0xf0) | ((c >> 2) & 0x03);
+            s++; r++;
+          }
+        } else {
+          for (let x = 320 - 56; x; x--) {
+            const c = sp[r]!;
+            const lightdist = Math.abs(lightx - x) + lighty;
+            if (lightdist < y) dp[s] = c;
+            else if (lightdist - y <= 5) dp[s] = (c & 0xf0) | (((c & 0x0f) + (3 * (5 - (lightdist - y)))) >> 2);
+            else dp[s] = (c & 0xf0) | ((c & 0x0f) >> 2);
+            s++; r++;
+          }
+        }
+        s += 56 + dst.pitch - 320;
+        r += 56 + dst.pitch - 320;
+      }
+    } else {
+      for (let y = 0; y < 184; y++) { // memmove(s, src, 264) per row, src = game_screen + 24
+        dst.pixels.set(src.pixels.subarray(y * src.pitch + 24, y * src.pitch + 24 + 264), y * dst.pitch);
+      }
     }
     showVGA(ctx);
   }
@@ -459,8 +492,20 @@ async function levelSetup(ctx: Ctx): Promise<LevelLocals | null> {
  */
 export function drawBackground2Layer(ctx: Ctx, over: number): void {
   const c = ctx.game.config;
-  if (over !== 3 && c.wild && !c.background2notTransparent) drawBackground2Blend(ctx, ctx.vga.gameScreen);
-  else drawBackground2(ctx, ctx.vga.gameScreen);
+  // over 0, 1 and 2 are skipped entirely (no scroll advance) while water (processorType < 4) or lava (processorType == 3) is active
+  if (over !== 3 && ((c.smoothies[2 - 1] && c.processorType < 4) || (c.smoothies[1 - 1] && c.processorType === 3))) return;
+  if (over !== 3 && c.wild && !c.background2notTransparent) drawBackground2Blend(ctx, ctx.vga.cur);
+  else drawBackground2(ctx, ctx.vga.cur);
+}
+
+/** The random-explosions block of JE_main (tyrian2.c:2049-2051): one draw per frame while enabled, three when it fires. */
+export function randomExplosionsFrame(ctx: Ctx): void {
+  if (ctx.game.varz.randomExplosions && rngMod(ctx.rng.rand(), 10) === 1) {
+    // JE_setupExplosionLarge(false, 20, mt_rand() % 280, mt_rand() % 180): GCC evaluates the arguments right to left, y first
+    const y = rngMod(ctx.rng.rand(), 180);
+    const x = rngMod(ctx.rng.rand(), 280);
+    setupExplosionLarge(ctx, false, 20, x, y);
+  }
 }
 
 // The sound routine of JE_main (tyrian2.c:2058-2078); clobbers temp/temp2/temp3 like the C
@@ -497,7 +542,7 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<'next' | 'restart
   const en = g.enemies;
   const sc = g.scratch;
   const [p0, p1] = g.players;
-  const gs = ctx.vga.gameScreen; // VGAScreen = game_screen while drawing (anySmoothies is rejected below)
+  const vga = ctx.vga;
 
   // network games: starShowVGASpecialCode = 0 instead (isNetworkGame is never set)
   c.starShowVGASpecialCode = (c.smoothies[9 - 1] ? 1 : 0) + ((c.smoothies[6 - 1] ? 1 : 0) << 1);
@@ -528,7 +573,8 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<'next' | 'restart
     ctx.audio.playSong(v.levelSong - 1);
   }
 
-  if (!v.endLevel) { // draw HUD (VGAScreen = VGAScreenSeg)
+  if (!v.endLevel) { // draw HUD
+    vga.cur = vga.screen; // VGAScreen = VGAScreenSeg
     drawLevelTopBars(ctx, loc);
 
     b.oldMapX3Ofs = b.mapX3Ofs;
@@ -536,15 +582,15 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<'next' | 'restart
     en.enemyOnScreen = 0;
   }
 
+  /* use game_screen for all the generic drawing functions */
+  vga.cur = vga.gameScreen;
+
   /*---------------------------EVENTS-------------------------*/
   while (e.eventRec[e.eventLoc - 1]!.eventtime <= e.curLoc && e.eventLoc <= e.maxEvent) eventSystem(ctx);
 
   /* SMOOTHIES! */
   checkSmoothies(ctx);
-  if (b.anySmoothies || c.smoothies.some(Boolean)) {
-    // VGAScreen = VGAScreen2 and the lava/water/ice/blur filters (tyrian2.c:1275, 1316-1347, 1400-1410)
-    throw new Error('unported: smoothie filters (tyrian2.c:1275)'); // TODO(sp4)
-  }
+  if (b.anySmoothies) vga.cur = vga.screen2; // everything up to the next filter is drawn to screen2 and filtered into game_screen
 
   /* --- BACKGROUNDS --- */
   /* --- BACKGROUND 1 --- */
@@ -553,13 +599,18 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<'next' | 'restart
   if (b.map1YDelayMax > 1 && b.backMove < 2) b.backMove = (b.map1YDelay === 1) ? 1 : 0;
 
   /*Draw background*/
-  if (g.playerShots.astralDuration === 0) drawBackground1(ctx, gs);
-  else clearSurface(gs);
+  if (g.playerShots.astralDuration === 0) drawBackground1(ctx, vga.cur);
+  else clearSurface(vga.cur);
 
   /*Set Movement of background 1*/
   advanceBackgrounds(ctx); // tyrian2.c:1286-1303
 
-  if (c.starActive || g.playerShots.astralDuration > 0) updateAndDrawStarfield(ctx, gs, b.starfieldSpeed);
+  if (c.starActive || g.playerShots.astralDuration > 0) updateAndDrawStarfield(ctx, vga.cur, b.starfieldSpeed);
+
+  if (c.processorType > 1 && c.smoothies[5 - 1]) {
+    icedBlurFilter(vga.gameScreen, vga.cur);
+    vga.cur = vga.gameScreen;
+  }
 
   /*-----------------------BACKGROUND 2------------------------*/
   if (c.background2over === 3) {
@@ -567,6 +618,15 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<'next' | 'restart
     c.background2 = true;
   }
   if (c.background2over === 0) drawBackground2Layer(ctx, 0);
+
+  if (c.smoothies[0] && c.processorType > 2 && b.smoothieData[0] === 0) {
+    lavaFilter(vga.gameScreen, vga.cur);
+    vga.cur = vga.gameScreen;
+  }
+  if (c.smoothies[2 - 1] && c.processorType > 2) {
+    waterFilter(vga.gameScreen, vga.cur, b.smoothieData[1]!);
+    vga.cur = vga.gameScreen;
+  }
 
   /*-----------------------Ground Enemy------------------------*/
   let lastEnemyOnScreen = en.enemyOnScreen;
@@ -578,6 +638,11 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<'next' | 'restart
 
   if (en.enemyOnScreen === 0 || en.enemyOnScreen === lastEnemyOnScreen) {
     if (v.stopBackgroundNum === 1) v.stopBackgroundNum = 9;
+  }
+
+  if (c.smoothies[0] && c.processorType > 2 && b.smoothieData[0]! > 0) {
+    lavaFilter(vga.gameScreen, vga.cur);
+    vga.cur = vga.gameScreen;
   }
 
   if (c.superWild) {
@@ -593,10 +658,19 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<'next' | 'restart
     darkenBackground(ctx, v.neat);
   }
 
-  if (c.background3over === 2) drawBackground3(ctx, gs);
+  if (c.background3over === 2) drawBackground3(ctx, vga.cur);
 
   /* New Enemy */
   randomEnemySpawn(ctx);
+
+  if (c.processorType > 1 && c.smoothies[3 - 1]) {
+    icedBlurFilter(vga.gameScreen, vga.cur);
+    vga.cur = vga.gameScreen;
+  }
+  if (c.processorType > 1 && c.smoothies[4 - 1]) {
+    blurFilter(vga.gameScreen, vga.cur);
+    vga.cur = vga.gameScreen;
+  }
 
   /* Draw Sky Enemy */
   if (!c.skyEnemyOverAll) {
@@ -611,7 +685,7 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<'next' | 'restart
     }
   }
 
-  if (c.background3over === 0) drawBackground3(ctx, gs);
+  if (c.background3over === 0) drawBackground3(ctx, vga.cur);
 
   /* Draw Top Enemy */
   if (!c.topEnemyOver) {
@@ -629,7 +703,7 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<'next' | 'restart
     updateEnemyShots(ctx);
   }
 
-  if (c.background3over === 1) drawBackground3(ctx, gs);
+  if (c.background3over === 1) drawBackground3(ctx, vga.cur);
 
   /* Draw Top Enemy */
   if (c.topEnemyOver) {
@@ -667,7 +741,7 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<'next' | 'restart
   drawWarnings(ctx);
 
   /*------- Random Explosions --------*/
-  if (v.randomExplosions) throw new Error('unported: tyrian2.c:2049 random explosions (event 99)'); // TODO(sp4)
+  randomExplosionsFrame(ctx);
 
   /*=======The Sound Routine=========*/
   if (v.firstGameOver) playSoundQueue(ctx);
@@ -704,7 +778,7 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<'next' | 'restart
 
   inGameDisplays(ctx);
 
-  // VGAScreen = VGAScreenSeg
+  vga.cur = vga.screen; // VGAScreen = VGAScreenSeg
   await starShowVGA(ctx);
 
   /*Start backgrounds if no enemies on screen

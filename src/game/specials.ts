@@ -251,7 +251,7 @@ export function doSpecialShot(ctx: Ctx, playerNum: number, player: Player): void
   const sc = g.scratch;
   const ps = g.playerShots;
   const p0 = g.players[0];
-  const gs = ctx.vga.gameScreen; // VGAScreen == game_screen while the level runs
+  const gs = ctx.vga.cur; // VGAScreen == game_screen while the level runs
   const seg = ctx.vga.screen;
   const sheet9 = ctx.assets.shapes.spriteSheet9;
 

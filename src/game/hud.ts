@@ -248,7 +248,7 @@ export function drawWarnings(ctx: Ctx): void {
   const g = ctx.game;
   const v = g.varz;
   const sc = g.scratch;
-  const gs = ctx.vga.gameScreen;
+  const gs = ctx.vga.cur;
   const [p0, p1] = g.players;
   const twoNotGalaga = g.config.twoPlayerMode && !g.config.galagaMode;
 
@@ -301,7 +301,7 @@ export function drawWarnings(ctx: Ctx): void {
 export function drawTimers(ctx: Ctx): void {
   const g = ctx.game;
   const v = g.varz;
-  const gs = ctx.vga.gameScreen;
+  const gs = ctx.vga.cur;
   const tables = ctx.assets.shapes.tables;
   const miscText = ctx.assets.helpText.miscText;
 
@@ -361,7 +361,7 @@ export function drawTimers(ctx: Ctx): void {
 
 /** port of JE_barX (tyrian2.c:5297): three-band bar on VGAScreen (game_screen) */
 export function barX(ctx: Ctx, x1: number, y1: number, x2: number, y2: number, col: number): void {
-  const gs = ctx.vga.gameScreen;
+  const gs = ctx.vga.cur;
   fillRectangleXY(gs, x1, y1, x2, y1, col + 1);
   fillRectangleXY(gs, x1, y1 + 1, x2, y2 - 1, col);
   fillRectangleXY(gs, x1, y2, x2, y2, col - 1);
@@ -411,7 +411,7 @@ export function drawBossBar(ctx: Ctx): void {
 // port of JE_inGameDisplays (mainint.c:3072). `VGAScreen` is game_screen here.
 export function inGameDisplays(ctx: Ctx): void {
   const g = ctx.game;
-  const gs = ctx.vga.gameScreen;
+  const gs = ctx.vga.cur;
   const sc = g.scratch;
   const tables = ctx.assets.shapes.tables;
   const sheet9 = ctx.assets.shapes.spriteSheet9;

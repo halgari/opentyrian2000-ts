@@ -123,7 +123,7 @@ function blitRow(surface: Surface, md: MegaData, layer: number, x: number, y: nu
 
 // port of JE_darkenBackground (backgrnd.c:45); superWild only
 export function darkenBackground(ctx: Ctx, neat: number): void {
-  const surf = ctx.vga.gameScreen; // VGAScreen == game_screen inside the level loop (tyrian2.c:1258)
+  const surf = ctx.vga.cur; // VGAScreen == game_screen inside the level loop (tyrian2.c:1258)
   const px = surf.pixels;
   let s = 24;
   for (let y = 184; y; y--) {
@@ -216,7 +216,7 @@ export function drawBackground3(ctx: Ctx, surface: Surface): void {
 // port of JE_filterScreen (backgrnd.c:257). `col` and `int_` are JE_shortint (-99 = off).
 export function filterScreen(ctx: Ctx, col: number, int_: number): void {
   const c = ctx.game.config;
-  const surf = ctx.vga.gameScreen; // VGAScreen == game_screen inside the level loop (tyrian2.c:1258)
+  const surf = ctx.vga.cur; // VGAScreen == game_screen inside the level loop (tyrian2.c:1258)
   if (c.filterFade) {
     c.levelBrightness = s8(c.levelBrightness + c.levelBrightnessChg);
     if ((c.filterFadeStart && c.levelBrightness < -14) || c.levelBrightness > 14) {

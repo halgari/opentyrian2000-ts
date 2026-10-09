@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { MersenneTwister } from '../../src/core/mtrand';
 import type { Ctx } from '../../src/ctx';
 import { eventSystem } from '../../src/game/events';
-import { createGameWorld, EventRec, newEnemyDatType, SHOT_SPECIAL, SHOT_SPECIAL2 } from '../../src/game/world';
+import { createGameWorld, DIFFICULTY_NORMAL, EventRec, newEnemyDatType, SHOT_SPECIAL, SHOT_SPECIAL2 } from '../../src/game/world';
 import { createSurface } from '../../src/video/surface';
 import { V_DANGER } from '../../src/audio/ids';
 import { drawTextWindow } from '../../src/game/hud';
@@ -19,7 +19,7 @@ function mk(seed = 7) {
   const audio = { playSong: vi.fn(), setVolume: vi.fn() };
   const ctx = {
     rng, game, audio,
-    vga: { screen: createSurface(), screen2: createSurface(), gameScreen: createSurface() },
+    vga: { screen: createSurface(), screen2: createSurface(), gameScreen: createSurface(), cur: null },
     assets: { helpText: { outputs: Array.from({ length: 9 }, (_, i) => `out${i}`) } },
   } as unknown as Ctx;
   return { ctx, g: game, audio };
@@ -571,13 +571,51 @@ describe('eventJump and the sentinel', () => {
     eventSystem(c.ctx);
     expect([c.g.map.BKwrap2, c.g.map.BKwrap2to]).toEqual([30, 10]);
   });
-  it('unknown event types warn and advance; unported ones throw', () => {
+  it('unknown event types warn and advance', () => {
     const { ctx, g } = mk();
     const w = vi.spyOn(console, 'warn').mockImplementation(() => {});
     run(ctx, { eventtype: 200 });
     expect(w).toHaveBeenCalled();
     expect(g.events.eventLoc).toBe(2);
     w.mockRestore();
-    expect(() => run(ctx, { eventtype: 64, eventdat: 1 })).toThrow('unported: event 64');
+  });
+});
+
+describe('event 64 (smoothies) and event 99 (random explosions)', () => {
+  it('sets smoothies[dat-1] to a boolean and smoothie_data[dat-1]; kind 5 stores into slot 3 (shared with kind 3)', () => {
+    const { ctx, g } = mk();
+    run(ctx, { eventtype: 64, eventdat: 1, eventdat2: 1, eventdat3: 7 });
+    expect(g.config.smoothies[0]).toBe(true);
+    expect(g.backgrounds.smoothieData[0]).toBe(7);
+    run(ctx, { eventtype: 64, eventdat: 5, eventdat2: 2, eventdat3: 9 });
+    expect(g.config.smoothies[4]).toBe(true); // any non-zero dat2 is true (JE_boolean)
+    expect(g.backgrounds.smoothieData[2]).toBe(9);
+    expect(g.backgrounds.smoothieData[4]).toBe(0);
+    run(ctx, { eventtype: 64, eventdat: 3, eventdat2: 0, eventdat3: 4 });
+    expect(g.config.smoothies[2]).toBe(false);
+    expect(g.backgrounds.smoothieData[2]).toBe(4);
+    run(ctx, { eventtype: 64, eventdat: 1, eventdat2: 0, eventdat3: 0 });
+    expect(g.config.smoothies[0]).toBe(false);
+  });
+  it('lighting (kind 6) is ignored in two-player games above NORMAL', () => {
+    const { ctx, g } = mk();
+    g.config.twoPlayerMode = true;
+    g.config.difficultyLevel = DIFFICULTY_NORMAL + 1;
+    run(ctx, { eventtype: 64, eventdat: 6, eventdat2: 1, eventdat3: 1 });
+    expect(g.config.smoothies[5]).toBe(false);
+    run(ctx, { eventtype: 64, eventdat: 9, eventdat2: 1, eventdat3: 1 });
+    expect(g.config.smoothies[8]).toBe(true);
+    g.config.difficultyLevel = DIFFICULTY_NORMAL;
+    run(ctx, { eventtype: 64, eventdat: 6, eventdat2: 1, eventdat3: 1 });
+    expect(g.config.smoothies[5]).toBe(true);
+  });
+  it('event 99 enables random explosions only for dat 1', () => {
+    const { ctx, g } = mk();
+    run(ctx, { eventtype: 99, eventdat: 1 });
+    expect(g.varz.randomExplosions).toBe(true);
+    run(ctx, { eventtype: 99, eventdat: 0 });
+    expect(g.varz.randomExplosions).toBe(false);
+    run(ctx, { eventtype: 99, eventdat: 2 });
+    expect(g.varz.randomExplosions).toBe(false);
   });
 });

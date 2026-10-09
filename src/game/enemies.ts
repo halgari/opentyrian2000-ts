@@ -92,7 +92,7 @@ export function drawEnemy(ctx: Ctx, enemyOffset: number): void {
   const en = g.enemies;
   const player0 = g.players[0];
   const weapons = g.items.weapons;
-  const screen = ctx.vga.gameScreen; // VGAScreen is game_screen during the level loop
+  const screen = ctx.vga.cur; // VGAScreen is game_screen during the level loop
   const tempMapXOfs = g.backgrounds.tempMapXOfs;
   const tempBackMove = v.tempBackMove;
 
@@ -830,7 +830,7 @@ export function updateEnemyShots(ctx: Ctx): void {
   const sc = g.scratch;
   const shots = g.enemyShots;
   const player0 = g.players[0];
-  const screen = ctx.vga.gameScreen;
+  const screen = ctx.vga.cur;
   const sh = ctx.assets.shapes;
 
   /* Draw Enemy Shots */

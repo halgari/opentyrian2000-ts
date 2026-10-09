@@ -21,9 +21,11 @@ function mk(seed = 7): Ctx {
   rng.srand(seed);
   const game = createGameWorld();
   game.config.difficultyLevel = 2;
+  const vga = { screen: createSurface(), screen2: createSurface(), gameScreen: createSurface(), cur: null as unknown };
+  vga.cur = vga.gameScreen;
   return {
     rng, game,
-    vga: { screen: createSurface(), screen2: createSurface(), gameScreen: createSurface() },
+    vga,
     assets: { shapes: { spriteSheet8: EMPTY_SHEET, spriteSheet12: EMPTY_SHEET, spriteSheet10: EMPTY_SHEET, spriteSheet11: EMPTY_SHEET } },
   } as unknown as Ctx;
 }

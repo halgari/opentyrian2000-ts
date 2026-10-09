@@ -16,7 +16,9 @@ import type { Ctx } from '../../src/ctx';
 /** A ctx-shaped object around a synthetic world and a 320x200 surface (no game data needed). */
 function synth(): Ctx {
   const game = createGameWorld();
-  return { game, vga: { screen: createSurface(), gameScreen: createSurface() } } as unknown as Ctx;
+  const vga = { screen: createSurface(), gameScreen: createSurface(), cur: null as unknown };
+  vga.cur = vga.gameScreen;
+  return { game, vga } as unknown as Ctx;
 }
 
 // megaData1 tile slot x is at shapes[x * 672]; megaData2/3 at shapes[x * 676 + 4]

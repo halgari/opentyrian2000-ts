@@ -14,8 +14,8 @@ import { runDemoScenario } from './demo-harness';
 /**
  * Synthetic demos for every level record of episodes 1-5 (tools/oracle/demo-levels.ts): per presented frame the CRC of
  * palette+pixels and the whole state record equal the C oracle. The TS archive's demo.1 is replaced by the same bytes the
- * oracle's alternate data dir holds. EXPECTED_FAIL levels (smoothies, random explosions: Task 4) must still differ, so
- * the list shrinks as Task 4 lands (it.fails turns an unexpected pass into a failure).
+ * oracle's alternate data dir holds. EXPECTED_FAIL levels (none now) must still differ, so
+ * (it.fails turns an unexpected pass into a failure).
  *
  * KNOWN_DIVERGENT: levels that diverge for a reason not fixed yet, with the diagnosis (same it.fails semantics).
  */

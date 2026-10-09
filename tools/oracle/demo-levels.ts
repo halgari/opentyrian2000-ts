@@ -136,15 +136,5 @@ export function buildDemo(lv: DemoLevel): Uint8Array {
 /** Frames the oracle/TS run per level: 162-frame boot+menu prefix, level load, key stream, then 150 frames for the level end/fade/title. */
 export const maxFramesFor = (lv: DemoLevel): number => 260 + demoFramesFor(lv) + 150;
 
-/**
- * Levels expected to fail until Task 4: the TS throws `unported: event 64` (smoothies, events.ts) when the level reaches a
- * type-64 event. Measured, not taken from the survey's list: ep1 files 15-17 and ep4 files 5-9, 12, 14, 16, 19, 20.
- * The other levels with type-64/99 events never execute them within ~2000 frames (ep4 3, 10, 13: first event at curLoc
- * 3660/2590/5136 > the ~1800 reached; ep4 15: `64@2` is skipped, `99@10000` (random explosions) unreached; ep4 4: `64@2`
- * skipped; ep4 18: the 99s are dat 0 at curLoc 60010+). So random explosions (event 99, dat 1) are NOT exercised by
- * these demos; Task 4 needs a long ep4-15 demo (> 10000 frames) for that.
- */
-export const EXPECTED_FAIL: ReadonlySet<string> = new Set([
-  ...[15, 16, 17].map((f) => demoScenarioName(1, f)),
-  ...[5, 6, 7, 8, 9, 12, 14, 16, 19, 20].map((f) => demoScenarioName(4, f)),
-]);
+/** Levels expected to fail: none (the smoothie, flip/lighting and random-explosion paths landed with Task 4 of sub-project 4). */
+export const EXPECTED_FAIL: ReadonlySet<string> = new Set<string>();

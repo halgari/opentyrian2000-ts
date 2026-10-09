@@ -78,7 +78,7 @@ export function playerMovement(
   const c = g.config;
   const v = g.varz;
   const sc = g.scratch;
-  const gs = ctx.vga.gameScreen; // VGAScreen == game_screen while the level runs
+  const gs = ctx.vga.cur; // VGAScreen == game_screen while the level runs
   const seg = ctx.vga.screen;
   const sh = ctx.assets.shapes;
   const tables = sh.tables;

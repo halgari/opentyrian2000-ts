@@ -139,7 +139,7 @@ export function drawExplosions(ctx: Ctx): void {
   const g = ctx.game;
   const list = g.explosions.explosions;
   const sheet = g.sprites.explosionSpriteSheet;
-  const screen = ctx.vga.gameScreen;
+  const screen = ctx.vga.cur;
   for (let j = 0; j < MAX_EXPLOSIONS; j++) {
     const e = list[j]!;
     if (e.ttl !== 0) {
@@ -189,7 +189,7 @@ export function doSP(ctx: Ctx, x: number, y: number, num: number, explowidth: nu
 /** JE_drawSP (varz.c:1170) -- drawn on VGAScreen (game_screen in the loop) */
 export function drawSP(ctx: Ctx): void {
   const sp = ctx.game.explosions.superpixels;
-  const scr = ctx.vga.gameScreen;
+  const scr = ctx.vga.cur;
   const px = scr.pixels;
   const pitch = scr.pitch;
   for (let i = MAX_SUPERPIXELS; i--; ) {

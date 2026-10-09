@@ -105,7 +105,7 @@ export function playerShotMoveAndDraw(ctx: Ctx, shotId: number, out: ShotOut): b
   const g = ctx.game;
   const ps = g.playerShots;
   const shot = ps.playerShotData[shotId]!;
-  const screen = ctx.vga.gameScreen; // VGAScreen is game_screen while the level runs
+  const screen = ctx.vga.cur; // VGAScreen is game_screen while the level runs
 
   ps.shotAvail[shotId] = ps.shotAvail[shotId]! - 1;
   if (shotId !== MAX_PWEAPON - 1) {

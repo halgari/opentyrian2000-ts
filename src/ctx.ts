@@ -33,7 +33,11 @@ export interface Ctx {
   frameSink: FrameSink | null;
   rng: MersenneTwister;
   palette: PaletteState;
-  vga: { screen: Surface; screen2: Surface; gameScreen: Surface };
+  /**
+   * `screen` = VGAScreenSeg, `screen2` = VGAScreen2, `gameScreen` = game_screen (persistent across frames: the smoothie filters
+   * read it before writing). `cur` is the C `VGAScreen` global that the drawing functions target.
+   */
+  vga: { screen: Surface; screen2: Surface; gameScreen: Surface; cur: Surface };
   assets: Assets;
   shopSpriteSheet: Sprite2Sheet | null;
   mouse: MouseCursor;
@@ -53,6 +57,8 @@ export function createCtx(opts: {
   const game = createGameWorld();
   const input = new Input();
   input.mouseSettings = game.config.mouseSettings; // service_SDL_events reads the live config
+  const vga = { screen: createSurface(), screen2: createSurface(), gameScreen: createSurface(), cur: null as unknown as Surface };
+  vga.cur = vga.screen; // video.c:77 VGAScreen = VGAScreenSeg
   return {
     clock: opts.clock,
     delay: new DelayTimer(opts.clock),
@@ -62,7 +68,7 @@ export function createCtx(opts: {
     frameSink: null,
     rng,
     palette: new PaletteState(opts.assets.palettes),
-    vga: { screen: createSurface(), screen2: createSurface(), gameScreen: createSurface() },
+    vga,
     assets: opts.assets,
     shopSpriteSheet: null,
     mouse: createMouseCursor(),

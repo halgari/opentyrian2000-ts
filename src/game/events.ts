@@ -610,8 +610,12 @@ export function eventSystem(ctx: Ctx): void {
       break;
 
     case 64:
-      // TODO(sp4): tyrian2.c:5009 smoothies (the demos never enable them)
-      throw new Error('unported: event 64');
+      if (!(e.eventdat === 6 && c.twoPlayerMode && c.difficultyLevel > DIFFICULTY_NORMAL)) {
+        c.smoothies[e.eventdat - 1] = e.eventdat2 !== 0; // JE_boolean
+        sc.temp = e.eventdat;
+        if (sc.temp === 5) sc.temp = 3;
+        g.backgrounds.smoothieData[sc.temp - 1] = e.eventdat3;
+      }
 
     case 65:
       v.background3x1 = e.eventdat === 0;
