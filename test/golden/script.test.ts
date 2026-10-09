@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { resolve } from 'node:path';
-import { initPlayerData, loadConfigurationDefaults } from '../../src/game/config';
-import { initEpisode } from '../../src/game/episodes';
-import { loadMap } from '../../src/game/level';
-import { DIFFICULTY_NORMAL, FIRST_LEVEL } from '../../src/game/world';
 import { testCtx } from '../helpers/ctx';
+import { loadMapThroughShop, newGameWorld } from '../helpers/shop';
 import { ORACLE_DIR } from '../helpers/frames';
 import { readStates2 } from '../helpers/state-trace';
 
@@ -13,23 +10,11 @@ const states = readStates2(resolve(ORACLE_DIR, `${SCENARIO}.state2`));
 const ctxFor = testCtx();
 const d = ctxFor && states ? describe : describe.skip;
 
-/** A world in the state newGame leaves it in for episode 1, Normal (Task 12 will do this through the menus). */
-function newGameWorld() {
-  const ctx = testCtx()!;
-  loadConfigurationDefaults(ctx);
-  initPlayerData(ctx);
-  initEpisode(ctx, 1);
-  ctx.game.config.difficultyLevel = DIFFICULTY_NORMAL;
-  ctx.game.config.initialDifficulty = DIFFICULTY_NORMAL;
-  ctx.game.config.mainLevel = FIRST_LEVEL;
-  return ctx;
-}
-
 d(`golden: episode 1 script, ${SCENARIO}`, () => {
   // The scenario: title -> new game -> Normal -> shop (section 2) -> Next Level -> first planet -> level 1 at frame ~331.
-  it('loadMap from section 1 with the shop stub ends where the oracle is at level start', async () => {
+  it('loadMap from section 1 through the real shop (Next Level, first planet) ends where the oracle is at level start', async () => {
     const ctx = newGameWorld();
-    await loadMap(ctx);
+    await loadMapThroughShop(ctx);
     const g = ctx.game;
     const oracle = states![340]!; // in the level, before any in-level input
     expect(g.config.mainLevel).toBe(oracle.mainLevel);   // 3: section 1 `]J 002`, shop, first planet -> section 3
@@ -44,14 +29,14 @@ d(`golden: episode 1 script, ${SCENARIO}`, () => {
 
   it('the values only the script knows: map origin, planets, cubes, items for sale, song', async () => {
     const ctx = newGameWorld();
-    await loadMap(ctx);
+    await loadMapThroughShop(ctx);
     const g = ctx.game;
     expect(g.config.levelName.trim()).toBe('TYRIAN');
     expect([g.varz.mapOrigin, g.varz.mapPNum, g.varz.mapPlanet[0], g.varz.mapSection[0]]).toEqual([1, 1, 1, 3]);
     expect(Array.from(g.config.cubeList)).toEqual([1, 2, 23, 5]);
     expect(g.config.cubeMax).toBe(4);
     expect(g.config.lastCubeMax).toBe(0);
-    expect(Array.from(g.items.itemAvail[1]!.subarray(0, 3))).toEqual([13, 2, 7]); // WeapF
+    expect(Array.from(g.items.itemAvail[1]!.subarray(0, 3))).toEqual([1, 2, 7]); // WeapF [13, 2, 7] plus the last_items front weapon (1), sorted by the shop's prologue: [1, 2, 7, 13]
     expect(g.varz.levelSong).toBe(18);
     expect(g.varz.songBuy).toBe(2); // DEFAULT_SONG_BUY
     expect(g.events.maxEvent).toBeGreaterThan(0);       // the level record of lvlFileNum 9 was read
@@ -60,7 +45,7 @@ d(`golden: episode 1 script, ${SCENARIO}`, () => {
   it('Hard and above skip the first `]L` of section 3 (`]h`) and take the second level', async () => {
     const ctx = newGameWorld();
     ctx.game.config.initialDifficulty = 3;
-    await loadMap(ctx);
+    await loadMapThroughShop(ctx);
     expect(ctx.game.varz.lvlFileNum).toBe(15);
   });
 
