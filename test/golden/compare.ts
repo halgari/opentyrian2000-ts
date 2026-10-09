@@ -6,6 +6,7 @@ import { writeIndexedPng } from '../helpers/png';
 const OUT = fileURLToPath(new URL('../../test-output/golden', import.meta.url));
 
 export function compareFrames(name: string, expected: Frame[], actual: Frame[]): string | null {
+  if (expected.length === 0) return 'no expected frames';
   const n = Math.min(expected.length, actual.length);
   for (let f = 0; f < n; f++) {
     const e = expected[f]!, a = actual[f]!;

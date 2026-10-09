@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 import { describe, expect, it } from 'vitest';
 import { resolve } from 'node:path';
 import { SCENARIOS } from '../../tools/oracle/scenarios';
@@ -11,6 +12,7 @@ const d = testArchive && expected ? describe : describe.skip;
 
 d('golden: main menu navigation (Down×3, Up)', () => {
   it('matches the C original frame-for-frame', async () => {
+    expect(expected!.length).toBe(SCENARIOS['menu-nav'].maxFrames);
     const actual = await runScenario(SCENARIOS['menu-nav']);
     expect(compareFrames('menu-nav', expected!, actual)).toBeNull();
   });
