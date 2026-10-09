@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Ctx } from '../../src/ctx';
+import { createGameWorld } from '../../src/game/world';
 import { helpBox } from '../../src/screens/help-box';
 import { barDrawShadow, displayText, outCharGlow, outTextGlow, textState, updateWarning } from '../../src/video/glow-text';
 import { PART_SHADE } from '../../src/video/fonthand';
@@ -19,7 +20,7 @@ function synthTables(): SpriteTable[] {
   tables[TINY_FONT] = t;
   return tables;
 }
-const synthCtx = (): Ctx => ({ assets: { shapes: { tables: synthTables() } } }) as unknown as Ctx;
+const synthCtx = (): Ctx => ({ assets: { shapes: { tables: synthTables() } }, game: createGameWorld() }) as unknown as Ctx;
 
 describe('helpBox (helptext.c:128)', () => {
   const GLYPH = 0x50 | (5 + 3); // colour 5, brightness 3

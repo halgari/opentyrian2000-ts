@@ -18,12 +18,12 @@ function testCtx() {
 const EXPECTED_EVENTS = [1010, 832, 379, 517, 552]; // survey 1.5: events per demo level
 
 describeData('loadMap (demo branch)', () => {
-  it.each([1, 2, 3, 4, 5])('installs demo %i: events, sentinel, map slots and tile bytes', (n) => {
+  it.each([1, 2, 3, 4, 5])('installs demo %i: events, sentinel, map slots and tile bytes', async (n) => {
     const ctx = testCtx();
     const g = ctx.game;
     ctx.state.playDemo = true;
     g.demo.demoNum = n - 1;
-    loadMap(ctx);
+    await loadMap(ctx);
     expect(g.demo.demoNum).toBe(n);
 
     expect(g.events.maxEvent).toBe(EXPECTED_EVENTS[n - 1]);
@@ -54,12 +54,6 @@ describeData('loadMap (demo branch)', () => {
     expect(g.map.megaData1.shapes.some((b) => b !== 0)).toBe(true);
     expect(g.scratch.temp).toBe(3);
     expect(g.scratch.temp2).toBe(128);
-  });
-
-  it('refuses the non-demo path', () => {
-    const ctx = testCtx();
-    ctx.state.playDemo = false;
-    expect(() => loadMap(ctx)).toThrow(/unported/);
   });
 });
 

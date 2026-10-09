@@ -714,6 +714,7 @@ export interface VarzGroup {
   armorShipDelay: number;              // JE_word
   musicFade: boolean;
   yourInGameMenuRequest: boolean;
+  songBuy: number;                     // JE_byte (tyrian2.c): item-screen song, set by `]i`
 }
 
 /** Scratch globals (varz.c:296-300). Writers must wrap to the C type. */
@@ -872,8 +873,27 @@ export interface TablesGroup {
   shapeFile: string;
 }
 
+/**
+ * Text-effect globals of fonthand.c / helptext.c / tyrian2.c that the glow-text and help-box code (and the episode
+ * script's `]W`/`]Q`) read and write. They live here, not in module state, so every game has its own copy.
+ */
+export interface TextGroup {
+  textGlowFont: number;        // JE_byte (fonthand.c); SMALL_FONT_SHAPES
+  textGlowBrightness: number;  // JE_byte, 6
+  warningRed: boolean;         // JE_boolean (tyrian2.c)
+  levelWarningDisplay: boolean;
+  levelWarningLines: number;
+  levelWarningText: string[];  // char[12][61]
+  helpBoxColor: number;        // JE_byte, 12
+  helpBoxBrightness: number;   // JE_byte, 1
+  helpBoxShadeType: number;    // JE_byte, FULL_SHADE (1)
+  verticalHeight: number;      // JE_byte, 7
+  haltGame: boolean;
+}
+
 export interface GameWorld {
   config: ConfigGroup;
+  text: TextGroup;
   varz: VarzGroup;
   scratch: ScratchGroup;
   map: MapGroup;
@@ -982,7 +1002,12 @@ export function createGameWorld(): GameWorld {
       performSave: false, jumpSection: false, useLastBank: false,
       pauseGamePressed: false, ingamemenuPressed: false,
       warningCol: 0, warningColChange: 0, warningSoundDelay: 0, armorShipDelay: 0, musicFade: false,
-      yourInGameMenuRequest: false,
+      yourInGameMenuRequest: false, songBuy: 0,
+    },
+    text: {
+      textGlowFont: 1 /* SMALL_FONT_SHAPES */, textGlowBrightness: 6, warningRed: false, levelWarningDisplay: false,
+      levelWarningLines: 0, levelWarningText: new Array<string>(12).fill(''),
+      helpBoxColor: 12, helpBoxBrightness: 1, helpBoxShadeType: 1 /* FULL_SHADE */, verticalHeight: 7, haltGame: false,
     },
     scratch: { temp: 0, temp2: 0, temp3: 0, tempW: 0, b: 0, x: 0, y: 0, tempDat: 0, tempDat2: 0, tempDat3: 0 },
     map: {

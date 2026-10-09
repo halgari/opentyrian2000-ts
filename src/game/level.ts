@@ -3,13 +3,14 @@
 // Copyright (C) 2022 Kaito Sinclaire
 // Copyright (C) 2026 OpenTyrian2000-TS contributors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Ported from: src/tyrian2.c (JE_main, JE_starShowVGA, JE_loadMap demo branch)
-import { S_NONE, V_GOOD_LUCK } from '../audio/ids';
+// Ported from: src/tyrian2.c (JE_main, JE_starShowVGA, JE_loadMap)
+import { DEFAULT_SONG_BUY, S_NONE, V_GOOD_LUCK } from '../audio/ids';
 import { f32 } from '../core/cmath';
 import { idiv, s8, u16, u8 } from '../core/int';
 import type { Ctx } from '../ctx';
 import { analyzeLevel, buildShapeRefs, loadLevelRecord, REF_NULL, REF_UNINIT, SHAPE_SIZE, type LevelData, type ShapeRefs } from '../data/level';
 import { loadPic } from '../data/pic';
+import { SCRIPT_LINE_SIZE } from '../data/script-file';
 import { loadCompShapes } from '../data/shapes';
 import { waitDelayPlain, waitNoInput } from '../platform/wait';
 import { fadeBlack, fadePalette } from '../video/fade';
@@ -32,6 +33,7 @@ import {
   drawTextWindow, drawTimers, drawWarnings, gammaCorrect, inGameDisplays, type LevelLocals,
 } from './hud';
 import { calcPurpleBallsNeeded, mainGamePlayerFunctions } from './player';
+import { runEpisodeScript } from './script';
 import { getShipInfo } from './shots';
 import {
   DIFFICULTY_EASY, DIFFICULTY_NORMAL, EPISODE_AVAILABLE, Explosion, MAP1_COLS, MAP2_COLS, MAP3_COLS, PlayerShot, RepExplosion, SuperPixel,
@@ -77,25 +79,36 @@ function installMaps(g: GameWorld, level: LevelData, refs: ShapeRefs): void {
   fillMap(g.map.megaData3, 2, level.map3);
 }
 
-// port of JE_loadMap (tyrian2.c:2399), the `play_demo` path only. The episode-script scan (2429-3034) is
-// the non-demo path and belongs to sub-project 4.
-export function loadMap(ctx: Ctx): void {
+// port of JE_loadMap (tyrian2.c:2399). The demo path takes the next demo; the normal path runs the episode script
+// (src/game/script.ts), which may show the shop and text screens, before reading the level file.
+export async function loadMap(ctx: Ctx): Promise<void> {
   const g = ctx.game;
   const c = g.config;
-  if (!ctx.state.playDemo) throw new Error('unported: tyrian2.c:2429 JE_loadMap episode script (non-demo path)'); // TODO(sp4)
 
   c.lastCubeMax = c.cubeMax;
-  // songBuy = DEFAULT_SONG_BUY: item screen only (sp4)
+
+  /*Defaults*/
+  g.varz.songBuy = DEFAULT_SONG_BUY; /*Item Screen default song*/
+
+  /* Load LEVELS.DAT - Section = MAINLEVEL */
   c.saveLevel = c.mainLevel;
 
-  // new_game:
-  c.galagaMode = false;
-  g.varz.useLastBank = false;
-  c.extraGame = false;
-  // haltGame = false (network only)
-  g.varz.gameLoaded = false;
+  const s = new Uint8Array(SCRIPT_LINE_SIZE); // char s[256]: keeps its stale bytes across new_game restarts
+  for (;;) { // new_game:
+    c.galagaMode = false;
+    g.varz.useLastBank = false;
+    c.extraGame = false;
+    // haltGame = false (network only)
+    g.varz.gameLoaded = false;
 
-  loadNextDemo(ctx);
+    if (ctx.state.playDemo) break;
+    const result = await runEpisodeScript(ctx, s);
+    if (result === 'return') return; // mainLevel == 0: back to the title screen
+    if (result === 'level') break;
+  }
+
+  if (ctx.state.playDemo) loadNextDemo(ctx);
+  else await fadeBlack(ctx, 50);
 
   const archive = ctx.assets.archive;
   const lvl = archive.get(levelFileName(g.items.episodeNum));
@@ -216,7 +229,7 @@ async function levelSetup(ctx: Ctx): Promise<LevelLocals | null> {
   c.extraGame = false;
 
   v.doNotSaveBackup = false;
-  loadMap(ctx);
+  await loadMap(ctx);
 
   if (c.mainLevel === 0) return null; // if quit itemscreen: back to titlescreen
 

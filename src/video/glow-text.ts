@@ -10,46 +10,14 @@ import { s8, u16, u8 } from '../core/int';
 import type { Ctx } from '../ctx';
 import { waitDelayPlain } from '../platform/wait';
 import { FONT_ASCII, fontCenter, outTextAdjust, textShade, PART_SHADE } from './fonthand';
-import { blitSpriteDark, blitSpriteHv, SMALL_FONT_SHAPES, TINY_FONT } from './sprite';
+import type { GameWorld, TextGroup } from '../game/world';
+import { blitSpriteDark, blitSpriteHv, TINY_FONT } from './sprite';
 import type { Surface } from './surface';
 import { barShade, fillRectangleXY, pix } from './vga256d';
 import { showVGA } from './video';
 
-/**
- * Text-effect globals that the C keeps in fonthand.c / helptext.c / tyrian2.c / varz.c and that GameWorld does not
- * carry yet. One instance per Ctx (never shared between games).
- */
-export interface TextState {
-  textGlowFont: number;        // JE_byte (fonthand.c)
-  textGlowBrightness: number;  // JE_byte, 6
-  warningRed: boolean;
-  levelWarningDisplay: boolean;
-  levelWarningLines: number;
-  levelWarningText: string[];  // char[12][61]
-  helpBoxColor: number;        // JE_byte, 12
-  helpBoxBrightness: number;   // JE_byte, 1
-  helpBoxShadeType: number;    // JE_byte, FULL_SHADE
-  verticalHeight: number;      // JE_byte, 7
-  haltGame: boolean;
-}
-
-const FULL_SHADE_ = 1;
-const states = new WeakMap<object, TextState>();
-
-export function newTextState(): TextState {
-  return {
-    textGlowFont: SMALL_FONT_SHAPES, textGlowBrightness: 6, warningRed: false, levelWarningDisplay: false,
-    levelWarningLines: 0, levelWarningText: new Array<string>(12).fill(''),
-    helpBoxColor: 12, helpBoxBrightness: 1, helpBoxShadeType: FULL_SHADE_, verticalHeight: 7, haltGame: false,
-  };
-}
-
-/** The per-game text globals of `ctx` (created on first use). */
-export function textState(ctx: object): TextState {
-  let s = states.get(ctx);
-  if (!s) { s = newTextState(); states.set(ctx, s); }
-  return s;
-}
+/** The per-game text globals live in `ctx.game.text` (world.ts TextGroup); this is the accessor the screens use. */
+export const textState = (ctx: { game: GameWorld }): TextGroup => ctx.game.text;
 
 // port of JE_anyButton (nortvars.c:33): clears newkey/newmouse as a side effect (survey 7.3)
 export function anyButton(ctx: Ctx): boolean {
