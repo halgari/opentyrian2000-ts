@@ -1,0 +1,168 @@
+diff --git i/src/opentyr.c w/src/opentyr.c
+index fc607fa..2a66c85 100644
+--- i/src/opentyr.c
++++ w/src/opentyr.c
+@@ -17,6 +17,7 @@
+  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+  */
+ #include "opentyr.h"
++#include "oracle.h"
+ 
+ #include "config.h"
+ #include "destruct.h"
+@@ -747,7 +748,7 @@ void setupMenu(void)
+ 
+ int main(int argc, char *argv[])
+ {
+-	mt_srand(time(NULL));
++	mt_srand(oracle_seed(time(NULL)));
+ 
+ 	printf("\nWelcome to... >> %s %s <<\n\n", opentyrian_str, opentyrian_version);
+ 
+@@ -771,7 +772,7 @@ int main(int argc, char *argv[])
+ 	JE_paramCheck(argc, argv);
+ 
+ 	if (!override_xmas) // arg handler may override
+-		xmas = xmas_time();
++		xmas = false; (void)xmas_time;
+ 
+ 	JE_loadHelpText();
+ 	/*debuginfo("Help text complete");*/
+diff --git i/src/oracle.c w/src/oracle.c
+new file mode 100644
+index 0000000..695ba8a
+--- /dev/null
++++ w/src/oracle.c
+@@ -0,0 +1,80 @@
++/* Reference-oracle hooks for opentyrian2000-ts (not part of upstream).
++ * OT_DUMP=path       append one record per JE_showVGA: u32 frame, 768 palette bytes, 64000 pixels
++ * OT_SEED=n          mt_srand seed (default 1)
++ * OT_MAX_FRAMES=n    exit(0) after n frames have been dumped
++ * OT_KEYS=f:sc,...   after frame f is presented, inject key down+up for SDL scancode sc
++ */
++#include "oracle.h"
++#include "palette.h"
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++
++void oracle_get_palette(Uint8 out[768]);
++
++static FILE *dump;
++static int initialized;
++static unsigned long frame;
++static unsigned long max_frames;
++
++unsigned long oracle_seed(unsigned long fallback)
++{
++	const char *s = getenv("OT_SEED");
++	(void)fallback;
++	return s ? strtoul(s, NULL, 10) : 1UL;
++}
++
++static void inject_keys(unsigned long f)
++{
++	const char *keys = getenv("OT_KEYS");
++	while (keys && *keys)
++	{
++		unsigned long kf = strtoul(keys, (char **)&keys, 10);
++		if (*keys != ':') return;
++		keys++;
++		int sc = (int)strtol(keys, (char **)&keys, 10);
++		if (kf == f)
++		{
++			SDL_Event ev;
++			memset(&ev, 0, sizeof(ev));
++			ev.type = SDL_KEYDOWN;
++			ev.key.state = SDL_PRESSED;
++			ev.key.keysym.scancode = (SDL_Scancode)sc;
++			SDL_PushEvent(&ev);
++			ev.type = SDL_KEYUP;
++			ev.key.state = SDL_RELEASED;
++			SDL_PushEvent(&ev);
++		}
++		if (*keys == ',') keys++;
++	}
++}
++
++void oracle_frame(SDL_Surface *screen)
++{
++	if (!initialized)
++	{
++		initialized = 1;
++		const char *path = getenv("OT_DUMP");
++		if (path) dump = fopen(path, "wb");
++		const char *m = getenv("OT_MAX_FRAMES");
++		max_frames = m ? strtoul(m, NULL, 10) : 0;
++	}
++	if (dump)
++	{
++		Uint8 pal[768];
++		Uint32 f32 = (Uint32)frame;
++		oracle_get_palette(pal);
++		fwrite(&f32, 4, 1, dump);
++		fwrite(pal, 768, 1, dump);
++		for (int y = 0; y < screen->h; ++y)
++			fwrite((Uint8 *)screen->pixels + y * screen->pitch, 1, screen->w, dump);
++		fflush(dump);
++	}
++	inject_keys(frame);
++	frame++;
++	if (max_frames && frame >= max_frames)
++	{
++		if (dump) fclose(dump);
++		exit(0);
++	}
++}
+diff --git i/src/oracle.h w/src/oracle.h
+new file mode 100644
+index 0000000..ff17438
+--- /dev/null
++++ w/src/oracle.h
+@@ -0,0 +1,7 @@
++#ifndef ORACLE_H
++#define ORACLE_H
++#include "SDL.h"
++/* Reference-oracle hooks for opentyrian2000-ts (not part of upstream). */
++unsigned long oracle_seed(unsigned long fallback);
++void oracle_frame(SDL_Surface *screen);
++#endif
+diff --git i/src/palette.c w/src/palette.c
+index 89c09b2..d814289 100644
+--- i/src/palette.c
++++ w/src/palette.c
+@@ -183,3 +183,14 @@ static Uint32 rgb_to_yuv(int r, int g, int b)
+ 	    v = 128 + ((-r + 2 * g - b) >> 3);
+ 	return (y << 16) + (u << 8) + v;
+ }
++
++/* opentyrian2000-ts oracle: current 8-bit palette */
++void oracle_get_palette(Uint8 out[768])
++{
++	for (int i = 0; i < 256; ++i)
++	{
++		out[i * 3 + 0] = palette[i].r;
++		out[i * 3 + 1] = palette[i].g;
++		out[i * 3 + 2] = palette[i].b;
++	}
++}
+diff --git i/src/video.c w/src/video.c
+index 8d6d56c..be38669 100644
+--- i/src/video.c
++++ w/src/video.c
+@@ -22,6 +22,7 @@
+ #include "opentyr.h"
+ #include "palette.h"
+ #include "video_scale.h"
++#include "oracle.h"
+ 
+ #include <assert.h>
+ #include <stdbool.h>
+@@ -313,6 +314,7 @@ void JE_clr256(SDL_Surface *screen)
+ 
+ void JE_showVGA(void) 
+ { 
++	oracle_frame(VGAScreen);
+ 	scale_and_flip(VGAScreen); 
+ }
+ 

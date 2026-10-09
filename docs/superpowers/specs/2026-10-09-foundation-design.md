@@ -86,7 +86,7 @@ interface Ctx {
   audio: Audio;           // interface; Foundation ships a no-op implementation
   assets: Assets;         // loaded sprite tables, sprite2 sheets, text, pics
   rng: MersenneTwister;   // mt_rand port
-  flags: { xmas: boolean; moveTyrianLogoUp: boolean; /* … */ };
+  state: { versionString: string; xmas: boolean; moveTyrianLogoUp: boolean; /* … */ };
 }
 ```
 Later sub-projects add typed game-state objects (`player[]`, level state, …) to `Ctx`.
@@ -138,7 +138,7 @@ mirror the C files.
   1. reads the zip with `fflate`,
   2. keeps only data files (drops `*.exe`, `*.pif`, `*.ico`, `*.ovl`, `setup.box`),
      lower-cases names,
-  3. writes `public/data/tyrian2000.pak` (format below), gzip-compressed,
+  3. writes `public/data/tyrian2000.t2kpak` (format below), gzip-compressed,
   4. writes the uncompressed files to `data/tyrian2000/` for Node tests and the oracle.
 - PAK format (little-endian): `"T2KP"` magic, `u32 count`, then per entry
   `u8 nameLen, name (ASCII), u32 size`, then all file bodies concatenated in entry order.
@@ -153,8 +153,12 @@ mirror the C files.
   `tools/oracle/dump-frames.patch`, and builds with the system SDL2.
 - The patch: when env `OT_DUMP` is set, every `JE_showVGA()` appends a record
   (`u32 frameIndex, 768 bytes palette (8-bit RGB), 64000 bytes VGAScreen`) to that file;
-  `mt_srand` uses a fixed seed (env `OT_SEED`, default 1); `intro_logos` runs regardless
-  of `NDEBUG`; env `OT_MAX_FRAMES` exits after N frames.
+  `mt_srand` uses a fixed seed (env `OT_SEED`, default 1); xmas mode is forced off;
+  env `OT_MAX_FRAMES` exits after N frames. The build uses `WITH_NETWORK=false` (no
+  SDL2_net needed) and `VCS_IDREV='echo oracle'`, so the version string drawn on the title
+  screen is `oracle` (the TS port draws `ctx.state.versionString`, set to `oracle` in tests).
+  The patch was verified during planning: it produces the full intro → title → menu
+  sequence (142 frames) and responds to injected keys.
 - `pnpm oracle:run <scenario>` runs it headless (`SDL_VIDEODRIVER=dummy`,
   `SDL_AUDIODRIVER=dummy`) against `data/tyrian2000/` and writes
   `test-data/oracle/<scenario>.frames`. Scenarios may inject scripted key presses at given
@@ -205,8 +209,8 @@ mirror the C files.
     them so Sub-project 2 only swaps the implementation.
 11. Boot page: "Click or press any key to start" overlay (also needed later to unlock
     audio), data loading progress text, errors shown on the page.
-12. Oracle tooling + golden tests for: intro sequence; title screen first appearance
-    (logo slide-up + fades); menu navigation (Down ×3, Up ×1) frames.
+12. Oracle tooling + golden tests for two scenarios: `boot` (intro sequence, title logo
+    slide-up, menu fade-in, idle menu — frames 0–141) and `menu-nav` (Down ×3, Up ×1).
 
 ### Out of scope
 Config file (`tyrian.cfg`) loading/saving (defaults are hard-coded for now), xmas mode
@@ -238,7 +242,7 @@ data/ public/data/ reference/ test-data/ test-output/   ← all gitignored
 - **Data (real files, skip if absent):** palette count = 24; `tyrian.shp` table counts;
   helptext `menuText` (after override) equals exactly
   `["Start New Game","Load Game","High Scores","Instructions","Setup","Demo","Quit"]`; every pic decodes to exactly 64000 pixels.
-- **Golden (oracle, skip if absent):** frame-by-frame equality for the three scenarios.
+- **Golden (oracle, skip if absent):** frame-by-frame equality for both scenarios.
 - **Manual:** `pnpm dev`, title screen in Chromium/Firefox; keyboard + mouse menu nav.
 
 ### Done criteria
