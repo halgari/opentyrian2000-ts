@@ -61,6 +61,7 @@ export class ShopState {
   backFromHelp = false; firstMenu9 = false; paletteChanged = false;
   lastDirection = 0;                       // JE_integer
   lastCurSel = 0;
+  weaponSimTime = 0;                       // game_menu.c static, JE_weaponSimUpdate's 150-frame cycle
   keyboardUsed = false;
   leftPower = false; rightPower = false; rightPowerAfford = false;
   /** Task 10 temp_weapon_power[7]: stays an local of JE_itemScreen in the C; kept here so Task 10 can reach it. */

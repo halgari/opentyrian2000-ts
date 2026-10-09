@@ -47,6 +47,39 @@ const demoKeysAt = (f: number): KeyPress[] => [
   { frame: f + 5, scancode: 40 },
 ];
 
+/** Keys of newgame-ep1-shop-upgrades after the difficulty select (oracle frame 220 is the shop's first frame). */
+const SHOP_UPGRADE_KEYS: KeyPress[] = [
+  { frame: 221, scancode: 81 }, { frame: 223, scancode: 81 }, { frame: 225, scancode: 40 }, // Down x2 (Upgrade Ship), Return
+  { frame: 228, scancode: 81 }, { frame: 231, scancode: 40 },                               // Down (Front Weapon), Return -> sim
+  { frame: 280, scancode: 79 }, { frame: 290, scancode: 79 }, { frame: 300, scancode: 80 }, // Right, Right, Left (power)
+  { frame: 310, scancode: 81 }, { frame: 330, scancode: 81 }, { frame: 350, scancode: 40 }, // Down, Down, Return (-> Done)
+  { frame: 360, scancode: 40 },                                                             // Return on Done (buy)
+  { frame: 370, scancode: 81 }, { frame: 373, scancode: 40 },                               // Down (Rear Weapon), Return -> sim
+  { frame: 420, scancode: 56 }, { frame: 440, scancode: 56 }, { frame: 460, scancode: 79 }, // `/` x2, Right
+  { frame: 480, scancode: 41 },                                                             // Esc (leave without buying)
+  { frame: 490, scancode: 41 },                                                             // Esc (-> main shop menu)
+  { frame: 495, scancode: 82 }, { frame: 498, scancode: 40 },                               // Up (Ship Specs), Return
+  { frame: 515, scancode: 44, hold: 4 },                                                    // held key aborts the scale-in and leaves the specs
+];
+
+/**
+ * Mouse script: [frame, gameX, gameY] moves the pointer (relative window motion at 2 window pixels per game pixel, so
+ * mapWindowPointToScreen gives exactly gameX/gameY), [frame, 'd'|'u'] presses / releases button 1.
+ */
+function shopMouse(steps: Array<[number, number, number] | [number, 'd' | 'u']>): MouseEvent[] {
+  const out: MouseEvent[] = [];
+  let wx = 0, wy = 0;
+  for (const s of steps) {
+    if (s.length === 3) {
+      out.push({ frame: s[0], type: 'm', a: 2 * s[1] - wx, b: 2 * s[2] - wy });
+      wx = 2 * s[1]; wy = 2 * s[2];
+    } else {
+      out.push({ frame: s[0], type: s[1], a: 1 });
+    }
+  }
+  return out;
+}
+
 export const SCENARIOS = {
   /** Intro logos, title logo slide, menu fade-in, idle menu (frames 0–141). */
   boot: { maxFrames: 142, keys: [] },
@@ -74,6 +107,43 @@ export const SCENARIOS = {
   // <discovered> -- entries between these markers are written by tools/oracle/discover.ts
   "newgame-ep1-first-shop-to-level": { maxFrames: 660, keys: [{ frame: 141, scancode: 40 }, { frame: 167, scancode: 40 }, { frame: 188, scancode: 40 }, { frame: 209, scancode: 40 }, { frame: 221, scancode: 81 }, { frame: 222, scancode: 81 }, { frame: 223, scancode: 81 }, { frame: 224, scancode: 81 }, { frame: 225, scancode: 40 }, { frame: 229, scancode: 40 }, { frame: 349, scancode: 44, hold: 300 }, { frame: 355, scancode: 80, hold: 40 }, { frame: 405, scancode: 82, hold: 30 }, { frame: 455, scancode: 79, hold: 60 }, { frame: 525, scancode: 81, hold: 40 }], hash: true, state2: true, saveDump: true },
   // </discovered>
+  /**
+   * Shop B with the mouse: clicks through Upgrade Ship -> Rear Weapon, selects an item, the power -/+ buttons, `/` mode keys,
+   * Done; then Left Sidekick (unaffordable rows), Esc out, Generator by key (Down, Right, Esc). The button-up events are injected by the oracle's
+   * idle rule (wait_noinput blocks after a click), so a test harness has to emulate it.
+   */
+  'newgame-ep1-shop-upgrades-mouse': {
+    maxFrames: 800, hash: true, state2: true,
+    keys: [
+      { frame: 141, scancode: 40 }, { frame: 167, scancode: 40 }, { frame: 188, scancode: 40 }, { frame: 209, scancode: 40 },
+      { frame: 380, scancode: 56 }, { frame: 410, scancode: 56 },                               // `/` (rear weapon mode) twice
+      { frame: 520, scancode: 41 },                                                             // Esc (leaves the sidekick screen)
+      { frame: 565, scancode: 82 }, { frame: 577, scancode: 40 },                               // Up (Generator), Return -> sim
+      { frame: 640, scancode: 81 }, { frame: 680, scancode: 79 }, { frame: 700, scancode: 41 }, // Down, Right (no-op), Esc
+    ],
+    mouse: shopMouse([
+      [221, 200, 74], [223, 'd'], [224, 'u'], [227, 'd'], [228, 'u'],           // Upgrade Ship (select, activate)
+      [231, 'd'], [232, 'u'], [235, 'd'], [236, 'u'],                           // Rear Weapon (select, activate)
+      [239, 200, 70], [241, 'd'], [242, 'u'],                                   // item on row 3
+      [300, 125, 158], [303, 'd'], [304, 'u'], [320, 'd'], [321, 'u'],          // power + twice
+      [340, 30, 158], [343, 'd'], [344, 'u'],                                   // power -
+      [440, 200, 150], [443, 'd'], [444, 'u'],                                  // Done (buys)
+      [460, 200, 122], [462, 'd'], [463, 'u'], [466, 'd'], [467, 'u'],          // Left Sidekick (select, activate)
+      [470, 200, 70], [472, 'd'], [473, 'u'],                                   // row 3
+      [480, 200, 122], [482, 'd'], [483, 'u'],                                  // row 5 (probably unaffordable: S_CLINK)
+    ]),
+  },
+  /**
+   * Shop B: first shop (frame 220) -> Upgrade Ship -> Front Weapon sim (power +/-, other items, Done) -> Rear Weapon sim (`/` mode
+   * key, power) -> Esc out -> Ship Specs -> leave. The sim animates at 3 ticks per frame, the other menus at 2.
+   */
+  'newgame-ep1-shop-upgrades': {
+    maxFrames: 700, hash: true, state2: true,
+    keys: [
+      { frame: 141, scancode: 40 }, { frame: 167, scancode: 40 }, { frame: 188, scancode: 40 }, { frame: 209, scancode: 40 },
+      ...SHOP_UPGRADE_KEYS,
+    ],
+  },
 } satisfies Record<string, Scenario>;
 
 export type ScenarioName = keyof typeof SCENARIOS;

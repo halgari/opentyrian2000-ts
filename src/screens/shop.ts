@@ -37,13 +37,18 @@ import {
 } from './shop-draw';
 import { NavState, PLANET_X, PLANET_Y, computeDots, updateNavScreen } from './shop-nav';
 import { Scancode } from '../platform/scancodes';
+import {
+  doShipSpecs, drawUpgradeSub, isWeaponSimMenu, menuFunctionUpgradeSub, menuFunctionUpgrades, resetTempWeaponPower,
+  upgradeSubCursorMoved, upgradeSubDoneClick, upgradeSubEnter, upgradeSubEscape, upgradeSubLeftRight, upgradeSubPowerButtons,
+  upgradeSubSelectClick, upgradeSubSlash, weaponSimUpdate,
+} from './shop-weapon';
 
 export { ShopState } from './shop-draw';
 
 const SC_L = 15, SC_S = 22, SC_SLASH = 56; // SDL_SCANCODE_L / _S / _SLASH
 
 /** Menus whose draw step, input handling and Enter handler exist. Everything else is Task 10/11 (or sp5). */
-const PORTED_MENUS: ReadonlySet<number> = new Set([MENU_FULL_GAME, MENU_PLAY_NEXT_LEVEL, MENU_1_PLAYER_ARCADE]);
+const PORTED_MENUS: ReadonlySet<number> = new Set([MENU_FULL_GAME, MENU_UPGRADES, MENU_PLAY_NEXT_LEVEL, MENU_UPGRADE_SUB, MENU_1_PLAYER_ARCADE]);
 
 function unported(what: string): never {
   throw new Error(`unported: ${what}`);
@@ -173,7 +178,7 @@ async function menuFunction(ctx: Ctx, s: ShopState, select: number): Promise<voi
           s.curSel[MENU_DATA_CUBES] = 2;
           break;
         case 3: // shipspecs
-          unported('shop ship specs, JE_doShipSpecs (task 10)');
+          await doShipSpecs(ctx, s);
           break;
         case 4: // upgradeship
           s.curMenu = MENU_UPGRADES;
@@ -238,8 +243,16 @@ async function menuFunction(ctx: Ctx, s: ShopState, select: number): Promise<voi
       }
       break;
 
+    case MENU_UPGRADES:
+      menuFunctionUpgrades(ctx, s, select);
+      break;
+
+    case MENU_UPGRADE_SUB:
+      menuFunctionUpgradeSub(ctx, s);
+      break;
+
     default:
-      // TASK 10/11: UPGRADES, OPTIONS, UPGRADE_SUB, KEYBOARD_CONFIG, LOAD_SAVE, DATA_CUBES, DATA_CUBE_SUB, LIMITED_OPTIONS,
+      // TASK 11: OPTIONS, KEYBOARD_CONFIG, LOAD_SAVE, DATA_CUBES, DATA_CUBE_SUB, LIMITED_OPTIONS,
       // JOYSTICK_CONFIG, MOUSE_CONFIG; TODO(sp5): 2_PLAYER_ARCADE, SUPER_TYRIAN
       unportedMenu(s.curMenu);
   }
@@ -280,17 +293,16 @@ async function handleMouse(ctx: Ctx, s: ShopState): Promise<void> {
 
     if (selection <= s.menuChoices[s.curMenu]!) {
       if (s.curMenu === MENU_UPGRADE_SUB && selection === s.menuChoices[MENU_UPGRADE_SUB]) {
-        // TASK 10: player[0].cash = JE_cashLeft(); curMenu = MENU_UPGRADES; S_ITEM
-        unportedMenu(MENU_UPGRADE_SUB);
+        upgradeSubDoneClick(ctx, s);
       } else {
         audio.playSample(S_CLICK);
         if (s.curSel[s.curMenu] === selection) {
           await menuFunction(ctx, s, s.curSel[s.curMenu]!);
+        } else if (s.curMenu === MENU_UPGRADE_SUB) {
+          upgradeSubSelectClick(ctx, s, selection); // unaffordable: S_CLINK; front/rear power from temp_weapon_power
         } else {
-          // TASK 10: in UPGRADE_SUB an unaffordable item plays S_CLINK instead of being selected
           if (s.curSel[MENU_UPGRADES] === 4) p0.weaponMode = 1;
           s.curSel[s.curMenu] = selection;
-          // TASK 10: UPGRADE_SUB front/rear: player[0].items.weapon[..].power = temp_weapon_power[..]
         }
       }
     }
@@ -298,7 +310,7 @@ async function handleMouse(ctx: Ctx, s: ShopState): Promise<void> {
     await waitNoInput(ctx, false, true, false);
   }
 
-  // TASK 10: UPGRADE_SUB power -/+ buttons (x 23..36 / 119..131, y 149..168)
+  await upgradeSubPowerButtons(ctx, s); // UPGRADE_SUB power -/+ buttons (x 23..36 / 119..131, y 149..168)
 }
 
 // the key branch of the C's input handler (game_menu.c:1253-1612), for the ported menus
@@ -308,13 +320,13 @@ async function handleKey(ctx: Ctx, s: ShopState): Promise<void> {
 
   switch (input.lastkeyScan) {
     case SC_SLASH:
-      // TASK 10: UPGRADE_SUB with curSel[UPGRADES] == 4 cycles player[0].weapon_mode
+      upgradeSubSlash(ctx, s); // UPGRADE_SUB with curSel[UPGRADES] == 4 cycles player[0].weapon_mode
       break;
 
     case Scancode.Space:
     case Scancode.Return:
       s.keyboardUsed = true;
-      // TASK 10: UPGRADE_SUB front/rear: temp_weapon_power["Done"] = current power
+      upgradeSubEnter(ctx, s); // UPGRADE_SUB front/rear: temp_weapon_power["Done"] = current power
       await menuFunction(ctx, s, s.curSel[s.curMenu]!);
       break;
 
@@ -330,7 +342,7 @@ async function handleKey(ctx: Ctx, s: ShopState): Promise<void> {
           g.config.mainLevel = 0;
         }
       } else {
-        // TASK 10: leaving UPGRADE_SUB without buying restores old_items[0], curSel[UPGRADE_SUB] and the cash
+        upgradeSubEscape(ctx, s); // leaving UPGRADE_SUB without buying restores old_items[0], curSel[UPGRADE_SUB] and the cash
         if (s.curMenu !== MENU_DATA_CUBE_SUB) s.newPal = 1;
         s.curMenu = MENU_ESC[s.curMenu]! - 1;
       }
@@ -347,7 +359,7 @@ async function handleKey(ctx: Ctx, s: ShopState): Promise<void> {
       if (s.curMenu !== MENU_DATA_CUBE_SUB) audio.playSample(S_CURSOR);
       s.curSel[s.curMenu] = u8(s.curSel[s.curMenu]! - 1);
       if (s.curSel[s.curMenu]! < 2) s.curSel[s.curMenu] = s.menuChoices[s.curMenu]!;
-      // TASK 10: UPGRADE_SUB front/rear weapon power + weapon_mode; TASK 11: joystick config skips disabled rows
+      upgradeSubCursorMoved(ctx, s); // UPGRADE_SUB front/rear weapon power + weapon_mode; TASK 11: joystick config skips disabled rows
       break;
 
     case Scancode.Down:
@@ -356,6 +368,7 @@ async function handleKey(ctx: Ctx, s: ShopState): Promise<void> {
       if (s.curMenu !== MENU_DATA_CUBE_SUB) audio.playSample(S_CURSOR);
       s.curSel[s.curMenu] = u8(s.curSel[s.curMenu]! + 1);
       if (s.curSel[s.curMenu]! > s.menuChoices[s.curMenu]!) s.curSel[s.curMenu] = 2;
+      upgradeSubCursorMoved(ctx, s);
       break;
 
     case Scancode.Home:
@@ -365,8 +378,9 @@ async function handleKey(ctx: Ctx, s: ShopState): Promise<void> {
 
     case Scancode.Left:
     case Scancode.Right:
-      // TASK 10/11: joystick config, 2-player input devices, OPTIONS volume (4/5), UPGRADE_SUB power -/+.
+      // TASK 11: joystick config, 2-player input devices, OPTIONS volume (4/5) (they share the S_CURSOR sample of UPGRADE_SUB).
       // For FULL_GAME, PLAY_NEXT_LEVEL and 1_PLAYER_ARCADE the C does nothing.
+      if (s.curMenu === MENU_UPGRADE_SUB) upgradeSubLeftRight(ctx, s, input.lastkeyScan === Scancode.Left ? -1 : 1);
       break;
 
     default:
@@ -474,7 +488,7 @@ export async function itemScreen(ctx: Ctx, state: ShopState = new ShopState()): 
     /* SYN: note reindexing... "firstMenu9" refers to Menu 8 here :( */
     if (s.curMenu !== MENU_DATA_CUBE_SUB || s.firstMenu9) copySurface(screen, vga.screen2);
 
-    // TASK 10: UPGRADES (front/rear selected): reset temp_weapon_power[]
+    resetTempWeaponPower(ctx, s); // UPGRADES (front/rear selected): reset temp_weapon_power[]
 
     const nav = s.nav;
     if (s.curMenu === MENU_PLAY_NEXT_LEVEL) {
@@ -505,7 +519,7 @@ export async function itemScreen(ctx: Ctx, state: ShopState = new ShopState()): 
     }
 
     // TASK 11: MENU_MOUSE_CONFIG / LOAD_SAVE / KEYBOARD_CONFIG / JOYSTICK_CONFIG list drawing
-    // TASK 10: MENU_UPGRADE_SUB item list
+    if (s.curMenu === MENU_UPGRADE_SUB) drawUpgradeSub(ctx, s);
 
     /* Draw current money and shield/armor bars, when appropriate */
     if (((s.curMenu <= MENU_OPTIONS || s.curMenu === 5 || s.curMenu === MENU_LOAD_SAVE || s.curMenu >= MENU_1_PLAYER_ARCADE) &&
@@ -561,7 +575,6 @@ export async function itemScreen(ctx: Ctx, state: ShopState = new ShopState()): 
       if (s.col < -2 || s.col > 6) s.colC = -1 * s.colC;
 
       // TASK 11: MENU_DATA_CUBE_SUB scrolling text reader (setDelay(1)); MENU_DATA_CUBES flashing cube
-      // TASK 10: MENU_UPGRADE_SUB with curSel[UPGRADES] in {3, 4, 6, 7, 8}: setDelay(3) + JE_weaponSimUpdate()
 
       if (s.curMenu === MENU_PLAY_NEXT_LEVEL) {
         updateNavScreen(ctx, s, nav);
@@ -571,27 +584,54 @@ export async function itemScreen(ctx: Ctx, state: ShopState = new ShopState()): 
         if (c.extraGame) dString(screen, tables, 170, 140, assets.helpText.miscText[68 - 1]!, FONT_SHAPES);
       }
 
-      /* current menu is anything but weapon sim or datacube */
-      ctx.delay.setDelay(2);
+      if (isWeaponSimMenu(s)) { // IF (curmenu = 5) AND (cursel [2] IN [3, 4, 6, 7, 8])
+        ctx.delay.setDelay(3);
+        weaponSimUpdate(ctx, s);
+        drawScore(ctx, s);
+        input.serviceEvents(false);
 
-      drawScore(ctx, s);
+        if (s.newPal > 0) {
+          s.curPal = s.newPal;
+          palette.setPalette(palette.palettes[s.newPal - 1]!, 0, 255);
+          s.newPal = 0;
+        }
 
-      if (s.newPal > 0) {
-        s.curPal = s.newPal;
-        palette.setPalette(palette.palettes[s.newPal - 1]!, 0, 255);
-        s.newPal = 0;
+        mouseStart(ctx);
+
+        if (s.paletteChanged) {
+          palette.setPalette(palette.colors, 0, 255);
+          s.paletteChanged = false;
+        }
+
+        showVGA(ctx); /* SYN: This is where it updates the screen for the weapon sim */
+
+        // TASK 11: backFromHelp: fade_palette(colors, 10, 0, 255) goes here (before mouseReplace) in the weapon sim branch
+
+        mouseReplace(ctx);
+      } else {
+        /* current menu is anything but weapon sim or datacube */
+        ctx.delay.setDelay(2);
+
+        drawScore(ctx, s);
+
+        if (s.newPal > 0) {
+          s.curPal = s.newPal;
+          palette.setPalette(palette.palettes[s.newPal - 1]!, 0, 255);
+          s.newPal = 0;
+        }
+
+        mouseStart(ctx);
+
+        if (s.paletteChanged) {
+          palette.setPalette(palette.colors, 0, 255);
+          s.paletteChanged = false;
+        }
+
+        showVGA(ctx); /* SYN: This is the where the screen updates for most menus */
+
+        mouseReplace(ctx);
+
       }
-
-      mouseStart(ctx);
-
-      if (s.paletteChanged) {
-        palette.setPalette(palette.colors, 0, 255);
-        s.paletteChanged = false;
-      }
-
-      showVGA(ctx); /* SYN: This is the where the screen updates for most menus */
-
-      mouseReplace(ctx);
 
       // backFromHelp: fade_palette(colors, 10, 0, 255) -- only set by F1 help (TASK 11)
 
