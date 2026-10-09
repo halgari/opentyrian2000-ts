@@ -160,6 +160,20 @@ describeData('playerShotMoveAndDraw', () => {
     expect(out.shotX).toBe(before);
   });
 
+  it('shadow test is an unsigned compare (shadowYDist is a C uint): none when shotY < -10', () => {
+    // darken of 0x1f is 0x17; the sprite itself never writes 0x17 over rows the shadow cannot reach
+    const run = (startY: number): number => {
+      const { ctx, g } = withWeapon({ sg: [100, 0, 0, 0, 0, 0, 0, 0], del: [20, 0, 0, 0, 0, 0, 0, 0], sy: [1, 0, 0, 0, 0, 0, 0, 0] });
+      g.config.background2 = true;
+      playerShotCreate(ctx, 1, 1, 100, startY + 1, 0, 0, 1, 1);
+      ctx.vga.gameScreen.pixels.fill(0x1f);
+      playerShotMoveAndDraw(ctx, 0, new ShotOut());
+      return ctx.vga.gameScreen.pixels.reduce((n, v) => n + (v === 0x17 ? 1 : 0), 0);
+    };
+    expect(run(-8)).toBeGreaterThan(0); // shotY -8: -8 + 10 < 190 -> shadow row 2.. on screen
+    expect(run(-12)).toBe(0); // shotY -12: (uint)(-2) is huge -> no shadow (a signed compare would draw it)
+  });
+
   it('sprites above 60000 are specials with radius = half the option sprite size', () => {
     const { ctx, g } = withWeapon({ sg: [60001 + 36, 0, 0, 0, 0, 0, 0, 0], del: [20, 0, 0, 0, 0, 0, 0, 0], sy: [1, 0, 0, 0, 0, 0, 0, 0] });
     playerShotCreate(ctx, 1, 1, 100, 100, 0, 0, 1, 1);

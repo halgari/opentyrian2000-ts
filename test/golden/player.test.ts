@@ -3,28 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { resolve } from 'node:path';
 import { testArchive } from '../helpers/data';
 import { ORACLE_DIR, readFramesFile } from '../helpers/frames';
-import { readStates } from '../helpers/state-trace';
-import { runDemoFrames, runDemoScenario } from './demo-harness';
-
-/**
- * Player position (p0x, p0y) against the oracle. Divergence is expected once enemy shots / enemy collisions
- * (JE_playerCollide knockback, task 12/13; the shield drops or the ship is shoved a few frames before) start pushing the ship, so each demo is asserted only up to a frame
- * safely before its first measured divergence (measured with enemies and enemy shots ported: demo-1 1387, demo-2 496, demo-3 1103, demo-4 1246, demo-5 593).
- */
-const LIMITS = { 'demo-1': 1380, 'demo-2': 490, 'demo-3': 1100, 'demo-4': 1240, 'demo-5': 590 } as const;
-
-for (const [name, limit] of Object.entries(LIMITS) as [keyof typeof LIMITS, number][]) {
-  const states = readStates(resolve(ORACLE_DIR, `${name}.state`));
-  const d = testArchive && states ? describe : describe.skip;
-  d(`golden: player movement ${name}`, () => {
-    it(`p0x/p0y equal the oracle through frame ${limit}`, async () => {
-      const actual = await runDemoScenario(name, limit + 1);
-      for (let f = 0; f <= limit; f++) {
-        expect([f, actual.states[f]!.p0x, actual.states[f]!.p0y]).toEqual([f, states![f]!.p0x, states![f]!.p0y]);
-      }
-    });
-  });
-}
+import { runDemoFrames } from './demo-harness';
 
 // Ship, shadow, banking and sidekick pixels: the raw oracle dumps of the first loop frames (the rest of the
 // play window is also equal there, so the whole 264x184 window is compared).

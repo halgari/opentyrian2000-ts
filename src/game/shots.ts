@@ -198,7 +198,8 @@ export function playerShotMoveAndDraw(ctx: Ctx, shotId: number, out: ShotOut): b
       }
       const sh = spriteFrame > 500 ? ctx.assets.shapes.spriteSheet12 : ctx.assets.shapes.spriteSheet8;
       const idx = spriteFrame > 500 ? spriteFrame - 500 : spriteFrame;
-      if (g.config.background2 && out.shotY + g.varz.shadowYDist < 190 && tmpShotXM < 100) {
+      // shadowYDist is a C `uint`, so `shoty + shadowYDist < 190` is an unsigned compare: shoty < -10 fails
+      if (g.config.background2 && ((out.shotY + g.varz.shadowYDist) >>> 0) < 190 && tmpShotXM < 100) {
         blitSprite2Darken(screen, out.shotX + 1, out.shotY + g.varz.shadowYDist, sh, idx);
       }
       blitSprite2(screen, out.shotX + 1, out.shotY, sh, idx);

@@ -471,7 +471,7 @@ function playSoundQueue(ctx: Ctx): void {
 
 /**
  * One iteration of level_loop (tyrian2.c:1088-2396). Returns true for `goto start_level` (reallyEndLevel).
- * Slot order follows survey 6.2; slots whose bodies belong to later tasks are stub calls into the owning module.
+ * Slot order follows survey 6.2; every slot is wired (the demo goldens pin the order).
  */
 async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<boolean> {
   const g = ctx.game;
@@ -514,7 +514,6 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<boolean> {
   }
 
   if (!v.endLevel) { // draw HUD (VGAScreen = VGAScreenSeg)
-    // SLOT(task 8): message bar, shield regen, weapon-power pips, power bar (tyrian2.c:1143-1252)
     drawLevelTopBars(ctx, loc);
 
     b.oldMapX3Ofs = b.mapX3Ofs;
@@ -523,11 +522,10 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<boolean> {
   }
 
   /*---------------------------EVENTS-------------------------*/
-  // SLOT(task 10): eventSystem
   while (e.eventRec[e.eventLoc - 1]!.eventtime <= e.curLoc && e.eventLoc <= e.maxEvent) eventSystem(ctx);
 
   /* SMOOTHIES! */
-  checkSmoothies(ctx); // SLOT(task 5)
+  checkSmoothies(ctx);
   if (b.anySmoothies || c.smoothies.some(Boolean)) {
     // VGAScreen = VGAScreen2 and the lava/water/ice/blur filters (tyrian2.c:1275, 1316-1347, 1400-1410)
     throw new Error('unported: smoothie filters (tyrian2.c:1275)'); // TODO(sp4)
@@ -540,27 +538,27 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<boolean> {
   if (b.map1YDelayMax > 1 && b.backMove < 2) b.backMove = (b.map1YDelay === 1) ? 1 : 0;
 
   /*Draw background*/
-  if (g.playerShots.astralDuration === 0) drawBackground1(ctx, gs); // SLOT(task 5)
+  if (g.playerShots.astralDuration === 0) drawBackground1(ctx, gs);
   else clearSurface(gs);
 
   /*Set Movement of background 1*/
   advanceBackgrounds(ctx); // tyrian2.c:1286-1303
 
-  if (c.starActive || g.playerShots.astralDuration > 0) updateAndDrawStarfield(ctx, gs, b.starfieldSpeed); // SLOT(task 5)
+  if (c.starActive || g.playerShots.astralDuration > 0) updateAndDrawStarfield(ctx, gs, b.starfieldSpeed);
 
   /*-----------------------BACKGROUND 2------------------------*/
   if (c.background2over === 3) {
-    drawBackground2Layer(ctx); // SLOT(task 5)
+    drawBackground2Layer(ctx);
     c.background2 = true;
   }
-  if (c.background2over === 0) drawBackground2Layer(ctx); // SLOT(task 5)
+  if (c.background2over === 0) drawBackground2Layer(ctx);
 
   /*-----------------------Ground Enemy------------------------*/
   let lastEnemyOnScreen = en.enemyOnScreen;
 
   b.tempMapXOfs = b.mapXOfs;
   v.tempBackMove = b.backMove;
-  drawEnemy(ctx, 50); // SLOT(task 9)
+  drawEnemy(ctx, 50);
   drawEnemy(ctx, 100);
 
   if (en.enemyOnScreen === 0 || en.enemyOnScreen === lastEnemyOnScreen) {
@@ -569,21 +567,21 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<boolean> {
 
   if (c.superWild) {
     v.neat = u16(v.neat + 3);
-    darkenBackground(ctx, v.neat); // SLOT(task 5)
+    darkenBackground(ctx, v.neat);
   }
 
   /*-----------------------BACKGROUND 2------------------------*/
-  if (c.background2over === 1) drawBackground2Layer(ctx); // SLOT(task 5)
+  if (c.background2over === 1) drawBackground2Layer(ctx);
 
   if (c.superWild) {
     v.neat = u16(v.neat + 1);
     darkenBackground(ctx, v.neat);
   }
 
-  if (c.background3over === 2) drawBackground3(ctx, gs); // SLOT(task 5)
+  if (c.background3over === 2) drawBackground3(ctx, gs);
 
   /* New Enemy */
-  randomEnemySpawn(ctx); // SLOT(task 9): RNG draws every frame while enemiesActive
+  randomEnemySpawn(ctx);
 
   /* Draw Sky Enemy */
   if (!c.skyEnemyOverAll) {
@@ -591,38 +589,38 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<boolean> {
 
     b.tempMapXOfs = b.mapX2Ofs;
     v.tempBackMove = 0;
-    drawEnemy(ctx, 25); // SLOT(task 9)
+    drawEnemy(ctx, 25);
 
     if (en.enemyOnScreen === lastEnemyOnScreen) {
       if (v.stopBackgroundNum === 2) v.stopBackgroundNum = 9;
     }
   }
 
-  if (c.background3over === 0) drawBackground3(ctx, gs); // SLOT(task 5)
+  if (c.background3over === 0) drawBackground3(ctx, gs);
 
   /* Draw Top Enemy */
   if (!c.topEnemyOver) {
     b.tempMapXOfs = (!v.background3x1) ? b.oldMapX3Ofs : b.mapXOfs;
     v.tempBackMove = b.backMove3;
-    drawEnemy(ctx, 75); // SLOT(task 9)
+    drawEnemy(ctx, 75);
   }
 
   /* Player Shot Images, enemy collision, last_x/y_shot_move, JE_playerCollide */
-  playerShotsPass(ctx); // SLOT(task 13)
+  playerShotsPass(ctx);
 
-  if (v.firstGameOver) mainGamePlayerFunctions(ctx); // SLOT(task 11): PLAYER DRAW+MOVEMENT
+  if (v.firstGameOver) mainGamePlayerFunctions(ctx);
 
   if (!v.endLevel) { /* MAIN DRAWING IS STOPPED STARTING HERE */
-    updateEnemyShots(ctx); // SLOT(task 9): Draw Enemy Shots
+    updateEnemyShots(ctx);
   }
 
-  if (c.background3over === 1) drawBackground3(ctx, gs); // SLOT(task 5)
+  if (c.background3over === 1) drawBackground3(ctx, gs);
 
   /* Draw Top Enemy */
   if (c.topEnemyOver) {
     b.tempMapXOfs = (!v.background3x1) ? b.oldMapX3Ofs : b.oldMapXOfs;
     v.tempBackMove = b.backMove3;
-    drawEnemy(ctx, 75); // SLOT(task 9)
+    drawEnemy(ctx, 75);
   }
 
   /* Draw Sky Enemy */
@@ -631,7 +629,7 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<boolean> {
 
     b.tempMapXOfs = b.mapX2Ofs;
     v.tempBackMove = 0;
-    drawEnemy(ctx, 25); // SLOT(task 9)
+    drawEnemy(ctx, 25);
 
     if (en.enemyOnScreen === lastEnemyOnScreen) {
       if (v.stopBackgroundNum === 2) v.stopBackgroundNum = 9;
@@ -640,18 +638,18 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<boolean> {
 
   /*-------------------------- Sequenced Explosions -------------------------*/
   v.enemyStillExploding = false;
-  updateRepeatingExplosions(ctx); // SLOT(task 6)
+  updateRepeatingExplosions(ctx);
 
   /*---------------------------- Draw Explosions ----------------------------*/
-  drawExplosions(ctx); // SLOT(task 6)
+  drawExplosions(ctx);
 
   if (!c.portConfigChange) c.portConfigDone = true;
 
   /*-----------------------BACKGROUND 2------------------------*/
-  if (c.background2over === 2) drawBackground2Layer(ctx); // SLOT(task 5)
+  if (c.background2over === 2) drawBackground2Layer(ctx);
 
   /*-------------------------Warning---------------------------*/
-  drawWarnings(ctx); // SLOT(task 8)
+  drawWarnings(ctx);
 
   /*------- Random Explosions --------*/
   if (v.randomExplosions) throw new Error('unported: tyrian2.c:2049 random explosions (event 99)'); // TODO(sp4)
@@ -660,7 +658,7 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<boolean> {
   if (v.firstGameOver) playSoundQueue(ctx);
 
   if (e.returnActive && en.enemyOnScreen === 0) {
-    eventJump(ctx, 65535); // SLOT(task 9)
+    eventJump(ctx, 65535);
     e.returnActive = false;
   }
 
@@ -669,7 +667,6 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<boolean> {
   sc.tempW = u16(ctx.input.lastmouseBut);
   // (the `if (debug)` text block is never taken)
 
-  // SLOT(task 8): displayTime text, pentiumMode toggle, level timer, GAME OVER
   drawTimers(ctx);
 
   if (ctx.state.playDemo) { // input kills demo
@@ -683,14 +680,14 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<boolean> {
   }
 
   /** Test **/
-  drawSP(ctx); // SLOT(task 6)
+  drawSP(ctx);
 
   /*Filtration*/
-  if (c.filterActive) filterScreen(ctx, c.levelFilter, c.levelBrightness); // SLOT(task 5)
+  if (c.filterActive) filterScreen(ctx, c.levelFilter, c.levelBrightness);
 
-  drawBossBar(ctx); // SLOT(task 8)
+  drawBossBar(ctx);
 
-  inGameDisplays(ctx); // SLOT(task 8)
+  inGameDisplays(ctx);
 
   // VGAScreen = VGAScreenSeg
   await starShowVGA(ctx);

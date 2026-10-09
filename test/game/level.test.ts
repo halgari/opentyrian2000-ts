@@ -141,8 +141,9 @@ describeData('runLevel (skeleton loop)', () => {
     expect(g.players[0].shieldMax).toBe(g.players[0].shield * 2);
     expect(Array.from(g.enemies.enemyAvail)).toEqual(new Array(100).fill(1));
     expect(g.enemyShots.enemyShotAvail.every((a) => a)).toBe(true);
-    // the real ship code (task 11) counts shotRepeat down each loop frame for the equipped front/rear weapon and both sidekicks
-    expect(Array.from(g.config.shotRepeat)).toEqual([0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1]);
+    // the real ship code counts shotRepeat down each loop frame for the equipped front/rear weapon and both
+    // sidekicks; JE_doSpecialShot (varz.c:692) also counts SHOT_SPECIAL (index 8) down unconditionally
+    expect(Array.from(g.config.shotRepeat)).toEqual([0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1]);
     expect(g.sprites.explosionSpriteSheet).not.toBeNull();
     expect(g.config.levelBrightness).toBe(-10); // -14 + 4 loop frames: filterScreen (task 5) now runs the brightness fade
   });
