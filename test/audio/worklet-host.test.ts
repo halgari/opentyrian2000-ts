@@ -11,7 +11,7 @@ describeData('EngineHost', () => {
     const host = new EngineHost(new AudioEngine(44100), (m) => posted.push(m));
     const a = testArchive!;
     host.handle({
-      t: 'init', music: a.get('music.mus'),
+      t: 'init', seq: 1, music: a.get('music.mus'),
       sounds: loadSounds(a.get('tyrian.snd'), a.get('voices.snd'), 44100),
     });
     return { host, posted };
@@ -20,7 +20,7 @@ describeData('EngineHost', () => {
 
   it('plays a song, stays in range, posts status', () => {
     const { host, posted } = setup();
-    host.handle({ t: 'playSong', n: 29 });
+    host.handle({ t: 'playSong', seq: 2, n: 29 });
     let max = 0;
     for (let i = 0; i < 44100 / 128; i++) for (const v of block(host)) max = Math.max(max, Math.abs(v));
     expect(max).toBeGreaterThan(0);
@@ -31,9 +31,9 @@ describeData('EngineHost', () => {
 
   it('stopSong silences later blocks', () => {
     const { host } = setup();
-    host.handle({ t: 'playSong', n: 29 });
+    host.handle({ t: 'playSong', seq: 2, n: 29 });
     for (let i = 0; i < 100; i++) block(host);
-    host.handle({ t: 'stopSong' });
+    host.handle({ t: 'stopSong', seq: 3 });
     block(host);
     for (let i = 0; i < 50; i++) expect(block(host).every((v) => v === 0)).toBe(true);
   });

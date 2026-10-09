@@ -6,7 +6,7 @@ import { DATA_URL, fetchArchive } from './data/archive';
 import { runGame } from './game';
 import { BrowserClock } from './platform/clock';
 import { attachDomInput } from './platform/dom-input';
-import { WebAudio, createAudioOrNull } from './platform/web-audio';
+import { WebAudio, createAudioContext, createAudioOrNull } from './platform/web-audio';
 import { CanvasPresenter } from './video/presenter';
 
 const canvas = document.getElementById('screen') as HTMLCanvasElement;
@@ -18,13 +18,7 @@ function waitForStartGesture(): Promise<AudioContext | null> {
     const go = (e: Event) => {
       e.preventDefault();
       // Created synchronously inside the gesture so the browser lets it start.
-      let ac: AudioContext | null = null;
-      try {
-        ac = new AudioContext({ sampleRate: 44100 });
-        void ac.resume();
-      } catch (err) {
-        console.warn('AudioContext unavailable:', err);
-      }
+      const ac = createAudioContext();
       window.removeEventListener('keydown', go);
       window.removeEventListener('pointerdown', go);
       resolve(ac);

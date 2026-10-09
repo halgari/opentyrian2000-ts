@@ -35,6 +35,7 @@ export class AudioEngine {
   private samplesUntilLdsUpdateFrac = 0;
   private music: MusicFile | null = null;
   private sounds: Int16Array[] = [];
+  private readonly factors = new Int32Array(CHANNEL_VOLUME_LEVELS);
   private readonly channels: Channel[] = Array.from({ length: CHANNEL_COUNT }, () => new Channel());
 
   // port of init_audio (loudness.c)
@@ -142,9 +143,9 @@ export class AudioEngine {
       }
     } else if (!this.samplesDisabled) {
       const sampleVolumeFactor = this.volumeFactorTable[this.sampleVolume];
-      const factors: number[] = [];
+      const factors = this.factors;
       for (let i = 0; i < CHANNEL_VOLUME_LEVELS; i++) {
-        factors.push(Math.trunc((sampleVolumeFactor * (i + 1)) / CHANNEL_VOLUME_LEVELS));
+        factors[i] = Math.trunc((sampleVolumeFactor * (i + 1)) / CHANNEL_VOLUME_LEVELS);
       }
       for (let n = 0; n < samplesCount; n++) {
         let sample = (out[n] * musicVolumeFactor) | 0;

@@ -76,8 +76,12 @@ renders 128-frame blocks into an Int16 scratch buffer and converts them to float
   fade song, set volume, multi-sample play, and the music/samples disabled flags.
 - It mirrors `playing`, `songlooped` and `songPlaying`, which the worklet posts whenever
   they change. The game reads these: game over waits for `!playing`, and the jukebox will
-  read them. In the C these reads already race the audio thread, so a mirror that is one
-  message behind matches the C.
+  read them. Transitions the audio thread makes on its own (song ended, looped) may lag by
+  a message, as in the C. Side effects the C applies synchronously on the caller's thread
+  (`play_song` setting `song_playing`; `lds_rewind` setting `playing = true`, `songlooped =
+  false`) are applied locally by `WebAudio` at call time. Each command carries a `seq`; the
+  worklet echoes the last handled `seq` in `status`, and `WebAudio` applies a status only if
+  its `seq` is not older than the last command sent.
 
 The `AudioContext` is created at the start gesture, which already exists in `main.ts`, so
 it is allowed to start. If AudioWorklet is unavailable or init throws, the game falls back
