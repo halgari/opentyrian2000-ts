@@ -23,11 +23,9 @@ import { drawArmor, drawOptions, drawPortConfigButtons, drawTextWindow, drawShie
 import { playerShotCreate, portConfigs } from './shots';
 import { doSpecialShot, sfCodes } from './specials';
 import {
-  FRONT_WEAPON, REAR_WEAPON, SHOT_FRONT, SHOT_LEFT_SIDEKICK, SHOT_MISC, SHOT_NORTSPARKS, SHOT_P1_SUPERBOMB,
+  FRONT_WEAPON, REAR_WEAPON, SA_LASTSHIP, SHOT_FRONT, SHOT_LEFT_SIDEKICK, SHOT_MISC, SHOT_NORTSPARKS, SHOT_P1_SUPERBOMB,
   SHOT_P2_CHARGE, SHOT_REAR, SHOT_RIGHT_SIDEKICK, SHOT_SPECIAL, SHOT_SPECIAL2, type Player,
 } from './world';
-
-const SA_LASTSHIP = 9; // varz.h
 
 // port of calc_purple_balls_needed (player.c:23)
 const PURPLE_BALLS_REQUIRED = [1, 1, 2, 4, 8, 12, 16, 20, 25, 30, 40, 50];
@@ -60,6 +58,17 @@ type MouseKeys = readonly ['mouseX', 'mouseY'] | readonly ['mouseXB', 'mouseYB']
 // port of JE_playerMovement (mainint.c:3497). playerNum is 1-based like the C.
 // TODO(sp4): two-player/linked branches (mainint.c:3868-3925, 4047-4105, 4215-4230, 4355-4388) and the
 // non-demo input paths (keyboard/mouse/joystick, mainint.c:3601-3830) throw when reached.
+/**
+ * The scattered spawn point of the Nort ship's banking sparks (mainint.c:4250):
+ * `tempW + (mt_rand() % 8) - 4, this_player->y + (mt_rand() % 8) - 4` as call arguments. GCC (x86-64) evaluates
+ * them right to left, so the y draw comes first (verified against the oracle's obj/mainint.o at -O0/-O2).
+ */
+export function nortSparkPos(ctx: Ctx, baseX: number, baseY: number): [x: number, y: number] {
+  const y = baseY + (ctx.rng.rand() % 8) - 4;
+  const x = baseX + (ctx.rng.rand() % 8) - 4;
+  return [x, y];
+}
+
 export function playerMovement(
   ctx: Ctx, p: Player, _inputDevice: number, playerNum: number, shipGr: number, shipGrPtr: Sprite2Sheet | null,
   mouse: MouseKeys,
@@ -363,8 +372,7 @@ export function playerMovement(
         if (c.shotRepeat[SHOT_NORTSPARKS]! > 0) {
           --c.shotRepeat[SHOT_NORTSPARKS]!;
         } else {
-          const sx = sc.tempW + (ctx.rng.rand() % 8) - 4;
-          const syy = p.y + (ctx.rng.rand() % 8) - 4;
+          const [sx, syy] = nortSparkPos(ctx, sc.tempW, p.y);
           sc.b = s16(playerShotCreate(ctx, 0, SHOT_NORTSPARKS, sx, syy, v[mx], v[my], 671, 1));
           c.shotRepeat[SHOT_NORTSPARKS] = Math.abs(banking) - 1;
         }

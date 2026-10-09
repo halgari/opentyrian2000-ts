@@ -61,7 +61,21 @@ export const SHOT_SPECIAL = 8;
 export const SHOT_NORTSPARKS = 9;
 export const SHOT_SPECIAL2 = 10;
 /** config.h difficulty enum */
+export const DIFFICULTY_WIMP = 0;
+export const DIFFICULTY_EASY = 1;
 export const DIFFICULTY_NORMAL = 2;
+export const DIFFICULTY_HARD = 3;
+export const DIFFICULTY_IMPOSSIBLE = 4;
+export const DIFFICULTY_INSANITY = 5;
+export const DIFFICULTY_SUICIDE = 6;
+export const DIFFICULTY_MANIACAL = 7;
+export const DIFFICULTY_ZINGLON = 8;
+export const DIFFICULTY_NORTANEOUS = 9;
+export const DIFFICULTY_10 = 10;
+/** episodes.h */
+export const EPISODE_AVAILABLE = 5;
+/** varz.h SA_LASTSHIP */
+export const SA_LASTSHIP = 9;
 /** varz.h SA_* enum */
 export const SA_NONE = 0;
 export const SA_SUPERTYRIAN = 254;
@@ -652,7 +666,9 @@ export interface VarzGroup {
   /** mainint.c file scope */
   button: boolean[];                   // bool[4]
   constantLastX: number;               // JE_shortint
-  mouseX: number; mouseY: number; mouseXB: number; mouseYB: number; // JE_word (mainint.c file scope; stale when endLevel)
+  // JE_word. These are the mouse.c globals (shared with game_menu.c: the shop writes them via JE_mousePosition,
+  // and the stale shop values reach in-level shots fired during endLevel). sp4's shop must write these same fields.
+  mouseX: number; mouseY: number; mouseXB: number; mouseYB: number;
   textErase: number;                   // JE_word
   upgradeCost: number; downgradeCost: number; // JE_word
   performSave: boolean; jumpSection: boolean; useLastBank: boolean;
@@ -677,11 +693,13 @@ export interface ScratchGroup {
 
 /** varz.h megaData1/2/3: map pointer layers (flat slots, -1 = NULL) + the shape tile bytes (spec §2.5). */
 export interface MegaData {
-  /** mainmap as pointer slots in C order; value = index into `tileRefs`/tile store, -1 = NULL */
+  /** mainmap as pointer slots in C order; value = shape index (tile at `shapes` + base), -1 = NULL */
   mainmap: Int32Array;
   /** struct `shapes[]` bytes in C order (tempdat excluded); layout differs per megaData (see MAP*_ constants) */
   shapes: Uint8Array;
   tempdat: number;                     // JE_byte tempdat1/2/3
+  /** Debug: count of mainmap slot reads outside the array (the C reads neighbouring memory there; see backgrounds.ts) */
+  oobReads: number;
 }
 
 export interface MapGroup {
@@ -839,7 +857,7 @@ export interface GameWorld {
 const mapSlots = (n: number): Int32Array => new Int32Array(n).fill(-1);
 
 function makeMegaData(rows: number, cols: number, shapeCount: number, shapeStride: number): MegaData {
-  return { mainmap: mapSlots(rows * cols), shapes: new Uint8Array(shapeCount * shapeStride), tempdat: 0 };
+  return { mainmap: mapSlots(rows * cols), shapes: new Uint8Array(shapeCount * shapeStride), tempdat: 0, oobReads: 0 };
 }
 
 /** Reproduces the C static-initialiser state of every gameplay global (all zero except where noted). */

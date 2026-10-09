@@ -9,11 +9,7 @@ import { idiv, s16, s8, u16, u8 } from '../core/int';
 import type { Ctx } from '../ctx';
 import { createNewEventEnemy, eventJump, newEnemy, searchFor, setEnemySpriteSheets } from './enemies';
 import { drawTextWindow } from './hud';
-import { SA_NONE, SHOT_SPECIAL, SHOT_SPECIAL2 } from './world';
-
-const DIFFICULTY_EASY = 1;
-const DIFFICULTY_NORMAL = 2;
-const DIFFICULTY_10 = 10;
+import { DIFFICULTY_10, DIFFICULTY_EASY, DIFFICULTY_NORMAL, SA_NONE, SHOT_SPECIAL, SHOT_SPECIAL2 } from './world';
 
 // port of JE_eventSystem (tyrian2.c:4308)
 // `e` is the record at eventRec[eventLoc-1]; it is read live because several events mutate it in place.

@@ -1,7 +1,9 @@
-import { expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import type { Ctx } from '../../src/ctx';
+import { createSurface } from '../../src/video/surface';
 import { initPlayerData, loadConfigurationDefaults } from '../../src/game/config';
-import { allPlayersDead, loadMap, runLevel, starShowVGA } from '../../src/game/level';
-import { SHAPE_BYTES } from '../../src/game/world';
+import { allPlayersDead, drawBackground2Layer, loadMap, runLevel, starShowVGA } from '../../src/game/level';
+import { createGameWorld, SHAPE_BYTES } from '../../src/game/world';
 import { describeData } from '../helpers/data';
 import { testCtx as rawTestCtx } from '../helpers/ctx';
 
@@ -194,5 +196,37 @@ describeData('allPlayersDead', () => {
     g.config.twoPlayerMode = true;
     g.players[1].isAlive = true;
     expect(allPlayersDead(g)).toBe(false);
+  });
+});
+
+describe('drawBackground2Layer (tyrian2.c:1313-1340)', () => {
+  function mk(): Ctx {
+    const game = createGameWorld();
+    const gameScreen = createSurface();
+    // every slot of layer 2 points at tile 0, which is solid 0x35
+    game.map.megaData2.mainmap.fill(0);
+    game.map.megaData2.shapes.fill(0x35);
+    game.backgrounds.mapY2Pos = 100;
+    game.backgrounds.mapX2Pos = 24;
+    game.config.wild = true;
+    game.config.background2notTransparent = false;
+    game.config.background2 = true;
+    gameScreen.pixels.fill(0x01);
+    return { game, vga: { screen: createSurface(), screen2: createSurface(), gameScreen } } as unknown as Ctx;
+  }
+  const px = (ctx: Ctx) => ctx.vga.gameScreen.pixels[100 * 320 + 100];
+
+  it('background2over 3 draws the plain layer even when wild', () => {
+    const ctx = mk();
+    drawBackground2Layer(ctx, 3);
+    expect(px(ctx)).toBe(0x35);
+  });
+
+  it('background2over 0..2 blend when wild && !background2notTransparent', () => {
+    for (const over of [0, 1, 2]) {
+      const ctx = mk();
+      drawBackground2Layer(ctx, over);
+      expect(px(ctx), `over ${over}`).toBe(0x33);
+    }
   });
 });

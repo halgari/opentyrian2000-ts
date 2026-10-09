@@ -34,14 +34,9 @@ import {
 import { calcPurpleBallsNeeded, mainGamePlayerFunctions } from './player';
 import { getShipInfo } from './shots';
 import {
-  DIFFICULTY_NORMAL, Explosion, MAP1_COLS, MAP2_COLS, MAP3_COLS, PlayerShot, RepExplosion, SuperPixel,
+  DIFFICULTY_EASY, DIFFICULTY_NORMAL, EPISODE_AVAILABLE, Explosion, MAP1_COLS, MAP2_COLS, MAP3_COLS, PlayerShot, RepExplosion, SuperPixel,
   type GameWorld, type MegaData,
 } from './world';
-
-/** episodes.h */
-const EPISODE_AVAILABLE = 5;
-/** config.h */
-const DIFFICULTY_EASY = 1;
 
 // port of all_players_dead (player.h)
 export function allPlayersDead(g: GameWorld): boolean {
@@ -443,10 +438,14 @@ async function levelSetup(ctx: Ctx): Promise<LevelLocals | null> {
   return loc;
 }
 
-/** `if (wild && !background2notTransparent) draw_background_2_blend(...) else draw_background_2(...)` */
-function drawBackground2Layer(ctx: Ctx): void {
+/**
+ * Background-2 pass of the level loop (tyrian2.c:1313-1340). `background2over` 0, 1 and 2 pick
+ * `if (wild && !background2notTransparent) draw_background_2_blend(...) else draw_background_2(...)`;
+ * 3 always draws the plain layer.
+ */
+export function drawBackground2Layer(ctx: Ctx, over: number): void {
   const c = ctx.game.config;
-  if (c.wild && !c.background2notTransparent) drawBackground2Blend(ctx, ctx.vga.gameScreen);
+  if (over !== 3 && c.wild && !c.background2notTransparent) drawBackground2Blend(ctx, ctx.vga.gameScreen);
   else drawBackground2(ctx, ctx.vga.gameScreen);
 }
 
@@ -548,10 +547,10 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<boolean> {
 
   /*-----------------------BACKGROUND 2------------------------*/
   if (c.background2over === 3) {
-    drawBackground2Layer(ctx);
+    drawBackground2Layer(ctx, 3); // tyrian2.c:1313-1317: always the plain layer, even when `wild`
     c.background2 = true;
   }
-  if (c.background2over === 0) drawBackground2Layer(ctx);
+  if (c.background2over === 0) drawBackground2Layer(ctx, 0);
 
   /*-----------------------Ground Enemy------------------------*/
   let lastEnemyOnScreen = en.enemyOnScreen;
@@ -571,7 +570,7 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<boolean> {
   }
 
   /*-----------------------BACKGROUND 2------------------------*/
-  if (c.background2over === 1) drawBackground2Layer(ctx);
+  if (c.background2over === 1) drawBackground2Layer(ctx, 1);
 
   if (c.superWild) {
     v.neat = u16(v.neat + 1);
@@ -646,7 +645,7 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<boolean> {
   if (!c.portConfigChange) c.portConfigDone = true;
 
   /*-----------------------BACKGROUND 2------------------------*/
-  if (c.background2over === 2) drawBackground2Layer(ctx);
+  if (c.background2over === 2) drawBackground2Layer(ctx, 2);
 
   /*-------------------------Warning---------------------------*/
   drawWarnings(ctx);

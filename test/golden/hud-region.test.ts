@@ -12,7 +12,7 @@ import { ORACLE_DIR, readFramesFile } from '../helpers/frames';
 
 /**
  * HUD region (x >= 264 or y >= 184 of the visible 320x200 screen) of demo-1's first level-loop frames against the
- * oracle raw frames (`pnpm oracle:run demo-1 --raw 213-215`).
+ * oracle raw frames (`pnpm oracle:run demo-1 --raw 213-215 --fixture`).
  *
  * Excluded because they depend on modules that are not in this task:
  *  - armor bar (x 307..315, y >= 137): p0armor is set by getShipInfo (task 7); the oracle has 10 there.

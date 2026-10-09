@@ -12,10 +12,8 @@ import { barBright } from '../video/vga256d';
 import { drawArmor, drawOptions, drawShield, wipeShieldArmorBars } from './hud';
 import { playerShotCreate } from './shots';
 import {
-  FRONT_WEAPON, LEFT_SIDEKICK, MAX_PWEAPON, RIGHT_SIDEKICK, SHOT_SPECIAL, SHOT_SPECIAL2, SPECIAL_NUM, type Player,
+  FRONT_WEAPON, LEFT_SIDEKICK, MAX_PWEAPON, RIGHT_SIDEKICK, SA, SHOT_SPECIAL, SHOT_SPECIAL2, SPECIAL_NUM, type Player,
 } from './world';
-
-const SA = 9; // varz.h
 
 // port of JE_SFCodes (mainint.c:2432); playerNum is 1-based like the C. Parameters are JE_integer.
 export function sfCodes(ctx: Ctx, playerNum: number, px: number, py: number, mouseX: number, mouseY: number): void {

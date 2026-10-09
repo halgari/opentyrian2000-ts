@@ -10,8 +10,7 @@ import { createSurface } from '../../src/video/surface';
 import { runDemoScenario } from '../golden/demo-harness';
 import { ORACLE_DIR, readFramesFile } from '../helpers/frames';
 import { readStates } from '../helpers/state-trace';
-import { describeData, testArchive } from '../helpers/data';
-import { testCtx } from '../helpers/ctx';
+import { testArchive } from '../helpers/data';
 import type { Ctx } from '../../src/ctx';
 
 /** A ctx-shaped object around a synthetic world and a 320x200 surface (no game data needed). */
@@ -230,16 +229,9 @@ dp('background layer 1 pixels vs oracle (demo-1 frame 213)', () => {
   });
 });
 
-describeData('layer data comes from the real level', () => {
-  it('testCtx is available', () => {
-    expect(testCtx()).not.toBeNull();
-  });
-});
-
 // ---------------------------------------------------------------------------------------------
 // Starfield vs the C original. demo-4 is the demo whose stars are not hidden by ground (survey 4.1).
-// The TS has no event system yet (task 10), so starActive/starfield_speed never change; instead the stars are
-// advanced directly: the oracle frame f shows the init positions advanced by (f - 213) updates with
+// The stars are advanced directly here (the full-demo goldens cover the live event-driven path): the oracle frame f shows the init positions advanced by (f - 213) updates with
 // move_speed 1 (frame 213 shows them unmoved: the event that turns the starfield on runs inside that frame).
 // Compared by hue (0x9_): the level-start brightness fade (filterScreen) rewrites the low nibble.
 // Window columns 0..263 of the oracle frame correspond to game_screen columns 24..287 (survey 4.1).
@@ -250,7 +242,8 @@ const d4 = testArchive && raw4 ? describe : describe.skip;
 d4('starfield pixels vs oracle (demo-4)', () => {
   it.each([214, 216, 224])('frame %i: star hue pixels identical (cross pixels included)', async (frame) => {
     const o = raw4!.find((f) => f.index === frame);
-    if (!o) return; // raw window not extracted: pnpm oracle:run demo-4 --raw 213-240
+    expect(o, 'raw fixture lacks this frame: pnpm oracle:run demo-4 --raw 213-240 --fixture').toBeDefined();
+    if (!o) return;
     const { ctx } = await runDemoScenario('demo-4', 214); // stops after the first loop frame; stars still at init positions
     const surf = createSurface();
     for (let k = 0; k < frame - 213; k++) { surf.pixels.fill(0); updateAndDrawStarfield(ctx, surf, 1); }

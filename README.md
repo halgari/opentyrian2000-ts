@@ -28,7 +28,10 @@ state record, `OT_DEMO=n` plays `demo.n` next, `OT_RAW_EVERY`/`OT_RAW_FRAMES` se
 `OT_FAST=1` virtual clock (no real-time waits; frame content is identical). The `demo-1`..`demo-5`
 scenarios write `test-data/oracle/<name>.hash` and `.state`. To dump a raw window for debugging:
 
-    pnpm oracle:run demo-1 --raw 1200-1260    # -> test-data/oracle/demo-1.raw.frames
+    pnpm oracle:run demo-1 --raw 1200-1260    # -> test-data/oracle/demo-1.dbg.frames
+
+Add `--fixture` to write `<name>.raw.frames` instead; the tests read those as fixtures
+(`demo-1 --raw 213-215 --fixture`, `demo-4 --raw 213-240 --fixture`).
 
 ## Build & deploy
 

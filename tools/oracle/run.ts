@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Usage: tsx tools/oracle/run.ts <scenario|all> [--raw a-b[,c,...]] [--raw-every n]
+// Usage: tsx tools/oracle/run.ts <scenario|all> [--raw a-b[,c,...]] [--raw-every n] [--fixture]
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -12,7 +12,8 @@ const DATA = join(ROOT, 'data/tyrian2000');
 const OUT = join(ROOT, 'test-data/oracle');
 const RECORD = 4 + 768 + 64000;
 
-interface RawOpts { frames?: string; every?: string }
+/** `fixture`: write <name>.raw.frames (read by tests); otherwise debug dumps go to <name>.dbg.frames so they never clobber fixtures */
+interface RawOpts { frames?: string; every?: string; fixture?: boolean }
 
 function run(name: ScenarioName, raw: RawOpts = {}): void {
   const sc: Scenario = SCENARIOS[name];
@@ -22,7 +23,7 @@ function run(name: ScenarioName, raw: RawOpts = {}): void {
   mkdirSync(home, { recursive: true });
   // Hash/state scenarios write .hash/.state; the raw dump is then only produced on request (--raw).
   const hashed = sc.hash === true || sc.state === true;
-  const out = join(OUT, rawMode ? `${name}.raw.frames` : `${name}.frames`);
+  const out = join(OUT, rawMode ? `${name}.${raw.fixture ? 'raw' : 'dbg'}.frames` : `${name}.frames`);
   const hashOut = join(OUT, `${name}.hash`);
   const stateOut = join(OUT, `${name}.state`);
   rmSync(out, { force: true });
@@ -95,7 +96,9 @@ const flag = (f: string): string | undefined => {
   argv.splice(i, 2);
   return v;
 };
-const rawOpts: RawOpts = { frames: flag('--raw'), every: flag('--raw-every') };
+const fixtureIdx = argv.indexOf('--fixture');
+if (fixtureIdx >= 0) argv.splice(fixtureIdx, 1);
+const rawOpts: RawOpts = { frames: flag('--raw'), every: flag('--raw-every'), fixture: fixtureIdx >= 0 };
 const arg = argv[0] ?? 'all';
 if (arg === 'all') {
   for (const n of Object.keys(SCENARIOS) as ScenarioName[]) run(n);

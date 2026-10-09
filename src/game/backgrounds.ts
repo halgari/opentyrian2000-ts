@@ -57,8 +57,24 @@ export function advanceBackgrounds(ctx: Ctx): void {
 // `mapYPos` & co. are flat slot indexes into megaDataN.mainmap (C: JE_byte **). A row pointer is
 // `row * cols - 1`; blit_background_row reads 12 consecutive slots from `mapYPos + mapXbpPos - 12 + 14*i`,
 // so a negative mapXbpPos or a row near the edge spills into the neighbouring row's slots, exactly as the
-// C does (a flat array is the same memory). Slots outside the layer's mainmap are other memory in the C
-// (shapes[] bytes read as pointers / the previous global); they are not modelled and read as NULL.
+// C does (a flat array is the same memory).
+//
+// Out-of-range slots (conclusion of the final review, Important 3). In the C, megaData1/2/3 are separate
+// globals (varz.c:211-213) and the slots outside mainmap are other memory, read as `JE_byte *` and then
+// dereferenced if non-NULL. In the oracle binary (nm -n -S) the layout is, ascending:
+//   <small varz globals: skipStarShowVGA ... demo_file, play_demo, displayTime, flashChange, flash>
+//   megaData3 | megaData2 | megaData1 | enemyKilled ...
+// each megaData directly abutting the next (sizes are exact multiples of 8). So:
+//  - Before megaData3 (slots -13..-2, the case reachable at the layer-3 wrap) lie live scalar globals
+//    (levelTimer*, soundQueue, demo_keys*, demo_file, play_demo, ...); several are non-zero while playing
+//    (e.g. demo_file is a FILE*, play_demo is 1 in demos), and reading them as pointers would dereference
+//    garbage and normally crash. Before megaData2 / megaData1 lie the tail of the previous struct's shape
+//    pixel bytes, also non-zero.
+//  - After a mainmap lies the same struct's shapes[0] (also pixel data).
+// That memory is layout/toolchain dependent (not part of the game's contract) and holds values that vary by
+// run state, so it cannot be reproduced deterministically. The demo goldens (all five levels, frame-exact)
+// never trigger it. We therefore read NULL and count the reads in MegaData.oobReads, warning once.
+// sp4 RISK: if a full-game playthrough logs this warning, that level's C output is undefined behaviour.
 // ---------------------------------------------------------------------------------------------
 
 /** Pixel offset of a slot value's tile inside megaData.shapes (megaData1: stride 672; 2/3: 4 + 672, sh at +4). */
@@ -81,10 +97,13 @@ function blitRow(surface: Surface, md: MegaData, layer: number, x: number, y: nu
 
     for (let tile = 0; tile < 12; tile++) {
       const slot = map + tile;
-      // Outside the layer's mainmap the C reads whatever memory neighbours the array. That is not modelled:
-      // it is treated as a NULL tile (nothing drawn). Real levels reach it only with stubbed events (BKwrapN
-      // not set by event 5173-5176 yet), where the C would be reading garbage pointers too.
-      const t = slot < 0 || slot >= mm.length ? -1 : mm[slot]!;
+      // Outside the layer's mainmap the C reads other memory as a `JE_byte *` (see the memory-model note
+      // above); we read NULL (nothing drawn) and count it so sp4 can see whether any level depends on it.
+      let t = -1;
+      if (slot >= 0 && slot < mm.length) t = mm[slot]!;
+      else if (md.oobReads++ === 0) {
+        console.warn(`warning: megaData${layer + 1} mainmap read outside the array (slot ${slot}); the C reads neighbouring memory here, modelled as NULL`);
+      }
       if (t === -1) { pos += 24; continue; } // no tile; skip tile
 
       let d = tileBase(layer, t) + row * 24;

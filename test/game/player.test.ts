@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { DemoReader, parseDemo } from '../../src/data/demo-file';
 import { loadItemDatIntoWorld } from '../../src/game/episodes';
-import { calcPurpleBallsNeeded, handleGotPurpleBall, mainGamePlayerFunctions, powerUpWeapon } from '../../src/game/player';
+import { calcPurpleBallsNeeded, handleGotPurpleBall, mainGamePlayerFunctions, nortSparkPos, powerUpWeapon } from '../../src/game/player';
 import { getShipInfo } from '../../src/game/shots';
 import { newWeaponPort, newWeaponType } from '../../src/game/world';
+import { MersenneTwister } from '../../src/core/mtrand';
+import type { Ctx } from '../../src/ctx';
 import { describeData } from '../helpers/data';
 import { testCtx } from '../helpers/ctx';
 
@@ -111,5 +113,21 @@ describeData('player.c', () => {
     handleGotPurpleBall(ctx, p);
     expect(p.items.weapon[0].power).toBe(2);
     expect(p.purpleBallsNeeded).toBe(2); // lives alias = power 2 -> purple_balls_required[2]
+  });
+});
+
+describe('NortSparks RNG order (mainint.c:4250)', () => {
+  it('draws y first, then x, as gcc evaluates the call arguments', () => {
+    const rng = new MersenneTwister();
+    rng.srand(12345);
+    const ref = new MersenneTwister();
+    ref.srand(12345);
+    const first = ref.rand() % 8;
+    const second = ref.rand() % 8;
+    // pick a seed whose two draws differ so the test can tell the orders apart
+    expect(first).not.toBe(second);
+    const [x, y] = nortSparkPos({ rng } as unknown as Ctx, 100, 200);
+    expect(y).toBe(200 + first - 4);
+    expect(x).toBe(100 + second - 4);
   });
 });

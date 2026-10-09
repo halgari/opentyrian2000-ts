@@ -13,20 +13,11 @@ import { blitSprite2, blitSprite2Filter, type Sprite2Sheet } from '../video/spri
 import type { Surface } from '../video/surface';
 import { playerDamage } from './damage';
 import { setupExplosion } from './explosions';
-import { ENEMY_COUNT, ENEMY_SHOT_MAX, type Enemy, type GameWorld } from './world';
-
-// config.h enum
-const DIFFICULTY_WIMP = 0;
-const DIFFICULTY_EASY = 1;
-const DIFFICULTY_NORMAL = 2;
-const DIFFICULTY_HARD = 3;
-const DIFFICULTY_IMPOSSIBLE = 4;
-const DIFFICULTY_INSANITY = 5;
-const DIFFICULTY_SUICIDE = 6;
-const DIFFICULTY_MANIACAL = 7;
-const DIFFICULTY_ZINGLON = 8;
-const DIFFICULTY_NORTANEOUS = 9;
-const DIFFICULTY_10 = 10;
+import {
+  DIFFICULTY_10, DIFFICULTY_EASY, DIFFICULTY_HARD, DIFFICULTY_IMPOSSIBLE, DIFFICULTY_INSANITY, DIFFICULTY_MANIACAL,
+  DIFFICULTY_NORMAL, DIFFICULTY_NORTANEOUS, DIFFICULTY_SUICIDE, DIFFICULTY_WIMP, DIFFICULTY_ZINGLON,
+  ENEMY_COUNT, ENEMY_SHOT_MAX, type Enemy, type GameWorld,
+} from './world';
 
 // ---------------------------------------------------------------------------------------------
 // Enemy sprite sheet slots (sprite.c enemySpriteSheets[4] / enemySpriteSheetIds[4])

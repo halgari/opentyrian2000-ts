@@ -85,9 +85,9 @@ function readName(r: BinaryReader): string {
 }
 
 // port of JE_loadItemDat (episodes.c)
-// Only the episode <= 3 path (tyrian.hdt) is ported; episode 4 reads item data from the level file.
+// Only the episode <= 3 path (tyrian.hdt) is ported; episodes 4 and 5 read item data from the level file.
 export function loadItemDat(hdt: Uint8Array, episode: number): ItemDat {
-  if (episode > 3) throw new Error('unported: episodes.c:64 (episode 4 item data in level file)'); // TODO(sp4)
+  if (episode > 3) throw new Error('unported: episodes.c:64 (episode 4/5 item data in level file)'); // TODO(sp4)
   const r = new BinaryReader(hdt);
   const episode1DataLoc = r.s32();
   r.seek(episode1DataLoc);

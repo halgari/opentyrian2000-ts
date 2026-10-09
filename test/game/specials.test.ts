@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MersenneTwister } from '../../src/core/mtrand';
 import type { Ctx } from '../../src/ctx';
+import { loadItemDatIntoWorld } from '../../src/game/episodes';
 import { doSpecialShot, sfCodes, specialComplete } from '../../src/game/specials';
 import { createGameWorld, newSpecialType, SHOT_SPECIAL, SHOT_SPECIAL2 } from '../../src/game/world';
 import { createSurface } from '../../src/video/surface';
@@ -208,3 +209,33 @@ describeData('doSpecialShot (varz.c:682) with real assets', () => {
     expect(g.config.shotRepeat[SHOT_SPECIAL2]).toBe(0);
   });
 });
+
+describeData('random flare shot position (varz.c, doSpecialShot)', () => {
+  it('draws y (% 180) before x (% 280), as gcc evaluates the call arguments', () => {
+    const ctx = testCtx()!;
+    const g = ctx.game;
+    loadItemDatIntoWorld(ctx);
+    const ref = new MersenneTwister();
+    ref.srand(99);
+    ctx.rng.srand(99);
+    const gate = ref.rand(); // `mt_rand() % 6 < specialWeaponFreq`
+    const ry = ref.rand() % 180;
+    const rx = ref.rand() % 280;
+    expect(gate).toBeDefined();
+    expect(ry).not.toBe(rx);
+    g.playerShots.flareDuration = 5;
+    g.varz.specialWeaponFilter = -99;
+    g.varz.specialWeaponFreq = 6;
+    g.varz.linkToPlayer = false;
+    g.varz.specialWeaponWpn = 1;
+    g.config.power = 1000;
+    g.config.shotRepeat[SHOT_SPECIAL] = 0;
+    doSpecialShot(ctx, 1, g.players[0]);
+    const w = g.items.weapons[1]!;
+    const idx = g.scratch.b; // slot of the shot just created
+    expect(idx).toBeLessThan(g.playerShots.playerShotData.length);
+    const shot = g.playerShots.playerShotData[idx]!;
+    expect([shot.shotX - w.bx[0]!, shot.shotY - w.by[0]!]).toEqual([rx, ry]);
+  });
+});
+
