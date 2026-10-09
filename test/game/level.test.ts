@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { Ctx } from '../../src/ctx';
 import { createSurface } from '../../src/video/surface';
 import { initPlayerData, loadConfigurationDefaults } from '../../src/game/config';
-import { allPlayersDead, drawBackground2Layer, loadMap, runLevel, starShowVGA } from '../../src/game/level';
+import { jeMain as runLevel } from '../../src/game/flow';
+import { allPlayersDead, drawBackground2Layer, loadMap, starShowVGA } from '../../src/game/level';
 import { createGameWorld, SHAPE_BYTES } from '../../src/game/world';
 import { describeData } from '../helpers/data';
 import { testCtx as rawTestCtx } from '../helpers/ctx';
@@ -172,9 +173,9 @@ describeData('runLevel (skeleton loop)', () => {
     expect(frames).toBeLessThan(1702 + 51 + 45 + 10 + 5);
   });
 
-  it('refuses to run outside demo playback', async () => {
+  it('refuses two-player levels', async () => {
     const ctx = testCtx();
-    ctx.state.playDemo = false;
+    ctx.game.config.twoPlayerMode = true;
     await expect(runLevel(ctx)).rejects.toThrow(/unported/);
   });
 });

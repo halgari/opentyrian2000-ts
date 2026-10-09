@@ -36,6 +36,7 @@ import {
 import { levelInputTail } from './input-level';
 import { calcPurpleBallsNeeded, mainGamePlayerFunctions } from './player';
 import { runEpisodeScript } from './script';
+import { saveGame } from './save';
 import { getShipInfo } from './shots';
 import {
   DIFFICULTY_EASY, DIFFICULTY_NORMAL, EPISODE_AVAILABLE, Explosion, MAP1_COLS, MAP2_COLS, MAP3_COLS, PlayerShot, RepExplosion, SuperPixel,
@@ -246,7 +247,7 @@ function resetLevelArrays(g: GameWorld): void {
 
 // start_level_first .. just before level_loop (tyrian2.c:721-1087). Returns the JE_main locals, or null
 // when JE_loadMap left mainLevel == 0 (JE_main returns immediately).
-async function levelSetup(ctx: Ctx): Promise<LevelLocals | null> {
+export async function levelSetup(ctx: Ctx): Promise<LevelLocals | null> {
   const g = ctx.game;
   const c = g.config;
   const v = g.varz;
@@ -439,7 +440,12 @@ async function levelSetup(ctx: Ctx): Promise<LevelLocals | null> {
 
   ctx.audio.setVolume(c.tyrMusicVolume, c.fxVolume);
 
-  // (backup save and record_demo branches are !play_demo only)
+  /*Save backup game*/
+  if (!ctx.state.playDemo && !v.doNotSaveBackup && !c.timedBattleMode) {
+    sc.temp = c.twoPlayerMode ? 22 : 11;
+    saveGame(ctx, sc.temp, 'LAST LEVEL    ');
+  }
+  // (record_demo branch: the demo recorder is a command-line option and never set)
 
   c.twoPlayerLinked = false;
   c.linkGunDirec = f32(Math.PI);
@@ -533,7 +539,7 @@ function playSoundQueue(ctx: Ctx): void {
  * after the normal tail; the distinction matters only to callers that count presented frames).
  * Slot order follows survey 6.2; every slot is wired (the demo goldens pin the order).
  */
-async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<'next' | 'restart' | 'end'> {
+export async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<'next' | 'restart' | 'end'> {
   const g = ctx.game;
   const c = g.config;
   const v = g.varz;
@@ -816,42 +822,4 @@ async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<'next' | 'restart
 
   // (JE_handleChat: network only)
   return v.reallyEndLevel ? 'end' : 'next';
-}
-
-// port of JE_main (tyrian2.c:621), demo path: start_level_first -> level_loop -> start_level -> return.
-// The non-demo paths (episode scripts, saves, menus, keyboard/mouse control) are sub-project 4.
-export async function runLevel(ctx: Ctx): Promise<void> {
-  const g = ctx.game;
-  if (!ctx.state.playDemo) throw new Error('unported: tyrian2.c JE_main non-demo path'); // TODO(sp4)
-  if (g.config.twoPlayerMode || g.config.galagaMode) throw new Error('unported: two-player/galaga level'); // TODO(sp4)
-
-  const loc = await levelSetup(ctx);
-  if (loc === null) return;
-
-  while ((await levelFrame(ctx, loc)) !== 'end') { /* level_loop */ }
-
-  // start_level:
-  const c = g.config;
-  ctx.input.mouseSetRelative(false);
-  // (`if (galagaMode) twoPlayerMode = false` cannot apply: galaga is rejected above)
-  // JE_clearKeyboard() is a no-op in the C
-  g.sprites.enemySpriteSheets.fill(null); // free_sprite2s(&enemySpriteSheets[0..3])
-
-  /* Normal speed */
-  if (c.fastPlay !== 0) {
-    c.smoothScroll = true;
-    ctx.delay.setDelaySpeed(0x4300);
-  }
-
-  // play_demo: demo_file closed
-  g.demo.demoFile = null;
-  ctx.state.moveTyrianLogoUp = true;
-  ctx.audio.stopSong();
-  await fadeBlack(ctx, 10);
-
-  await waitNoInput(ctx, true, true, true);
-
-  c.difficultyLevel = c.oldDifficultyLevel; /* Return difficulty to normal */
-
-  // if (play_demo) return;
 }
