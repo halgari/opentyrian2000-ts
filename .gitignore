@@ -1,0 +1,9 @@
+node_modules/
+dist/
+data/
+public/data/
+reference/
+test-data/
+test-output/
+*.log
+.superpowers/
