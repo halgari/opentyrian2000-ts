@@ -801,6 +801,8 @@ export interface ItemsGroup {
   episodeAvail: boolean[];             // JE_boolean[EPISODE_MAX]
   episodeFile: string; cubeFile: string; // char[13]
   episode1DataLoc: number;             // JE_longint
+  lvlNum: number;                      // JE_word (lvllib.c)
+  lvlPos: Int32Array;                  // JE_LvlPosType (lvllib.c), lvlNum+1 used
   bonusLevel: boolean;
   jumpBackToEpisode1: boolean;
   itemAvail: Uint8Array[];             // JE_byte[9][10] (tyrian2.c)
@@ -1012,6 +1014,7 @@ export function createGameWorld(): GameWorld {
       initialEpisodeNum: 0, episodeNum: 0,
       episodeAvail: new Array<boolean>(EPISODE_MAX).fill(false),
       episodeFile: '', cubeFile: '', episode1DataLoc: 0,
+      lvlNum: 0, lvlPos: new Int32Array(43),
       bonusLevel: false, jumpBackToEpisode1: false,
       itemAvail: arr(9, () => new Uint8Array(10)),
       itemAvailMax: new Uint8Array(9),

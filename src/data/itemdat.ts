@@ -84,13 +84,12 @@ function readName(r: BinaryReader): string {
   return s;
 }
 
-// port of JE_loadItemDat (episodes.c)
-// Only the episode <= 3 path (tyrian.hdt) is ported; episodes 4 and 5 read item data from the level file.
-export function loadItemDat(hdt: Uint8Array, episode: number): ItemDat {
-  if (episode > 3) throw new Error('unported: episodes.c:64 (episode 4/5 item data in level file)'); // TODO(sp4)
-  const r = new BinaryReader(hdt);
-  const episode1DataLoc = r.s32();
-  r.seek(episode1DataLoc);
+// port of JE_loadItemDat (episodes.c): parses the item block at `offset` of `bytes`.
+// Episodes 1-3: bytes = tyrian.hdt, offset = its leading s32 (episode1DataLoc).
+// Episodes 4-5: bytes = tyrianN.lvl, offset = lvlPos[lvlNum-1].
+export function loadItemDat(bytes: Uint8Array, offset: number): ItemDat {
+  const r = new BinaryReader(bytes);
+  r.seek(offset);
   u16s(r, 7); // itemNum[7]
 
   const weapons = Array.from({ length: WEAP_NUM + 1 }, emptyWeapon);

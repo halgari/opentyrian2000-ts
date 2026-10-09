@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { expect, it } from 'vitest';
 import { ENEMY_NUM, WEAP_NUM, loadItemDat } from '../../src/data/itemdat';
+import { BinaryReader } from '../../src/core/binary-reader';
+import { analyzeLevel } from '../../src/data/level';
 import { describeData, testArchive } from '../helpers/data';
 
 // Spot-check values computed by hand from the raw tyrian.hdt bytes (independent python struct walk
 // using the record sizes of episodes.c: weapon 80, port 82, special/power 37, ship 41, option 86, shield 37, enemy 77).
 describeData('real tyrian.hdt item data', () => {
-  const d = loadItemDat(testArchive!.get('tyrian.hdt'), 1);
+  const d = loadItemDat(testArchive!.get('tyrian.hdt'), new BinaryReader(testArchive!.get('tyrian.hdt')).s32());
   it('array sizes', () => {
     expect(d.weapons.length).toBe(WEAP_NUM + 1);
     expect(d.weaponPorts.length).toBe(61);
@@ -41,7 +43,23 @@ describeData('real tyrian.hdt item data', () => {
     expect(d.weapons[900]!.drain).toBe(0);
     expect(d.enemyDat[900]!.armor).toBe(0);
   });
-  it('rejects episode 4 (unported)', () => {
-    expect(() => loadItemDat(testArchive!.get('tyrian.hdt'), 4)).toThrow(/unported/);
+  it('episodes 1-3 hdt offset equals lvlPos-independent episode1DataLoc', () => {
+    const hdt = testArchive!.get('tyrian.hdt');
+    const loc = new BinaryReader(hdt).s32();
+    expect(loadItemDat(hdt, loc).ships[1]!.cost).toBe(6000);
   });
+  for (const ep of [4, 5]) {
+    it(`episode ${ep} item data from tyrian${ep}.lvl`, () => {
+      const lvl = testArchive!.get(`tyrian${ep}.lvl`);
+      const { lvlNum, lvlPos } = analyzeLevel(lvl);
+      const e = loadItemDat(lvl, lvlPos[lvlNum - 1]!);
+      expect([e.weapons.length, e.weaponPorts.length, e.specials.length, e.powerSys.length, e.ships.length, e.options.length, e.shields.length, e.enemyDat.length])
+        .toEqual([WEAP_NUM + 1, 61, 55, 7, 19, 38, 12, ENEMY_NUM + 1]);
+      expect(e.ships[1]!.name.length).toBeGreaterThan(0);
+      expect(e.ships[1]!.cost).toBeGreaterThan(0);
+      expect(e.weapons[1]!.drain).toBeGreaterThanOrEqual(0);
+      expect(e.weapons.some((w) => w.drain > 0)).toBe(true);
+      expect(e.enemyDat.some((x) => x.armor > 0)).toBe(true);
+    });
+  }
 });

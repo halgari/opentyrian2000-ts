@@ -7,23 +7,31 @@
 import { BinaryReader } from '../core/binary-reader';
 import type { Ctx } from '../ctx';
 import { analyzeLevel } from '../data/level';
-import { loadItemDat } from '../data/itemdat';
+import { loadItemDat, type ItemDat } from '../data/itemdat';
+import { EPISODE_MAX } from './world';
 
-// port of JE_loadItemDat (episodes.c): reads tyrian.hdt into the item globals.
-// Only the episode <= 3 path exists (episode 4 reads the level file; see loadItemDat).
+// port of JE_loadItemDat (episodes.c): reads the item tables for g.items.episodeNum.
+// Episodes <= 3 read tyrian.hdt at episode1DataLoc; episode 4/5 read tyrianN.lvl at lvlPos[lvlNum-1].
 export function loadItemDatIntoWorld(ctx: Ctx): void {
   const g = ctx.game;
-  const hdt = ctx.assets.archive.get('tyrian.hdt');
-  const d = loadItemDat(hdt, g.items.episodeNum);
-  g.items.episode1DataLoc = new BinaryReader(hdt).s32();
-  g.items.weapons = d.weapons;
-  g.items.weaponPort = d.weaponPorts;
-  g.items.special = d.specials;
-  g.items.powerSys = d.powerSys;
-  g.items.ships = d.ships;
-  g.items.options = d.options;
-  g.items.shields = d.shields;
-  g.items.enemyDat = d.enemyDat;
+  const it = g.items;
+  let d: ItemDat;
+  if (it.episodeNum <= 3) {
+    const hdt = ctx.assets.archive.get('tyrian.hdt');
+    it.episode1DataLoc = new BinaryReader(hdt).s32();
+    d = loadItemDat(hdt, it.episode1DataLoc);
+  } else {
+    // episode 4 stores item data in the level file
+    d = loadItemDat(ctx.assets.archive.get(levelFileName(it.episodeNum)), it.lvlPos[it.lvlNum - 1]!);
+  }
+  it.weapons = d.weapons;
+  it.weaponPort = d.weaponPorts;
+  it.special = d.specials;
+  it.powerSys = d.powerSys;
+  it.ships = d.ships;
+  it.options = d.options;
+  it.shields = d.shields;
+  it.enemyDat = d.enemyDat;
 }
 
 /** The current episode's level file name (C: levelFile, set by JE_initEpisode). */
@@ -38,7 +46,33 @@ export function initEpisode(ctx: Ctx, newEpisode: number): void {
   items.episodeFile = `levels${items.episodeNum}.dat`;
   items.cubeFile = `cubetxt${items.episodeNum}.dat`;
 
-  // JE_analyzeLevel: lvlNum/lvlPos are derived from the file on demand (levelLoader), not cached globally.
-  analyzeLevel(ctx.assets.archive.get(levelFileName(items.episodeNum)));
+  // JE_analyzeLevel: lvlNum/lvlPos live on the world (episode 4/5 item data needs them)
+  const { lvlNum, lvlPos } = analyzeLevel(ctx.assets.archive.get(levelFileName(items.episodeNum)));
+  items.lvlNum = lvlNum;
+  items.lvlPos = lvlPos;
   loadItemDatIntoWorld(ctx);
+}
+
+// port of JE_scanForEpisodes (episodes.c)
+export function scanForEpisodes(ctx: Ctx): void {
+  const avail = ctx.game.items.episodeAvail;
+  for (let i = 0; i < EPISODE_MAX; i++) avail[i] = ctx.assets.archive.has(levelFileName(i + 1));
+}
+
+// port of JE_findNextEpisode (episodes.c)
+export function findNextEpisode(ctx: Ctx): number {
+  const g = ctx.game;
+  const items = g.items;
+  let newEpisode = items.episodeNum;
+  items.jumpBackToEpisode1 = false;
+  for (;;) {
+    newEpisode++;
+    if (newEpisode > EPISODE_MAX) {
+      newEpisode = 1;
+      items.jumpBackToEpisode1 = true;
+      g.config.gameHasRepeated = true;
+    }
+    if (items.episodeAvail[newEpisode - 1] || newEpisode === items.episodeNum) break;
+  }
+  return newEpisode;
 }
