@@ -132,16 +132,14 @@ describeData('runLevel (skeleton loop)', () => {
     expect(g.varz.levelEnd).toBe(255);
     expect(g.events.levelEnemyFrequency).toBe(96);
     expect(g.events.curLoc).toBe(4); // advanceBackgrounds ran in each of the 4 iterations
-    expect(g.events.eventLoc).toBeGreaterThan(1); // stub eventSystem advanced past the time-0 events
+    expect(g.events.eventLoc).toBeGreaterThan(1); // eventSystem advanced past the time-0 events
     expect(g.backgrounds.backPos).toBe(4);
     expect(g.backgrounds.mapY).toBe(292);
     expect(g.map.BKwrap1).toBe(14);
     expect(g.config.shieldT).toBe(g.items.shields[6]!.tpwr * 20);
     expect(g.players[0].shield).toBe(g.items.shields[6]!.mpwr);
     expect(g.players[0].shieldMax).toBe(g.players[0].shield * 2);
-    // TODO(task 10): with the stub eventSystem nothing turns enemiesActive off (event 13), so randomEnemySpawn may already
-    // have created enemies by the 4th loop frame; once events exist this must hold again: every enemyAvail === 1.
-    expect(g.enemies.enemyAvail.length).toBe(100);
+    expect(Array.from(g.enemies.enemyAvail)).toEqual(new Array(100).fill(1));
     expect(g.enemyShots.enemyShotAvail.every((a) => a)).toBe(true);
     expect(Array.from(g.config.shotRepeat)).toEqual(new Array(11).fill(1));
     expect(g.sprites.explosionSpriteSheet).not.toBeNull();
@@ -169,17 +167,11 @@ describeData('runLevel (skeleton loop)', () => {
     ctx.frameSink = () => { frames++; };
     await runLevel(ctx);
     expect(ctx.game.demo.stoppedDemo).toBe(false);
-    // TODO(task 10): the stub eventSystem never disables random enemies and the stub ship never moves, so the immobile
-    // ship can be shot down before the replay ends (reallyEndLevel by death). With events + the real ship, restore:
-    //   endLevel === true; 1702 < frames < 1702 + 51 + 45 + 10 + 5
+    expect(ctx.game.varz.endLevel).toBe(true);
     expect(ctx.game.varz.reallyEndLevel).toBe(true);
-    if (ctx.game.varz.endLevel) {
-      // 51 start + ~1702 demo frames + <= 41 end warp + 10 exit fade
-      expect(frames).toBeGreaterThan(1702);
-      expect(frames).toBeLessThan(1702 + 51 + 45 + 10 + 5);
-    } else {
-      expect(ctx.game.players[0].isAlive).toBe(false);
-    }
+    // 51 start + ~1702 demo frames + <= 41 end warp + 10 exit fade
+    expect(frames).toBeGreaterThan(1702);
+    expect(frames).toBeLessThan(1702 + 51 + 45 + 10 + 5);
   });
 
   it('refuses to run outside demo playback', async () => {
