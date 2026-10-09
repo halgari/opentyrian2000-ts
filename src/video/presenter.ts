@@ -22,7 +22,6 @@ export class CanvasPresenter implements Presenter {
   private readonly image: ImageData;
   private readonly out: Uint32Array;
   private readonly lut = new Uint32Array(256);
-  private lutVersion = -1;
 
   constructor(canvas: HTMLCanvasElement) {
     canvas.width = 320;
@@ -33,10 +32,7 @@ export class CanvasPresenter implements Presenter {
   }
 
   present(screen: Surface, palette: PaletteState): void {
-    if (palette.version !== this.lutVersion) {
-      buildLut(palette.current, this.lut);
-      this.lutVersion = palette.version;
-    }
+    buildLut(palette.current, this.lut); // 256 entries per frame is cheap; avoids stale-LUT bugs from missed version bumps
     const px = screen.pixels, out = this.out, lut = this.lut;
     for (let i = 0; i < 64000; i++) out[i] = lut[px[i]!]!;
     this.ctx2d.putImageData(this.image, 0, 0);
