@@ -7,7 +7,9 @@
 import { cosf, f32, roundf32, sinf } from '../core/cmath';
 import { idiv, s16, s8, u16, u32, u8 } from '../core/int';
 import type { Ctx } from '../ctx';
-import { S_CLINK, S_EXPLOSION_11, S_EXPLOSION_9, S_WEAPON_26 } from '../audio/ids';
+import {
+  S_CLINK, S_ENEMY_HIT, S_EXPLOSION_11, S_EXPLOSION_4, S_EXPLOSION_9, S_ITEM, S_POWERUP, S_WEAPON_26, V_DATA_CUBE,
+} from '../audio/ids';
 import { SMALL_FONT_SHAPES } from '../video/sprite';
 import { dString } from '../video/fonthand';
 import {
@@ -16,11 +18,12 @@ import {
 import { drawSegmentedGauge, fillRectangleXY } from '../video/vga256d';
 import { replayDemoKeys } from './demo';
 import { setupExplosion, setupExplosionLarge } from './explosions';
-import { drawArmor, drawPortConfigButtons, drawShield, HUD_SIDEKICK_Y, wipeShieldArmorBars } from './hud';
+import { playerDamage } from './damage';
+import { drawArmor, drawOptions, drawPortConfigButtons, drawTextWindow, drawShield, HUD_SIDEKICK_Y, wipeShieldArmorBars } from './hud';
 import { playerShotCreate, portConfigs } from './shots';
 import { doSpecialShot, sfCodes } from './specials';
 import {
-  FRONT_WEAPON, REAR_WEAPON, SHOT_LEFT_SIDEKICK, SHOT_NORTSPARKS, SHOT_P1_SUPERBOMB,
+  FRONT_WEAPON, REAR_WEAPON, SHOT_FRONT, SHOT_LEFT_SIDEKICK, SHOT_MISC, SHOT_NORTSPARKS, SHOT_P1_SUPERBOMB,
   SHOT_P2_CHARGE, SHOT_REAR, SHOT_RIGHT_SIDEKICK, SHOT_SPECIAL, SHOT_SPECIAL2, type Player,
 } from './world';
 
@@ -722,5 +725,267 @@ export function mainGamePlayerFunctions(ctx: Ctx): void {
   }
 }
 
-// STUB(task 12): JE_playerCollide (mainint.c:4732); playerNum is 1-based like the C
-export function playerCollide(_ctx: Ctx, _player: Player, _playerNum: number): void {}
+// port of JE_playerCollide (mainint.c:4732); playerNum is 1-based like the C.
+// Reads/writes the C globals temp/temp2/temp3/b through g.scratch (they stay clobbered for later readers, survey 5.1).
+// TODO(sp4): galagaMode dragonwing spawn (mainint.c:4749-4758) and the network name variants throw/are omitted.
+export function playerCollide(ctx: Ctx, thisPlayer: Player, playerNum: number): void {
+  const g = ctx.game;
+  const c = g.config;
+  const v = g.varz;
+  const sc = g.scratch;
+  const en = g.enemies;
+  const enemyAvail = en.enemyAvail;
+  const miscText = ctx.assets.helpText.miscText;
+  const p0 = g.players[0];
+  const p1 = g.players[1];
+  const textWindow = (s: string): void => drawTextWindow(ctx, s);
+
+  for (let z = 0; z < 100; z++) {
+    if (enemyAvail[z] === 1) continue;
+    const e = en.enemy[z]!;
+    const enemyScreenX = e.ex + e.mapoffset;
+
+    if (!(Math.abs(thisPlayer.x - enemyScreenX) < 12 && Math.abs(thisPlayer.y - e.ey) < 14)) continue;
+    /*Collide*/
+    const evalue = e.evalue;
+    if (evalue > 29999) {
+      if (evalue === 30000) { // spawn dragonwing in galaga mode, otherwise just a purple ball
+        thisPlayer.cash += 100;
+
+        if (!c.galagaMode) {
+          handleGotPurpleBall(ctx, thisPlayer);
+        } else {
+          throw new Error('unported: mainint.c:4749 galaga dragonwing spawn');
+        }
+        enemyAvail[z] = 1;
+        v.soundQueue[7] = S_POWERUP;
+      } else if (c.superArcadeMode !== 0 && evalue > 30000) {
+        c.shotMultiPos[SHOT_FRONT] = 0;
+        c.shotRepeat[SHOT_FRONT] = 10;
+
+        sc.tempW = u16(g.tables.SAWeapon[c.superArcadeMode - 1]![evalue - 30000 - 1]!);
+
+        // if picked up already-owned weapon, power weapon up
+        if (sc.tempW === p0.items.weapon[FRONT_WEAPON].id) {
+          thisPlayer.cash += 1000;
+          powerUpWeapon(ctx, thisPlayer, FRONT_WEAPON);
+        } else { // else weapon also gives purple ball
+          handleGotPurpleBall(ctx, thisPlayer);
+        }
+
+        p0.items.weapon[FRONT_WEAPON].id = u8(sc.tempW);
+        thisPlayer.cash += 200;
+        v.soundQueue[7] = S_POWERUP;
+        enemyAvail[z] = 1;
+      } else if (evalue > 32100) {
+        if (playerNum === 1) {
+          thisPlayer.cash += 250;
+          p0.items.special = u8(evalue - 32100);
+          c.shotMultiPos[SHOT_SPECIAL] = 0;
+          c.shotRepeat[SHOT_SPECIAL] = 10;
+          c.shotMultiPos[SHOT_SPECIAL2] = 0;
+          c.shotRepeat[SHOT_SPECIAL2] = 0;
+
+          const name = g.items.special[evalue - 32100]!.name;
+          if (c.twoPlayerMode) textWindow(`${miscText[43 - 1]} ${name}`);
+          else textWindow(`${miscText[64 - 1]} ${name}`);
+          v.soundQueue[7] = S_POWERUP;
+          enemyAvail[z] = 1;
+        }
+      } else if (evalue > 32000) {
+        if (playerNum === 2) {
+          enemyAvail[z] = 1;
+          textWindow(`${miscText[44 - 1]} ${g.items.options[evalue - 32000]!.name}`);
+
+          // if picked up a different sidekick than player already has, then reset sidekicks to least powerful, else power them up
+          if (evalue - 32000 !== p1.items.sidekickSeries) {
+            p1.items.sidekickSeries = u8(evalue - 32000);
+            p1.items.sidekickLevel = 101;
+          } else if (p1.items.sidekickLevel < 103) {
+            ++p1.items.sidekickLevel;
+          }
+
+          const t = p1.items.sidekickLevel - 100 - 1;
+          for (let i = 0; i < 2; ++i)
+            p1.items.sidekick[i] = g.tables.optionSelect[p1.items.sidekickSeries]![t]![i]!;
+
+          c.shotMultiPos[SHOT_LEFT_SIDEKICK] = 0;
+          c.shotMultiPos[SHOT_RIGHT_SIDEKICK] = 0;
+          drawOptions(ctx);
+          v.soundQueue[7] = S_POWERUP;
+        } else if (c.onePlayerAction) {
+          enemyAvail[z] = 1;
+          textWindow(`${miscText[64 - 1]} ${g.items.options[evalue - 32000]!.name}`);
+
+          for (let i = 0; i < 2; ++i) p0.items.sidekick[i] = u8(evalue - 32000);
+          c.shotMultiPos[SHOT_LEFT_SIDEKICK] = 0;
+          c.shotMultiPos[SHOT_RIGHT_SIDEKICK] = 0;
+
+          drawOptions(ctx);
+          v.soundQueue[7] = S_POWERUP;
+        }
+        if (enemyAvail[z] === 1) thisPlayer.cash += 250;
+      } else if (evalue > 31000) {
+        thisPlayer.cash += 250;
+        if (playerNum === 2) {
+          textWindow(`${miscText[44 - 1]} ${g.items.weaponPort[evalue - 31000]!.name}`);
+          p1.items.weapon[REAR_WEAPON].id = u8(evalue - 31000);
+          c.shotMultiPos[SHOT_REAR] = 0;
+          enemyAvail[z] = 1;
+          v.soundQueue[7] = S_POWERUP;
+        } else if (c.onePlayerAction) {
+          textWindow(`${miscText[64 - 1]} ${g.items.weaponPort[evalue - 31000]!.name}`);
+          p0.items.weapon[REAR_WEAPON].id = u8(evalue - 31000);
+          c.shotMultiPos[SHOT_REAR] = 0;
+          enemyAvail[z] = 1;
+          v.soundQueue[7] = S_POWERUP;
+
+          if (p0.items.weapon[REAR_WEAPON].power === 0) p0.items.weapon[REAR_WEAPON].power = 1;
+        }
+      } else if (evalue > 30000) {
+        if (playerNum === 1 && c.twoPlayerMode) {
+          textWindow(`${miscText[43 - 1]} ${g.items.weaponPort[evalue - 30000]!.name}`);
+          p0.items.weapon[FRONT_WEAPON].id = u8(evalue - 30000);
+          c.shotMultiPos[SHOT_FRONT] = 0;
+          enemyAvail[z] = 1;
+          v.soundQueue[7] = S_POWERUP;
+        } else if (c.onePlayerAction) {
+          textWindow(`${miscText[64 - 1]} ${g.items.weaponPort[evalue - 30000]!.name}`);
+          p0.items.weapon[FRONT_WEAPON].id = u8(evalue - 30000);
+          c.shotMultiPos[SHOT_FRONT] = 0;
+          enemyAvail[z] = 1;
+          v.soundQueue[7] = S_POWERUP;
+        }
+
+        if (enemyAvail[z] === 1) {
+          p0.items.special = g.tables.specialArcadeWeapon[evalue - 30000 - 1]!;
+          if (p0.items.special > 0) {
+            c.shotMultiPos[SHOT_SPECIAL] = 0;
+            c.shotRepeat[SHOT_SPECIAL] = 0;
+            c.shotMultiPos[SHOT_SPECIAL2] = 0;
+            c.shotRepeat[SHOT_SPECIAL2] = 0;
+          }
+          thisPlayer.cash += 250;
+        }
+      }
+    } else if (evalue > 20000) {
+      if (c.twoPlayerLinked) {
+        // share the armor evenly between linked players
+        for (const pl of g.players) {
+          pl.armor = u32(pl.armor + idiv(evalue - 20000, 2));
+          if (pl.armor > 28) pl.armor = 28;
+        }
+      } else {
+        thisPlayer.armor = u32(thisPlayer.armor + (evalue - 20000));
+        if (thisPlayer.armor > 28) thisPlayer.armor = 28;
+      }
+      enemyAvail[z] = 1;
+      drawArmor(ctx, ctx.vga.screen); // VGAScreen = VGAScreenSeg
+      v.soundQueue[7] = S_POWERUP;
+    } else if (evalue > 10000 && enemyAvail[z] === 2) {
+      if (!g.items.bonusLevel) {
+        ctx.audio.playSong(30); /*Zanac*/
+        g.items.bonusLevel = true;
+        c.nextLevel = u8(evalue - 10000);
+        enemyAvail[z] = 1;
+        v.displayTime = 150;
+      }
+    } else if (e.scoreitem) {
+      enemyAvail[z] = 1;
+      v.soundQueue[7] = S_ITEM;
+      if (evalue === 1) {
+        c.cubeMax = u16(c.cubeMax + 1);
+        v.soundQueue[3] = V_DATA_CUBE;
+      } else if (evalue === -1) { // got front weapon powerup
+        textWindow(c.twoPlayerMode ? `${miscText[43 - 1]} ${miscText[45 - 1]}` : miscText[45 - 1]!);
+
+        powerUpWeapon(ctx, p0, FRONT_WEAPON);
+        v.soundQueue[7] = S_POWERUP;
+      } else if (evalue === -2) { // got rear weapon powerup
+        textWindow(c.twoPlayerMode ? `${miscText[44 - 1]} ${miscText[46 - 1]}` : miscText[46 - 1]!);
+
+        powerUpWeapon(ctx, c.twoPlayerMode ? p1 : p0, REAR_WEAPON);
+        v.soundQueue[7] = S_POWERUP;
+      } else if (evalue === -3) {
+        // picked up orbiting asteroid killer
+        c.shotMultiPos[SHOT_MISC] = 0;
+        sc.b = s16(playerShotCreate(ctx, 0, SHOT_MISC, thisPlayer.x, thisPlayer.y, v.mouseX, v.mouseY, 104, playerNum));
+        g.playerShots.shotAvail[z] = 0;
+      } else if (evalue === -4) {
+        const pl = g.players[playerNum - 1]!;
+        if (pl.superbombs < 10) ++pl.superbombs;
+      } else if (evalue === -5) {
+        p0.items.weapon[FRONT_WEAPON].id = 25; // HOT DOG!
+        p0.items.weapon[REAR_WEAPON].id = 26;
+        p1.items.weapon[REAR_WEAPON].id = 26;
+
+        p0.lastItems.copyFrom(p0.items);
+
+        for (const pl of g.players) pl.weaponMode = 1;
+
+        c.shotMultiPos.fill(0);
+      } else if (c.twoPlayerLinked) {
+        // players get equal share of pick-up cash when linked
+        for (const pl of g.players) pl.cash += idiv(evalue, 2);
+      } else {
+        thisPlayer.cash += evalue;
+      }
+      setupExplosion(ctx, enemyScreenX, e.ey, 0, g.items.enemyDat[e.enemytype]!.explosiontype, true, false);
+    } else if (thisPlayer.invulnerableTicks === 0 && enemyAvail[z] === 0 &&
+               (g.items.enemyDat[e.enemytype]!.explosiontype & 1) === 0) { // explosiontype & 1 == 0: not ground enemy
+      let armorleft = e.armorleft;
+      if (armorleft > v.damageRate) armorleft = v.damageRate;
+
+      playerDamage(ctx, armorleft, thisPlayer);
+
+      // player ship gets push-back from collision
+      if (e.armorleft > 0) {
+        thisPlayer.xVelocity += idiv(e.exc * e.armorleft, 2);
+        thisPlayer.yVelocity += idiv(e.eyc * e.armorleft, 2);
+      }
+
+      let armorleft2 = e.armorleft;
+      if (armorleft2 === 255) armorleft2 = 30000;
+
+      sc.temp = e.linknum;
+      if (sc.temp === 0) sc.temp = 255;
+
+      sc.b = z;
+
+      if (armorleft2 > armorleft) {
+        // damage enemy
+        if (e.armorleft !== 255) e.armorleft = u8(e.armorleft - armorleft);
+        v.soundQueue[5] = S_ENEMY_HIT;
+      } else {
+        // kill enemy
+        for (sc.temp2 = 0; sc.temp2 < 100; sc.temp2 = u8(sc.temp2 + 1)) {
+          const k = sc.temp2;
+          if (enemyAvail[k] !== 1) {
+            const ek = en.enemy[k]!;
+            sc.temp3 = ek.linknum;
+            const temp = sc.temp, temp3 = sc.temp3;
+            if (k === sc.b ||
+                (temp !== 255 &&
+                 (temp === temp3 || temp - 100 === temp3 ||
+                  (temp3 > 40 && idiv(temp3, 20) === idiv(temp, 20) && temp3 <= temp)))) {
+              const kx = ek.ex + ek.mapoffset;
+
+              ek.linknum = 0;
+
+              enemyAvail[k] = 1;
+
+              if (g.items.enemyDat[ek.enemytype]!.esize === 1) {
+                setupExplosionLarge(ctx, ek.enemyground, ek.explonum, kx, ek.ey);
+                v.soundQueue[6] = S_EXPLOSION_9;
+              } else {
+                setupExplosion(ctx, kx, ek.ey, 0, 1, false, false);
+                v.soundQueue[5] = S_EXPLOSION_4;
+              }
+            }
+          }
+        }
+        enemyAvail[z] = 1;
+      }
+    }
+  }
+}
