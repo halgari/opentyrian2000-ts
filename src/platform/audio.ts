@@ -1,11 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Sound ids from sndmast.h / musmast.h; real output arrives in Sub-project 2.
-export const S_SELECT = 8;
-export const S_SPRING = 16;
-export const S_CLINK = 23;
-export const S_CURSOR = 28;
-export const V_DANGER = 37;
-export const SONG_TITLE = 29;
+export { S_SELECT, S_SPRING, S_CLINK, S_CURSOR, V_DANGER, SONG_TITLE } from '../audio/ids';
 
 export interface Audio {
   playSample(n: number): void;
