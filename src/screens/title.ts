@@ -19,6 +19,7 @@ import { MOUSE_POINTER_NORMAL, mouseReplace, mouseStartFilter } from '../video/m
 import { PLANET_SHAPES, blitSprite } from '../video/sprite';
 import { copySurface } from '../video/surface';
 import { showVGA } from '../video/video';
+import { saveConfiguration } from '../game/save';
 import { helpSystem } from './help-system';
 import { highScoreScreen } from './highscores';
 import { loadScreen } from './loadscreen';
@@ -224,6 +225,7 @@ export async function titleScreen(ctx: Ctx): Promise<boolean> {
         case MENU_ITEM_SETUP:
           await fadeBlack(ctx, 15);
           await setupMenu(ctx);
+          saveConfiguration(ctx); // web: the C persists the volumes only in JE_tyrianHalt, which a page never reaches reliably
           restart = true;
           break;
         case MENU_ITEM_DEMO:
