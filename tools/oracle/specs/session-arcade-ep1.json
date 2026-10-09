@@ -1,0 +1,37 @@
+{
+  "name": "session-arcade-ep1",
+  "tail": 10,
+  "steps": [
+    {
+      "key": 40,
+      "label": "title: New Game",
+      "at": 141
+    },
+    {
+      "key": 81,
+      "label": "gameplay select: 1 Player Arcade"
+    },
+    {
+      "key": 40,
+      "label": "gameplay select: accept"
+    },
+    {
+      "key": 40,
+      "label": "episode select: Episode 1"
+    },
+    {
+      "key": 40,
+      "label": "difficulty select: Normal"
+    },
+    {
+      "key": 40,
+      "label": "arcade shop: Play"
+    },
+    {
+      "key": 44,
+      "label": "arcade level: hold fire",
+      "hold": 1500,
+      "wait": 150
+    }
+  ]
+}

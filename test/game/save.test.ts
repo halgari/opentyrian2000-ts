@@ -15,6 +15,15 @@ import { loadAssets } from '../../src/assets';
 import { VirtualClock } from '../../src/platform/clock';
 import { NullPresenter } from '../../src/video/presenter';
 import { describeData, testArchive } from '../helpers/data';
+import { resolve } from 'node:path';
+import { SCENARIOS, type Scenario } from '../../tools/oracle/scenarios';
+import { TS_SAVE_REL, buildTsSave } from '../../tools/oracle/ts-save';
+import { ORACLE_DIR } from '../helpers/frames';
+import { diffSaves, expectSessionMatches, hasOracle, runSession } from '../helpers/session';
+import { readStoredSav } from '../../src/game/save';
+
+vi.mock('../../src/screens/shop', async (orig) => (await import('../helpers/shop-registry')).shopMock(orig as never));
+const TS_SAVE = resolve(ORACLE_DIR, '../..', TS_SAVE_REL);
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -331,9 +340,23 @@ describeData('oracle tyrian.sav bytes', () => {
     expect(base64ToBytes(ctx.storage.get(STORAGE_KEYS.sav)!)).toEqual(ref);
   });
 
-  // TODO(Task 12): replace the hand-built state above with the TS harness replaying
-  // `newgame-ep1-first-shop-to-level`, and add the HOME-seeded oracle run of the load screen
-  // (TS-written tyrian.sav loaded by C, compared by frame hash).
-  it.todo('BYTES vs oracle for a full newgame scenario replay (Task 12)');
-  it.todo('C loads a TS-written save: HOME-seeded load-screen hash (Task 12)');
+  // The whole TS session (title -> new game -> shop -> level 1, the backup save at level start) writes the C's tyrian.sav and tyrian.cfg.
+  it.skipIf(!hasOracle('newgame-ep1-first-shop-to-level'))('BYTES vs oracle for a full newgame scenario replay (sav records decrypted, cfg raw)', async () => {
+    const r = await runSession(SCENARIOS['newgame-ep1-first-shop-to-level']!);
+    expect(diffSaves(r.ctx, resolve(ORACLE_DIR, 'newgame-ep1-first-shop-to-level.save'))).toEqual([]);
+    const sav = readStoredSav(r.ctx)!;
+    expect(sav).toHaveLength(SAV_FILE_SIZE);
+    expect(parseSav(mkCtx().game.config, sav)).toEqual([]);
+  });
+
+  // The C reads a save the TS port wrote: tools/oracle/ts-save.ts makes test-data/ts-save/tyrian.sav (three slots), the oracle scenario
+  // `ts-save-load` copies it into HOME, opens Load Game, loads slot 2 and enters the shop. The TS port, seeded with the same bytes in its storage,
+  // must show the same frames (names, level names and episodes on the load screen are in the hash) and reach the same STATE2.
+  it.skipIf(!hasOracle('ts-save-load') || !existsSync(TS_SAVE))('C loads a TS-written save: load-screen and loaded-game frames match', async () => {
+    const bytes = new Uint8Array(readFileSync(TS_SAVE));
+    expect(bytes).toEqual(buildTsSave()); // the seed file is what the TS port writes today
+    await expectSessionMatches('ts-save-load', SCENARIOS['ts-save-load' as keyof typeof SCENARIOS] as Scenario, {
+      setup: (ctx) => { ctx.storage.set(STORAGE_KEYS.sav, bytesToBase64(bytes)); },
+    });
+  }, 120000);
 });

@@ -4,7 +4,7 @@
 // driven here with the scenario's events, injected with the oracle's timing (after frame f is presented), from a ship
 // placed at the level-start position. Full-pipeline goldens (HASH + STATE2 through the shop) are Task 12's.
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { INPUT_SCENARIOS } from '../../tools/oracle/scenarios-input';
 import { OUT } from '../../tools/oracle/lib';
 import { loadItemDatIntoWorld } from '../../src/game/episodes';
@@ -14,6 +14,9 @@ import { defaultKeySettings, defaultMouseSettings } from '../../src/game/world';
 import { readStates2 } from '../helpers/state-trace';
 import { describeData } from '../helpers/data';
 import { testCtx } from '../helpers/ctx';
+import { expectSessionMatches, hasOracle } from '../helpers/session';
+
+vi.mock('../../src/screens/shop', async (orig) => (await import('../helpers/shop-registry')).shopMock(orig as never));
 
 const MOVEMENT = ['input-move-fire', 'input-sidekicks', 'input-mouse', 'input-mouse-keys'];
 const LIMIT = 500; // frames after which level events (not input) may push the ship
@@ -73,13 +76,24 @@ describeData('oracle golden: in-level movement input (p0x/p0y per frame)', () =>
     });
   }
 
-  it.todo('HASH + STATE2 through the shop, held keys: input-move-fire, input-sidekicks, input-mouse, input-mouse-keys (Task 12)');
-  it.todo('input-pause: P pauses ("Paused" frame), Ctrl alone does not resume, Space does; click resumes the second pause (Task 12)');
-  it.todo('input-help-f1: F1 help overlay and frame restart (Task 12)');
-  it.todo('input-esc-menu: in-game menu from Esc (Task 12)');
-  it.todo('input-gamma: F11 cycles gamma, palette in the frame hash (Task 12)');
-  it.todo('input-cheats: F2+F3+F4 zeroes armour (Task 12)');
-  it.todo('input-gameover-key / input-gameover-fire: game-over wait; held fire ends the level at once (Task 12)');
+  // Full pipeline, boot -> title -> new game -> shop -> level 1 with the scenario's held keys / mouse events: every presented frame
+  // must hash like the C's and every STATE2 record (p0x/p0y, armor, shield, cash, levelEnd, ...) must agree.
+  const FULL: Record<string, string> = {
+    'input-move-fire': 'HASH + STATE2 through the shop: diagonals, cancelling keys, fire taps and a long hold',
+    'input-sidekicks': 'sidekick keys and change-fire with fire held',
+    'input-mouse': 'relative mouse motion (clamp, truncation) and the three buttons',
+    'input-mouse-keys': 'mouse motion and keys stack',
+    'input-pause': 'P pauses (the "Paused" frame), Ctrl alone does not resume, Space does; a click resumes the second pause',
+    'input-help-f1': 'F1 help overlay and the frame restart',
+    'input-esc-menu': 'in-game menu from Esc',
+    'input-gamma': 'F11 cycles gamma, palette in the frame hash',
+    'input-cheats': 'F2+F3+F4 zeroes armour; F2+F3+F6 toggles back',
+    'input-gameover-key': 'game-over wait: a key press ends the level',
+    'input-gameover-fire': 'game-over wait: held fire ends the level at once (stale button[0])',
+  };
+  for (const [name, what] of Object.entries(FULL)) {
+    it.skipIf(!hasOracle(name))(`${name}: ${what}`, () => expectSessionMatches(name, INPUT_SCENARIOS[name]!), 120000);
+  }
 });
 
 describe('input scenarios', () => {

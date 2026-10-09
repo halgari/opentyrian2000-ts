@@ -1,0 +1,34 @@
+{
+  "name": "ts-save-load",
+  "tail": 40,
+  "steps": [
+    {
+      "key": 81,
+      "at": 141,
+      "label": "title: Load Game"
+    },
+    {
+      "key": 40,
+      "at": 142,
+      "label": "title: select"
+    },
+    {
+      "key": 81,
+      "label": "load screen: Down (slot 2)"
+    },
+    {
+      "key": 40,
+      "label": "load screen: load slot 2"
+    },
+    {
+      "key": 40,
+      "label": "after load: Return"
+    }
+  ],
+  "extra": {
+    "hash": true,
+    "state2": true,
+    "saveDump": true,
+    "homeSeed": "test-data/ts-save/tyrian.sav"
+  }
+}

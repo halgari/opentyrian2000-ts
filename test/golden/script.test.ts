@@ -1,9 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { SCENARIOS } from '../../tools/oracle/scenarios';
 import { resolve } from 'node:path';
 import { testCtx } from '../helpers/ctx';
 import { loadMapThroughShop, newGameWorld } from '../helpers/shop';
 import { ORACLE_DIR } from '../helpers/frames';
 import { readStates2 } from '../helpers/state-trace';
+import { expectSessionMatches, hasOracle } from '../helpers/session';
+
+vi.mock('../../src/screens/shop', async (orig) => (await import('../helpers/shop-registry')).shopMock(orig as never));
 
 const SCENARIO = 'newgame-ep1-first-shop-to-level';
 const states = readStates2(resolve(ORACLE_DIR, `${SCENARIO}.state2`));
@@ -49,6 +53,16 @@ d(`golden: episode 1 script, ${SCENARIO}`, () => {
     expect(ctx.game.varz.lvlFileNum).toBe(15);
   });
 
-  it.todo(`HASH of the briefing screens (${SCENARIO} + planet/cube screens): needs the Task 9/12 menus and shop`);
-  it.todo('STATE2 at every level start of a multi-level traversal: needs Task 12 (JE_main state machine)');
+  // session-skip-levels walks levels 1 -> 2 -> 3 of episode 1 through the real script (shops, planet maps, level loads, the backup
+  // save at each level start): HASH of every presented frame (planet map and briefing screens included), STATE2 of every frame
+  // (mainLevel / nextLevel / saveLevel / lvlFileNum at each level start) and the saved files
+  it.skipIf(!hasOracle('session-skip-levels'))('HASH + STATE2 + saves of a multi-level traversal match the C', async () => {
+    await expectSessionMatches('session-skip-levels', SCENARIOS['session-skip-levels']!, {
+      inspect: (r) => {
+        const starts = r.states.filter((s, i) => s.levelEnd === 255 && r.states[i - 1]!.levelEnd !== 255);
+        expect(starts.length).toBeGreaterThanOrEqual(2);
+        expect(new Set(starts.map((s) => s.mainLevel)).size).toBe(starts.length); // each level start is a different section
+      },
+    });
+  }, 300000);
 });

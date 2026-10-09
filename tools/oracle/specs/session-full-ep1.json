@@ -1,0 +1,83 @@
+{
+  "name": "session-full-ep1",
+  "tail": 20,
+  "steps": [
+    {
+      "key": 40,
+      "label": "title: New Game",
+      "at": 141
+    },
+    {
+      "key": 40,
+      "label": "gameplay select: Full Game"
+    },
+    {
+      "key": 40,
+      "label": "episode select: Episode 1"
+    },
+    {
+      "key": 40,
+      "label": "difficulty select: accept"
+    },
+    {
+      "key": 81,
+      "label": "shop: Down"
+    },
+    {
+      "key": 81,
+      "label": "shop: Down"
+    },
+    {
+      "key": 81,
+      "label": "shop: Down"
+    },
+    {
+      "key": 81,
+      "label": "shop: Down"
+    },
+    {
+      "key": 40,
+      "label": "shop: Next Level"
+    },
+    {
+      "key": 40,
+      "label": "planet map: first level"
+    },
+    {
+      "key": 40,
+      "label": "level 1 (idle ship dies): game-over key",
+      "at": 1500,
+      "hold": 1
+    },
+    {
+      "key": 81,
+      "label": "restored shop: Down"
+    },
+    {
+      "key": 81,
+      "label": "restored shop: Down"
+    },
+    {
+      "key": 81,
+      "label": "restored shop: Down"
+    },
+    {
+      "key": 81,
+      "label": "restored shop: Down"
+    },
+    {
+      "key": 40,
+      "label": "restored shop: Next Level"
+    },
+    {
+      "key": 40,
+      "label": "restored planet map: first level"
+    },
+    {
+      "key": 44,
+      "label": "level 1 again: hold fire",
+      "hold": 60,
+      "wait": 130
+    }
+  ]
+}

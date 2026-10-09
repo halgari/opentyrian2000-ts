@@ -1,9 +1,18 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { INPUT_SCENARIOS } from '../../tools/oracle/scenarios-input';
 import type { Ctx } from '../../src/ctx';
 import { doInGameSetup, inGameHelp, inGameSetup } from '../../src/screens/ingame-setup';
 import { Scancode } from '../../src/platform/scancodes';
 import { describeData } from '../helpers/data';
 import { testCtx } from '../helpers/ctx';
+import { expectSessionMatches, hasOracle } from '../helpers/session';
+
+const menu = vi.hoisted(() => ({ entered: 0 }));
+vi.mock('../../src/screens/shop', async (orig) => (await import('../helpers/shop-registry')).shopMock(orig as never));
+vi.mock('../../src/screens/ingame-setup', async (orig) => {
+  const m = await orig<typeof import('../../src/screens/ingame-setup')>();
+  return { ...m, doInGameSetup: (...a: Parameters<typeof m.doInGameSetup>) => { menu.entered++; return m.doInGameSetup(...a); } };
+});
 
 const key = (ctx: Ctx, scancode: number): void => ctx.input.push({ type: 'keydown', scancode, mod: 0 });
 
@@ -155,7 +164,13 @@ describeData('inGameSetup (mainint.c:1518)', () => {
     expect(ctx.game.varz.reallyEndLevel).toBe(false);
   });
 
-  it.todo('HASH golden: Esc menu frame from an oracle scenario (Task 1 discover.ts) — add once the scenario exists');
+  // input-esc-menu (Task 6 scenario): Esc in level 1 opens the menu, Right raises the music volume, Esc leaves; every frame (the
+  // frozen level, the menu and the return) must hash like the C's
+  it.skipIf(!hasOracle('input-esc-menu'))('HASH golden: the Esc menu frames of input-esc-menu match the C (frame by frame, with STATE2)', async () => {
+    menu.entered = 0;
+    await expectSessionMatches('input-esc-menu', INPUT_SCENARIOS['input-esc-menu']!);
+    expect(menu.entered).toBeGreaterThan(0);
+  }, 120000);
 });
 
 describeData('inGameHelp (mainint.c:1920)', () => {

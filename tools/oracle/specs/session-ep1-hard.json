@@ -1,0 +1,57 @@
+{
+  "name": "session-ep1-hard",
+  "tail": 10,
+  "steps": [
+    {
+      "key": 40,
+      "label": "title: New Game",
+      "at": 141
+    },
+    {
+      "key": 40,
+      "label": "gameplay select: Full Game"
+    },
+    {
+      "key": 40,
+      "label": "episode select: Episode 1"
+    },
+    {
+      "key": 81,
+      "label": "difficulty: move"
+    },
+    {
+      "key": 40,
+      "label": "difficulty select: accept"
+    },
+    {
+      "key": 81,
+      "label": "shop: Down"
+    },
+    {
+      "key": 81,
+      "label": "shop: Down"
+    },
+    {
+      "key": 81,
+      "label": "shop: Down"
+    },
+    {
+      "key": 81,
+      "label": "shop: Down"
+    },
+    {
+      "key": 40,
+      "label": "shop: Next Level"
+    },
+    {
+      "key": 40,
+      "label": "planet map: first level"
+    },
+    {
+      "key": 44,
+      "label": "level: hold fire",
+      "hold": 200,
+      "wait": 120
+    }
+  ]
+}

@@ -45,6 +45,11 @@ anyway. Concrete scenarios should use the exact last frame of the blocking scree
 Scenarios may also set `mouse`, `state2`, `saveDump` (-> `<name>.save/`), `homeSeed` (a `tyrian.sav` copied into the
 oracle HOME) and `dataDir` (alternate `-t` data dir).
 
+Session goldens (`test/golden/session.test.ts`) run `runGame` from boot with the scenario's input and compare every
+frame and STATE2 record; the `session-*` and `ts-save-load` scenarios come from `tools/oracle/specs/*.json`
+(discover, then `pnpm oracle:run <name>`). `ts-save-load` seeds the oracle HOME with a save written by the TS port
+(`pnpm tsx tools/oracle/ts-save.ts` makes `test-data/ts-save/tyrian.sav` first).
+
 Add `--fixture` to write `<name>.raw.frames` instead; the tests read those as fixtures
 (`demo-1 --raw 213-215 --fixture`, `demo-4 --raw 213-240 --fixture`).
 
@@ -65,6 +70,11 @@ Sub-project 3 (Gameplay) — the five built-in demos play from the title menu (D
 and sound effects, frame-exact against the C oracle (pixels and a per-frame state trace),
 including aborting a demo with a key and playing the next one. Starting a new game, the
 shop/menus and the other level types arrive in later sub-projects.
+Sub-project 4 (Game flow) — a full session: New Game / Load / High Scores / Instructions / Setup from the title,
+the gameplay, episode and difficulty selects (1 Player Full Game and 1 Player Arcade), episode scripts, the shop,
+levels with keyboard and mouse control, the end-of-level tally, game over with restore from the level-start backup
+save, and saves in browser storage. Two-player, timed battle, galaga, SuperTyrian and the episode-end credits are
+not ported yet.
 
 ## Architecture (short)
 

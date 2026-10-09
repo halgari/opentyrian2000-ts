@@ -1,9 +1,18 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { SCENARIOS } from '../../tools/oracle/scenarios';
 import { drawCube, endLevelAni } from '../../src/screens/endlevel';
 import { textState } from '../../src/video/glow-text';
 import { createSurface } from '../../src/video/surface';
 import { describeData } from '../helpers/data';
 import { testCtx } from '../helpers/ctx';
+import { expectSessionMatches, hasOracle } from '../helpers/session';
+
+const ended = vi.hoisted(() => ({ calls: 0 }));
+vi.mock('../../src/screens/shop', async (orig) => (await import('../helpers/shop-registry')).shopMock(orig as never));
+vi.mock('../../src/screens/endlevel', async (orig) => {
+  const m = await orig<typeof import('../../src/screens/endlevel')>();
+  return { ...m, endLevelAni: (...a: Parameters<typeof m.endLevelAni>) => { ended.calls++; return m.endLevelAni(...a); } };
+});
 
 describeData('endLevelAni (mainint.c:2689)', () => {
   function setup() {
@@ -92,7 +101,13 @@ describeData('endLevelAni (mainint.c:2689)', () => {
     await expect(endLevelAni(ctx)).rejects.toThrow(/unported/);
   });
 
-  it.todo('HASH golden: end-level screen from an oracle scenario (Task 1 discover.ts) — add once the scenario exists');
+  // session-skip-levels: the F2+F6+F7 cheat ends levels 1 and 2 (the tally with "Completed", cash, kill ratio, cubes, any key), each followed
+  // by the next shop; every presented frame hashes like the C's
+  it.skipIf(!hasOracle('session-skip-levels'))('HASH golden: the end-level tally frames of session-skip-levels match the C', async () => {
+    ended.calls = 0;
+    await expectSessionMatches('session-skip-levels', SCENARIOS['session-skip-levels']!);
+    expect(ended.calls).toBe(2);
+  }, 300000);
 });
 
 describe('drawCube (mainint.c:2905)', () => {
