@@ -35,6 +35,7 @@ export function loadMainShapeTables(bytes: Uint8Array): MainShapes {
     r.seek(pos[i]!);
     tables.push(loadSpriteTable(r));
   }
+  if (r.pos !== pos[7]) throw new Error('tyrian.shp: sprite tables are not contiguous');
   tables.push(emptySpriteTable()); // EXTRA_SHAPES, loaded later by the ending
   // the C reads each sheet from the stream position left by the previous load; tables are contiguous
   const sheet = (i: number): Sprite2Sheet => ({ data: bytes.slice(pos[i]!, pos[i + 1]!) });
