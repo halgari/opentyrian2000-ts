@@ -11,7 +11,10 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "data": "tsx tools/pack-data.ts",
-    "ref": "bash tools/fetch-reference.sh"
+    "ref": "bash tools/fetch-reference.sh",
+    "oracle:build": "bash tools/oracle/build.sh",
+    "oracle:run": "tsx tools/oracle/run.ts",
+    "oracle": "pnpm oracle:build && tsx tools/oracle/run.ts all"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",
