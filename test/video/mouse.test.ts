@@ -21,10 +21,14 @@ describeData('mouse cursor', () => {
     const ctx = testCtx()!;
     ctx.shopSpriteSheet = loadCompShapes(ctx.assets.archive, '1');
     ctx.input.mouseInactive = false;
-    for (const [x, y] of [[-50, -50], [-5, 250], [400, 10], [319, 199], [0, 0]]) {
-      ctx.input.mouseX = x!; ctx.input.mouseY = y!;
-      expect(() => { mouseStartFilter(ctx, 0xf0); mouseReplace(ctx); }).not.toThrow();
-      expect(ctx.vga.screen.pixels.length).toBe(64000);
+    for (let cursor = 0; cursor <= 4; cursor++) {
+      ctx.mouse.cursor = cursor;
+      for (const [x, y] of [[-50, -50], [-5, 250], [400, 10], [319, 199], [0, 0], [310, 190], [5, 195]]) {
+        ctx.vga.screen.pixels.fill(0x5a);
+        ctx.input.mouseX = x!; ctx.input.mouseY = y!;
+        expect(() => { mouseStartFilter(ctx, 0xf0); mouseReplace(ctx); }).not.toThrow();
+        expect(ctx.vga.screen.pixels.every((v) => v === 0x5a), `cursor ${cursor} at ${x},${y}`).toBe(true);
+      }
     }
   });
 });
