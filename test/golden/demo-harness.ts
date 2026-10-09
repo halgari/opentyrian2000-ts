@@ -39,7 +39,7 @@ export function stateRecord(ctx: Ctx, frame: number): StateRecord {
  */
 export async function runDemoScenario(
   name: ScenarioName, maxFrames: number = SCENARIOS[name].maxFrames,
-): Promise<{ hashes: Uint32Array; states: StateRecord[] }> {
+): Promise<{ hashes: Uint32Array; states: StateRecord[]; ctx: Ctx }> {
   const scenario = SCENARIOS[name];
   const ctx = createCtx({
     assets: loadAssets(testArchive!), clock: new VirtualClock(), presenter: new NullPresenter(),
@@ -64,5 +64,5 @@ export async function runDemoScenario(
   } catch (e) {
     if (!(e instanceof StopScenario)) throw e;
   }
-  return { hashes: Uint32Array.from(hashes), states };
+  return { hashes: Uint32Array.from(hashes), states, ctx };
 }

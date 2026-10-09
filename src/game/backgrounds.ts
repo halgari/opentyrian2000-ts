@@ -4,9 +4,10 @@
 // Copyright (C) 2026 OpenTyrian2000-TS contributors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Ported from: src/backgrnd.c (plus the background-1 scroll block of src/tyrian2.c:1286-1303)
+import { s8, u16, u8 } from '../core/int';
 import type { Ctx } from '../ctx';
 import type { Surface } from '../video/surface';
-import { MAP1_COLS, STARFIELD_HUE } from './world';
+import { MAP1_COLS, MAP2_COLS, MAP3_COLS, STARFIELD_HUE, type MegaData } from './world';
 
 // port of initialize_starfield (backgrnd.c:481)
 //
@@ -51,29 +52,216 @@ export function advanceBackgrounds(ctx: Ctx): void {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Stub slots of the level loop (task 5 owns the bodies)
+// Map memory model (spec 2.5)
+//
+// `mapYPos` & co. are flat slot indexes into megaDataN.mainmap (C: JE_byte **). A row pointer is
+// `row * cols - 1`; blit_background_row reads 12 consecutive slots from `mapYPos + mapXbpPos - 12 + 14*i`,
+// so a negative mapXbpPos or a row near the edge spills into the neighbouring row's slots, exactly as the
+// C does (a flat array is the same memory). Slots outside the layer's mainmap are other memory in the C
+// (shapes[] bytes read as pointers / the previous global); they are not modelled and read as NULL.
 // ---------------------------------------------------------------------------------------------
 
-// STUB(task 5): JE_checkSmoothies (backgrnd.c:315); sets anySmoothies
-export function checkSmoothies(_ctx: Ctx): void {}
+/** Pixel offset of a slot value's tile inside megaData.shapes (megaData1: stride 672; 2/3: 4 + 672, sh at +4). */
+function tileBase(layer: number, slot: number): number {
+  return layer === 0 ? slot * 672 : slot * 676 + 4;
+}
 
-// STUB(task 5): draw_background_1 (backgrnd.c:155); clears the surface to 0, then draws the 8 tile rows
-export function drawBackground1(_ctx: Ctx, _surface: Surface): void {}
+// port of blit_background_row / blit_background_row_blend (backgrnd.c:62, 113). `map` is a flat slot index.
+function blitRow(surface: Surface, md: MegaData, layer: number, x: number, y: number, map: number, blend: boolean): void {
+  const px = surface.pixels;
+  const pitch = surface.pitch;
+  const ll = 0;
+  const ul = surface.h * pitch;
+  let pos = y * pitch + x;
+  const mm = md.mainmap;
 
-// STUB(task 5): draw_background_2 (backgrnd.c)
-export function drawBackground2(_ctx: Ctx, _surface: Surface): void {}
+  for (let row = 0; row < 28; row++) {
+    // not drawing on screen yet; skip y
+    if (pos + 12 * 24 < ll) { pos += pitch; continue; }
 
-// STUB(task 5): draw_background_2_blend (backgrnd.c); only reached when `wild`, which level.ts rejects
-export function drawBackground2Blend(_ctx: Ctx, _surface: Surface): void {}
+    for (let tile = 0; tile < 12; tile++) {
+      const slot = map + tile;
+      // Outside the layer's mainmap the C reads whatever memory neighbours the array. That is not modelled:
+      // it is treated as a NULL tile (nothing drawn). Real levels reach it only with stubbed events (BKwrapN
+      // not set by event 5173-5176 yet), where the C would be reading garbage pointers too.
+      const t = slot < 0 || slot >= mm.length ? -1 : mm[slot]!;
+      if (t === -1) { pos += 24; continue; } // no tile; skip tile
 
-// STUB(task 5): JE_darkenBackground (backgrnd.c:45); superWild only
-export function darkenBackground(_ctx: Ctx, _neat: number): void {}
+      let d = tileBase(layer, t) + row * 24;
+      for (let xx = 24; xx; xx--) {
+        if (pos >= ul) return;
+        const v = md.shapes[d]!;
+        if (pos >= ll && v !== 0) {
+          px[pos] = blend ? (v & 0xf0) | (((px[pos]! & 0x0f) + (v & 0x0f)) >> 1) : v;
+        }
+        pos++;
+        d++;
+      }
+    }
+    pos += pitch - 12 * 24;
+  }
+}
 
-// STUB(task 5): draw_background_3 (backgrnd.c)
-export function drawBackground3(_ctx: Ctx, _surface: Surface): void {}
+// port of JE_darkenBackground (backgrnd.c:45); superWild only
+export function darkenBackground(ctx: Ctx, neat: number): void {
+  const surf = ctx.vga.gameScreen; // VGAScreen == game_screen inside the level loop (tyrian2.c:1258)
+  const px = surf.pixels;
+  let s = 24;
+  for (let y = 184; y; y--) {
+    for (let x = 264; x; x--) {
+      const cur = px[s]!;
+      const below = y === 184 ? 0 : px[s - (surf.pitch - 1)]!;
+      px[s] = u8((((((cur & 0x0f) << 4) - (cur & 0x0f) + ((((x - neat - y) >> 2) + px[s - 2]! + below) & 0x0f)) >> 4) | (cur & 0xf0)));
+      s++;
+    }
+    s += surf.pitch - 264;
+  }
+}
 
-// STUB(task 5): update_and_draw_starfield (backgrnd.c:495)
-export function updateAndDrawStarfield(_ctx: Ctx, _surface: Surface, _moveSpeed: number): void {}
+// port of draw_background_1 (backgrnd.c:155)
+export function drawBackground1(ctx: Ctx, surface: Surface): void {
+  const b = ctx.game.backgrounds;
+  surface.pixels.fill(0);
+  let map = b.mapYPos + b.mapXbpPos - 12;
+  for (let i = -1; i < 7; i++) {
+    blitRow(surface, ctx.game.map.megaData1, 0, b.mapXPos, i * 28 + b.backPos, map, false);
+    map += 14;
+  }
+}
 
-// STUB(task 5): JE_filterScreen (backgrnd.c:257)
-export function filterScreen(_ctx: Ctx, _light: number, _brightness: number): void {}
+function advanceBackground2(b: { map2YDelay: number; map2YDelayMax: number; backPos2: number; backMove2: number; mapY2: number; mapY2Pos: number }): void {
+  /*Set Movement of background*/
+  if (u8(--b.map2YDelay) === 0) {
+    b.map2YDelay = b.map2YDelayMax;
+    b.backPos2 = u16(b.backPos2 + b.backMove2);
+    if (b.backPos2 > 27) {
+      b.backPos2 = u16(b.backPos2 - 28);
+      b.mapY2 = u16(b.mapY2 - 1);
+      b.mapY2Pos -= MAP2_COLS; /*Map Width*/
+    }
+  }
+}
+
+// port of draw_background_2 (backgrnd.c:171)
+export function drawBackground2(ctx: Ctx, surface: Surface): void {
+  const g = ctx.game;
+  const b = g.backgrounds;
+  if (b.map2YDelayMax > 1 && b.backMove2 < 2) b.backMove2 = (b.map2YDelay === 1) ? 1 : 0;
+
+  if (g.config.background2) {
+    // water effect combines background 1 and 2 by synchronizing the x coordinate
+    const water = g.config.smoothies[1]!;
+    const x = water ? b.mapXPos : b.mapX2Pos;
+    let map = b.mapY2Pos + (water ? b.mapXbpPos : b.mapX2bpPos) - 12;
+    for (let i = -1; i < 7; i++) {
+      blitRow(surface, g.map.megaData2, 1, x, i * 28 + b.backPos2, map, false);
+      map += 14;
+    }
+  }
+  advanceBackground2(b);
+}
+
+// port of draw_background_2_blend (backgrnd.c:205)
+export function drawBackground2Blend(ctx: Ctx, surface: Surface): void {
+  const g = ctx.game;
+  const b = g.backgrounds;
+  if (b.map2YDelayMax > 1 && b.backMove2 < 2) b.backMove2 = (b.map2YDelay === 1) ? 1 : 0;
+
+  let map = b.mapY2Pos + b.mapX2bpPos - 12;
+  for (let i = -1; i < 7; i++) {
+    blitRow(surface, g.map.megaData2, 1, b.mapX2Pos, i * 28 + b.backPos2, map, true);
+    map += 14;
+  }
+  advanceBackground2(b);
+}
+
+// port of draw_background_3 (backgrnd.c:236)
+export function drawBackground3(ctx: Ctx, surface: Surface): void {
+  const g = ctx.game;
+  const b = g.backgrounds;
+  /* Movement of background */
+  b.backPos3 = u16(b.backPos3 + b.backMove3);
+  if (b.backPos3 > 27) {
+    b.backPos3 = u16(b.backPos3 - 28);
+    b.mapY3 = u16(b.mapY3 - 1);
+    b.mapY3Pos -= MAP3_COLS; /*Map Width*/
+  }
+
+  let map = b.mapY3Pos + b.mapX3bpPos - 12;
+  for (let i = -1; i < 7; i++) {
+    blitRow(surface, g.map.megaData3, 2, b.mapX3Pos, i * 28 + b.backPos3, map, false);
+    map += 15;
+  }
+}
+
+// port of JE_filterScreen (backgrnd.c:257). `col` and `int_` are JE_shortint (-99 = off).
+export function filterScreen(ctx: Ctx, col: number, int_: number): void {
+  const c = ctx.game.config;
+  const surf = ctx.vga.gameScreen; // VGAScreen == game_screen inside the level loop (tyrian2.c:1258)
+  if (c.filterFade) {
+    c.levelBrightness = s8(c.levelBrightness + c.levelBrightnessChg);
+    if ((c.filterFadeStart && c.levelBrightness < -14) || c.levelBrightness > 14) {
+      c.levelBrightnessChg = s8(-c.levelBrightnessChg);
+      c.filterFadeStart = false;
+      c.levelFilter = c.levelFilterNew;
+    }
+    if (!c.filterFadeStart && c.levelBrightness === 0) {
+      c.filterFade = false;
+      c.levelBrightness = -99;
+    }
+  }
+
+  const px = surf.pixels;
+  if (col !== -99 && c.filtrationAvail) {
+    const hi = s8(col << 4) & 0xff; // col <<= 4 on a shortint, then `col | ...` stored into a byte
+    let s = 24;
+    for (let y = 184; y; y--) {
+      for (let x = 264; x; x--) { px[s] = hi | (px[s]! & 0x0f); s++; }
+      s += surf.pitch - 264;
+    }
+  }
+
+  if (int_ !== -99 && c.explosionTransparent) {
+    let s = 24;
+    for (let y = 184; y; y--) {
+      for (let x = 264; x; x--) {
+        const temp = (px[s]! & 0x0f) + int_ >>> 0; // unsigned int arithmetic
+        px[s] = (px[s]! & 0xf0) | (temp >= 0x1f ? 0 : (temp >= 0x0f ? 0x0f : temp));
+        s++;
+      }
+      s += surf.pitch - 264;
+    }
+  }
+}
+
+// port of JE_checkSmoothies (backgrnd.c:315)
+export function checkSmoothies(ctx: Ctx): void {
+  const c = ctx.game.config;
+  const sm = c.smoothies;
+  const pt = c.processorType;
+  ctx.game.backgrounds.anySmoothies =
+    (pt > 2 && (sm[0]! || sm[1]!)) || (pt > 1 && (sm[2]! || sm[3]! || sm[4]!));
+}
+
+// port of update_and_draw_starfield (backgrnd.c:495)
+export function updateAndDrawStarfield(ctx: Ctx, surface: Surface, moveSpeed: number): void {
+  const p = surface.pixels;
+  const pitch = surface.pitch;
+  const stars = ctx.game.backgrounds.starfieldStars;
+  for (let i = 100 - 1; i >= 0; --i) {
+    const pos = u16(stars.position[i]! + (stars.speed[i]! + moveSpeed) * pitch); // JE_word wraps
+    stars.position[i] = pos;
+    const color = stars.color[i]!;
+    if (pos < 177 * pitch) {
+      if (p[pos] === 0) p[pos] = color;
+      // If star is bright enough, draw surrounding pixels
+      if (color - 4 >= STARFIELD_HUE) {
+        const c4 = color - 4;
+        if (p[pos + 1] === 0) p[pos + 1] = c4;
+        if (pos > 0 && p[pos - 1] === 0) p[pos - 1] = c4;
+        if (p[pos + pitch] === 0) p[pos + pitch] = c4;
+        if (pos >= pitch && p[pos - pitch] === 0) p[pos - pitch] = c4;
+      }
+    }
+  }
+}

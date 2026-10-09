@@ -143,7 +143,7 @@ describeData('runLevel (skeleton loop)', () => {
     expect(g.enemyShots.enemyShotAvail.every((a) => a)).toBe(true);
     expect(Array.from(g.config.shotRepeat)).toEqual(new Array(11).fill(1));
     expect(g.sprites.explosionSpriteSheet).not.toBeNull();
-    expect(g.config.levelBrightness).toBe(-14);
+    expect(g.config.levelBrightness).toBe(-10); // -14 + 4 loop frames: filterScreen (task 5) now runs the brightness fade
   });
 
   it('ends on a key press during the demo and runs the start_level epilogue', async () => {
