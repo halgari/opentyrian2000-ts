@@ -1,18 +1,20 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Usage: tsx tools/oracle/run.ts <scenario|all> [--raw a-b[,c,...]] [--raw-every n] [--fixture]
+// Usage: tsx tools/oracle/run.ts <scenario|levels|all> [--raw a-b[,c,...]] [--raw-every n] [--fixture]
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { OUT, DATA, ROOT, runOracle } from './lib';
-import { AUDIO_SCENARIOS, SCENARIOS, type AudioScenarioName, type Scenario, type ScenarioName } from './scenarios';
+import { ensureLevelDemo } from './gen-demos';
+import { AUDIO_SCENARIOS, LEVEL_SCENARIOS, SCENARIOS, type AudioScenarioName, type Scenario } from './scenarios';
 
 const RECORD = 4 + 768 + 64000;
 
 /** `fixture`: write <name>.raw.frames (read by tests); otherwise debug dumps go to <name>.dbg.frames so they never clobber fixtures */
 interface RawOpts { frames?: string; every?: string; fixture?: boolean }
 
-function run(name: ScenarioName, raw: RawOpts = {}): void {
-  const sc: Scenario = SCENARIOS[name];
+function run(name: string, raw: RawOpts = {}): void {
+  const sc: Scenario = (SCENARIOS as Record<string, Scenario>)[name] ?? LEVEL_SCENARIOS[name]!;
+  if (name in LEVEL_SCENARIOS) ensureLevelDemo(name);
   const rawMode = raw.frames !== undefined || raw.every !== undefined;
   // Hash/state scenarios write .hash/.state/.state2; the raw dump is then only produced on request (--raw).
   const hashed = sc.hash === true || sc.state === true || sc.state2 === true;
@@ -90,12 +92,20 @@ if (fixtureIdx >= 0) argv.splice(fixtureIdx, 1);
 const rawOpts: RawOpts = { frames: flag('--raw'), every: flag('--raw-every'), fixture: fixtureIdx >= 0 };
 const arg = argv[0] ?? 'all';
 if (arg === 'all') {
-  for (const n of Object.keys(SCENARIOS) as ScenarioName[]) run(n);
+  for (const n of Object.keys(SCENARIOS)) run(n);
+  for (const n of Object.keys(LEVEL_SCENARIOS)) run(n);
   for (const n of Object.keys(AUDIO_SCENARIOS) as AudioScenarioName[]) runAudio(n);
 } else if (arg in AUDIO_SCENARIOS) {
   runAudio(arg as AudioScenarioName);
-} else if (arg in SCENARIOS) {
-  run(arg as ScenarioName, rawOpts);
+} else if (arg === 'levels') {
+  // keep going after a crashing oracle run and list the failures at the end
+  const failed: string[] = [];
+  for (const n of Object.keys(LEVEL_SCENARIOS)) {
+    try { run(n); } catch (e) { failed.push(`${n}: ${(e as Error).message}`); }
+  }
+  if (failed.length) { console.error(`FAILED oracle runs:\n${failed.join('\n')}`); process.exitCode = 1; }
+} else if (arg in SCENARIOS || arg in LEVEL_SCENARIOS) {
+  run(arg, rawOpts);
 } else {
   throw new Error(`unknown scenario ${arg}`);
 }

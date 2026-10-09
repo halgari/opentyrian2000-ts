@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { loadAssets } from '../../src/assets';
 import { createCtx, type Ctx } from '../../src/ctx';
+import { DataArchive } from '../../src/data/archive';
 import { runGame } from '../../src/game';
 import { VirtualClock } from '../../src/platform/clock';
 import { NullPresenter } from '../../src/video/presenter';
@@ -10,6 +11,14 @@ import { frameCrc } from '../helpers/hash-frames';
 import { STATE_FIELDS, type StateRecord } from '../helpers/state-trace';
 
 class StopScenario extends Error {}
+
+/** The archive with some files replaced (the TS equivalent of the oracle's `-t <alt data dir>`). */
+export function archiveWith(base: DataArchive, overrides: Record<string, Uint8Array>): DataArchive {
+  const files = new Map<string, Uint8Array>();
+  for (const n of base.names()) files.set(n, base.get(n));
+  for (const [n, b] of Object.entries(overrides)) files.set(n, b);
+  return new DataArchive(files);
+}
 
 /**
  * The oracle's state record (write_state() in tools/oracle/dump-frames.patch) built from the TS world.
@@ -38,15 +47,17 @@ export function stateRecord(ctx: Ctx, frame: number): StateRecord {
  * the frame CRC (palette || pixels) and the state record. `maxFrames` defaults to the scenario's.
  */
 export async function runDemoScenario(
-  name: ScenarioName, maxFrames: number = SCENARIOS[name].maxFrames,
+  name: ScenarioName | Scenario, maxFrames: number = typeof name === 'string' ? SCENARIOS[name].maxFrames : name.maxFrames,
+  /** Archive file overrides, e.g. { 'demo.1': bytes } (the oracle's alternate data dir). */
+  overrides?: Record<string, Uint8Array>,
 ): Promise<{ hashes: Uint32Array; states: StateRecord[]; ctx: Ctx }> {
-  const scenario = SCENARIOS[name];
+  const scenario: Scenario = typeof name === 'string' ? SCENARIOS[name] : name;
   const ctx = createCtx({
-    assets: loadAssets(testArchive!), clock: new VirtualClock(), presenter: new NullPresenter(),
+    assets: loadAssets(overrides ? archiveWith(testArchive!, overrides) : testArchive!), clock: new VirtualClock(), presenter: new NullPresenter(),
     versionString: 'oracle', seed: 1,
   });
   // OT_DEMO=n presets demo_num = n-1 so the Demo menu item plays demo.n
-  const presetDemo = (scenario as Scenario).demo;
+  const presetDemo = scenario.demo;
   if (presetDemo !== undefined) ctx.game.demo.demoNum = presetDemo - 1;
   const hashes: number[] = [];
   const states: StateRecord[] = [];

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+import { ALL_DEMO_LEVELS, demoScenarioName, maxFramesFor } from './demo-levels';
 // Shared by the oracle runner and the golden tests. Scancodes are SDL scancodes.
 /** hold = frames the key stays down (keyup after frame + hold); 0 or absent = tap (down+up after `frame`). */
 export interface KeyPress { frame: number; scancode: number; hold?: number }
@@ -76,6 +77,17 @@ export const SCENARIOS = {
 } satisfies Record<string, Scenario>;
 
 export type ScenarioName = keyof typeof SCENARIOS;
+
+/**
+ * lvl-<ep>-<nn>: one synthetic demo per level record (tools/oracle/demo-levels.ts). The oracle runs with an alternate data
+ * dir whose demo.1 is the generated demo (tools/oracle/gen-demos.ts creates the dirs); OT_DEMO=1 -> Demo menu plays it.
+ */
+export const LEVEL_SCENARIOS: Record<string, Scenario> = Object.fromEntries(
+  ALL_DEMO_LEVELS.map((lv) => [
+    demoScenarioName(lv.ep, lv.file),
+    { maxFrames: maxFramesFor(lv), keys: DEMO_KEYS, demo: 1, hash: true, state: true, dataDir: `test-data/oracle/data-${demoScenarioName(lv.ep, lv.file)}` } satisfies Scenario,
+  ]),
+);
 
 export interface AudioScenario {
   song: number; samples: number; mode: 'raw' | 'mixed' | 'voltable'; musicVolume: number; fadeAt: number;
