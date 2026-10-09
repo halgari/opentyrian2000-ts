@@ -10,6 +10,14 @@ export function mapToScreen(clientX: number, clientY: number, rect: { left: numb
   return [x, y];
 }
 
+const MODIFIED_BROWSER_CODES = new Set(['KeyR', 'KeyL', 'KeyF', 'KeyP', 'KeyW', 'KeyT', 'Equal', 'Minus', 'Digit0']);
+
+/** Keys the browser keeps for itself (reload, devtools, zoom, ...); still delivered to the game. */
+function isBrowserShortcut(e: KeyboardEvent): boolean {
+  if (e.code === 'F5' || e.code === 'F12') return true;
+  return (e.ctrlKey || e.metaKey) && MODIFIED_BROWSER_CODES.has(e.code);
+}
+
 const DOM_TO_SDL_BUTTON: Record<number, number> = { 0: 1, 1: 2, 2: 3 };
 
 export function attachDomInput(opts: {
@@ -34,7 +42,7 @@ export function attachDomInput(opts: {
     }
     const sc = scancodeFromCode(e.code);
     if (sc === undefined) return;
-    if (!e.metaKey) e.preventDefault();
+    if (!isBrowserShortcut(e)) e.preventDefault();
     const mod = (e.shiftKey ? KMOD_LSHIFT : 0) | (e.ctrlKey ? KMOD_LCTRL : 0) | (e.altKey ? KMOD_LALT : 0);
     input.push({ type: 'keydown', scancode: sc, mod });
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) input.push({ type: 'text', text: e.key });

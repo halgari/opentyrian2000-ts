@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { attachDomInput, mapToScreen } from '../../src/platform/dom-input';
 import { Input } from '../../src/platform/input';
 
-function keyEvent(type: string, init: { code: string; key?: string; repeat?: boolean; altKey?: boolean; ctrlKey?: boolean }) {
+function keyEvent(type: string, init: { code: string; key?: string; repeat?: boolean; altKey?: boolean; ctrlKey?: boolean; metaKey?: boolean }) {
   const e = new Event(type, { cancelable: true }) as Event & typeof init;
   Object.assign(e, { key: init.key ?? '', repeat: false, altKey: false, ctrlKey: false, shiftKey: false, metaKey: false, ...init });
   return e;
@@ -32,6 +32,26 @@ describe('dom-input', () => {
     expect(e.defaultPrevented).toBe(true);
     input.serviceEvents(false);
     expect(input.lastkeyScan).toBe(44);
+  });
+  it('does not swallow browser shortcuts but still delivers the key', () => {
+    const { target, input } = setup();
+    const f5 = keyEvent('keydown', { code: 'F5' });
+    target.dispatchEvent(f5);
+    expect(f5.defaultPrevented).toBe(false);
+    const ctrlR = keyEvent('keydown', { code: 'KeyR', key: 'r', ctrlKey: true });
+    target.dispatchEvent(ctrlR);
+    expect(ctrlR.defaultPrevented).toBe(false);
+    const zoom = keyEvent('keydown', { code: 'Equal', key: '=', metaKey: true });
+    target.dispatchEvent(zoom);
+    expect(zoom.defaultPrevented).toBe(false);
+    const plainR = keyEvent('keydown', { code: 'KeyR', key: 'r' });
+    target.dispatchEvent(plainR);
+    expect(plainR.defaultPrevented).toBe(true);
+    const down = keyEvent('keydown', { code: 'ArrowDown' });
+    target.dispatchEvent(down);
+    expect(down.defaultPrevented).toBe(true);
+    input.serviceEvents(false);
+    expect(input.newkey).toBe(true);
   });
   it('delivers auto-repeat keydowns (SDL2 does too)', () => {
     const { target, input } = setup();
