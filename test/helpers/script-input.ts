@@ -9,7 +9,7 @@ import type { Ctx } from '../../src/ctx';
  *    30 s = 1875 sleeps of 16 ms, so the limit must stay below that).
  * A step with `when` set waits for it only (never idle-fires).
  */
-export interface ScriptStep { sc: number; hold?: number; after?: number; when?: (ctx: Ctx) => boolean; onFire?: (ctx: Ctx) => void }
+export interface ScriptStep { sc: number; /** a typed printable character: key down, SDL_TEXTINPUT, key up (OT_TEXT) */ ch?: string; /** scenario authoring only: the key is meant for the oracle's idle rule (frame = frames presented, not the last one) */ idle?: boolean; hold?: number; after?: number; when?: (ctx: Ctx) => boolean; onFire?: (ctx: Ctx) => void }
 
 export class Stop extends Error {}
 
@@ -32,6 +32,7 @@ export function installScript(
     const s = queue.shift()!;
     s.onFire?.(ctx);
     ctx.input.push({ type: 'keydown', scancode: s.sc, mod: 0 });
+    if (s.ch !== undefined) ctx.input.push({ type: 'text', text: s.ch });
     if (!s.hold) ctx.input.push({ type: 'keyup', scancode: s.sc });
     else releases.push({ at: run.frames + s.hold, sc: s.sc });
     run.fires.push(run.frames);

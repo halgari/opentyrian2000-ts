@@ -5,18 +5,24 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Ported from: src/mainint.c (JE_highScoreScreen)
 import { S_CURSOR, S_SPRING } from '../audio/ids';
+import { u16, u8 } from '../core/int';
 import type { Ctx } from '../ctx';
+import { sortHighScores } from '../game/config';
+import { totalScore } from '../game/economy';
+import { waitDelay, waitInput, waitNoInput } from '../platform/wait';
 import { loadPic } from '../data/pic';
 import { loadCompShapes } from '../data/shapes';
 import { SDL_BUTTON_LEFT, SDL_BUTTON_RIGHT } from '../platform/input';
 import { Scancode } from '../platform/scancodes';
 import { fadeBlack, fadePalette } from '../video/fade';
 import { Align, Font, drawFontHvShadow } from '../video/font';
-import { FULL_SHADE, textShade } from '../video/fonthand';
-import { textState } from '../video/glow-text';
+import { FONT_ASCII, FULL_SHADE, dString, fontCenter, outText, textShade, textWidth } from '../video/fonthand';
+import { outTextGlow, textState } from '../video/glow-text';
+import { FONT_SHAPES, OPTION_SHAPES, SMALL_FONT_SHAPES, TINY_FONT, blitSprite } from '../video/sprite';
+import { barShade, fillRectangleXY } from '../video/vga256d';
 import { MOUSE_POINTER_NORMAL, mouseReplace, mouseStart } from '../video/mouse';
 import { blitSprite2x2 } from '../video/sprite2';
-import { copySurface, fillRect } from '../video/surface';
+import { clearSurface, copySurface, fillRect } from '../video/surface';
 import { showVGA } from '../video/video';
 import { helpBox } from './help-box';
 
@@ -149,4 +155,183 @@ export async function highScoreScreen(ctx: Ctx): Promise<void> {
       return;
     }
   }
+}
+
+// port of JE_highScoreCheck (mainint.c:2022): the name entry after an episode
+export async function highScoreCheck(ctx: Ctx): Promise<void> {
+  const { vga, palette, assets, audio, input } = ctx;
+  const g = ctx.game;
+  const c = g.config;
+  const sc = g.scratch;
+  const tables = assets.shapes.tables;
+  const { miscText, episodeName } = assets.helpText;
+  const screen = vga.screen;
+  if (!ctx.shopSpriteSheet) ctx.shopSpriteSheet = loadCompShapes(assets.archive, '1'); // need mouse pointer sprite
+
+  // TODO(sp5): two-player and timed battle high scores (mainint.c:2035-2062, 2090-2092, 2113-2118)
+  if (c.twoPlayerMode || c.timedBattleMode) throw new Error('unported: JE_highScoreCheck two-player / timed battle (mainint.c:2022)');
+
+  sortHighScores(ctx);
+
+  const table = 10 + (g.items.initialEpisodeNum - 1) * 2;
+  // single player highscore includes cost of upgrades
+  const tempScore = totalScore(ctx, g.players[0]);
+
+  let slot: number;
+  for (slot = 0; slot < 3; ++slot) {
+    if (tempScore > c.t2kHighScores[table]![slot]!.score) break;
+  }
+
+  // did you get a high score?
+  if (slot >= 3) return;
+
+  // shift down old scores
+  for (let i = 2; i > slot; --i) {
+    const from = c.t2kHighScores[table]![i - 1]!;
+    c.t2kHighScores[table]![i] = { score: from.score, playerName: from.playerName, difficulty: from.difficulty };
+  }
+
+  await waitNoInput(ctx, false, true, false);
+
+  clearSurface(screen);
+  showVGA(ctx);
+  palette.colors.set(palette.palettes[0]!);
+
+  audio.playSong(33);
+
+  /* Enter Thy name */
+  let flash = 8 * 16 + 10;
+  let fadein = true;
+  let quit = false, cancel = false;
+  const stemp: string[] = new Array<string>(29).fill(' ');
+
+  sc.temp = 0;
+
+  barShade(screen, 65, 55, 255, 155);
+
+  do {
+    input.serviceEvents(true);
+
+    dString(screen, tables, fontCenter(miscText[51]!, tables, FONT_SHAPES), 3, miscText[51]!, FONT_SHAPES);
+
+    sc.temp3 = 53;
+
+    dString(screen, tables, fontCenter(miscText[sc.temp3 - 1]!, tables, SMALL_FONT_SHAPES), 30, miscText[sc.temp3 - 1]!, SMALL_FONT_SHAPES);
+
+    blitSprite(screen, 50, 50, tables[OPTION_SHAPES]!, 35); // message box
+
+    textShade(screen, tables, 60, 55, miscText[53]!, 11, 4, FULL_SHADE);
+    textShade(screen, tables, 70, 70, `${miscText[37]} ${tempScore}`, 11, 4, FULL_SHADE);
+
+    do {
+      flash = flash === 8 * 16 + 10 ? 8 * 16 + 2 : 8 * 16 + 10;
+      sc.temp3 = sc.temp3 === 6 ? 2 : 6;
+
+      const tempstr = stemp.slice(0, sc.temp).join('');
+      outText(screen, tables, 65, 89, tempstr, 8, 3);
+      sc.tempW = u16(65 + textWidth(tempstr, tables, TINY_FONT));
+      barShade(screen, sc.tempW + 2, 90, sc.tempW + 6, 95);
+      fillRectangleXY(screen, sc.tempW + 1, 89, sc.tempW + 5, 94, flash);
+
+      for (let i = 0; i < 14; i++) {
+        ctx.delay.setDelay(1);
+
+        mouseStart(ctx);
+        showVGA(ctx);
+        if (fadein) {
+          await fadePalette(ctx, palette.colors, 15, 0, 255);
+          fadein = false;
+        }
+        mouseReplace(ctx);
+
+        await waitDelay(ctx);
+
+        if (input.newkey || input.newmouse) break;
+      }
+    } while (!input.newkey && !input.newmouse && !input.newText);
+
+    if (!audio.playing) audio.playSong(31);
+
+    if (ctx.mouse.button > 0) {
+      const mx = g.varz.mouseX, my = g.varz.mouseY;
+      if (mx > 56 && mx < 142 && my > 123 && my < 149) {
+        quit = true;
+      } else if (mx > 151 && mx < 237 && my > 123 && my < 149) {
+        quit = true;
+        cancel = true;
+      }
+    } else if (input.newText) {
+      for (const ch of input.lastText) {
+        const code = ch.charCodeAt(0);
+        const cc = code <= 127 ? (ch >= 'a' && ch <= 'z' ? ch.toUpperCase() : ch) : '\0';
+        if ((cc === ' ' || FONT_ASCII[cc.charCodeAt(0)] !== -1) && sc.temp < 28) {
+          stemp[sc.temp] = cc;
+          sc.temp = u8(sc.temp + 1);
+        }
+      }
+    } else if (input.newkey) {
+      switch (input.lastkeyScan) {
+        case Scancode.Backspace:
+        case Scancode.Delete:
+          if (sc.temp) {
+            sc.temp = u8(sc.temp - 1);
+            stemp[sc.temp] = ' ';
+          }
+          break;
+        case Scancode.Escape:
+          quit = true;
+          cancel = true;
+          break;
+        case Scancode.Return:
+          quit = true;
+          break;
+        default:
+          break;
+      }
+    }
+  } while (!quit);
+
+  const entry = c.t2kHighScores[table]![slot]!;
+  if (!cancel) {
+    entry.score = tempScore;
+    entry.playerName = stemp.join('');
+    entry.difficulty = c.difficultyLevel;
+  }
+
+  await fadeBlack(ctx, 15);
+  loadPic(assets.pics, palette, screen, 2, false);
+
+  dString(screen, tables, fontCenter(miscText[50]!, tables, FONT_SHAPES), 10, miscText[50]!, FONT_SHAPES);
+  dString(screen, tables, fontCenter(episodeName[g.items.episodeNum]!, tables, SMALL_FONT_SHAPES), 35, episodeName[g.items.episodeNum]!, SMALL_FONT_SHAPES);
+
+  for (let i = 0; i < 3; ++i) {
+    if (i !== slot) {
+      const e = c.t2kHighScores[table]![i]!;
+      textShade(screen, tables, 20, i * 12 + 65, `~#${i + 1}:~  ${e.score}`, 15, 0, FULL_SHADE);
+      textShade(screen, tables, 150, i * 12 + 65, e.playerName, 15, 2, FULL_SHADE);
+    }
+  }
+
+  showVGA(ctx);
+
+  await fadePalette(ctx, palette.colors, 15, 0, 255);
+
+  const buffer = `~#${slot + 1}:~  ${entry.score}`;
+
+  const ts = textState(ctx);
+  c.frameCountMax = 6;
+  ts.textGlowFont = TINY_FONT;
+
+  ts.textGlowBrightness = 10;
+  await outTextGlow(ctx, screen, 20, slot * 12 + 65, buffer);
+  ts.textGlowBrightness = 10;
+  await outTextGlow(ctx, screen, 150, slot * 12 + 65, entry.playerName);
+  ts.textGlowBrightness = 10;
+  await outTextGlow(ctx, screen, fontCenter(miscText[4]!, tables, TINY_FONT), 180, miscText[4]!);
+
+  showVGA(ctx);
+
+  if (c.frameCountMax !== 0) await waitInput(ctx, true, true, true);
+
+  await fadeBlack(ctx, 15);
 }

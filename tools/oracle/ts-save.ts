@@ -42,9 +42,40 @@ export function buildTsSave(): Uint8Array {
   return serializeSav(c);
 }
 
+export const EPISODE_END_SAVE_REL = 'test-data/ts-save/episode-end.sav';
+
+/**
+ * A save with the player standing at the last script section of an episode (the `]Q` section): slot 1 is episode 1 (section 26,
+ * started there, so the episode-end high score applies), slot 2 is episode 5 (section 19) of a game started in episode 1 (no high
+ * score check; the next episode wraps to 1: credits and the SuperCarrot roll), slot 3 is episode 2 (section 13).
+ */
+export function buildEpisodeEndSave(): Uint8Array {
+  const dir = join(ROOT, 'data/tyrian2000');
+  const files = new Map<string, Uint8Array>();
+  for (const name of readdirSync(dir)) files.set(name, new Uint8Array(readFileSync(join(dir, name))));
+  const ctx = createCtx({ assets: loadAssets(new DataArchive(files)), clock: new VirtualClock(), presenter: new NullPresenter(), versionString: 'oracle', seed: 1 });
+  loadConfigurationDefaults(ctx);
+  initPlayerData(ctx);
+  sortHighScores(ctx);
+  const g = ctx.game, c = g.config;
+  const slot = (n: number, name: string, episode: number, initial: number, level: number, cash: number): void => {
+    initEpisode(ctx, episode);
+    g.items.initialEpisodeNum = initial;
+    g.players[0].cash = cash;
+    c.difficultyLevel = 2; c.initialDifficulty = 2;
+    c.saveLevel = level; c.lastLevelName = 'GAME END'; c.lastCubeMax = 2;
+    saveGame(ctx, n, name);
+  };
+  slot(1, 'EPISODE ONE END', 1, 1, 26, 54321);
+  slot(2, 'EPISODE FIVE END', 5, 1, 19, 98765);
+  slot(3, 'EPISODE TWO END', 2, 2, 13, 4321);
+  return serializeSav(c);
+}
+
 if (process.argv[1]?.endsWith('ts-save.ts')) {
-  const out = join(ROOT, TS_SAVE_REL);
   mkdirSync(join(ROOT, 'test-data/ts-save'), { recursive: true });
+  writeFileSync(join(ROOT, EPISODE_END_SAVE_REL), buildEpisodeEndSave());
+  const out = join(ROOT, TS_SAVE_REL);
   writeFileSync(out, buildTsSave());
-  console.log(`wrote ${out}`);
+  console.log(`wrote ${out} and ${EPISODE_END_SAVE_REL}`);
 }

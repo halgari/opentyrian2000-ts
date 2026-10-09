@@ -19,12 +19,12 @@ import { STORAGE_KEYS, bytesToBase64 } from '../../src/platform/storage';
 import { NullPresenter } from '../../src/video/presenter';
 import { Stop, installScript, type ScriptStep } from '../../test/helpers/script-input';
 import { writeScenario } from './discover';
-import type { KeyPress, Scenario } from './scenarios';
-import { buildTsSave } from './ts-save';
+import type { KeyPress, Scenario, TypedChar } from './scenarios';
+import { EPISODE_END_SAVE_REL, buildEpisodeEndSave, buildTsSave } from './ts-save';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
-const RET = 40, ESC = 41, SPACE = 44, DOWN = 81, UP = 82, F2 = 59, F6 = 63, F7 = 64;
+const RET = 40, BKSP = 42, ESC = 41, SPACE = 44, DOWN = 81, UP = 82, F2 = 59, F6 = 63, F7 = 64;
 
 const dead = (): ((c: Ctx) => boolean) => {
   let wasAlive = false; // isAlive is also false before the level starts
@@ -98,7 +98,38 @@ const SPECS: Record<string, Spec> = {
     setup: (ctx) => { ctx.storage.set(STORAGE_KEYS.sav, bytesToBase64(buildTsSave())); },
     steps: () => [{ sc: DOWN }, { sc: RET, after: 1 }, { sc: DOWN }, { sc: RET }, { sc: DOWN, after: 60 }, { sc: DOWN, after: 1 }],
   },
+  ...episodeEnd(),
 };
+
+/** Typed characters of a name, one per `gap` frames (the entry loop presents frames continuously). */
+const typed = (text: string, gap = 20): ScriptStep[] => [...text].map((ch) => ({
+  sc: ch === ' ' ? SPACE : ch >= '0' && ch <= '9' ? (ch === '0' ? 39 : 30 + Number(ch) - 1) : 4 + (ch.toLowerCase().charCodeAt(0) - 97), ch, after: gap,
+}));
+const idleKey = (sc = RET): ScriptStep => ({ sc, idle: true });
+const loadSlot = (n: number): ScriptStep[] => [{ sc: DOWN }, { sc: RET }, ...Array.from({ length: n - 1 }, () => ({ sc: DOWN })), { sc: RET }];
+
+/** Sessions that start from episode-end.sav (a HOME-seeded save standing at the `]Q` section of an episode). */
+function episodeEnd(): Record<string, Spec> {
+  const seed: Partial<Scenario> = { homeSeed: EPISODE_END_SAVE_REL };
+  const setup = (ctx: Ctx): void => { ctx.storage.set(STORAGE_KEYS.sav, bytesToBase64(buildEpisodeEndSave())); };
+  return {
+    /** Episode 1 ends: the end text, a new high score typed in (lower case, a digit, a backspace), the table, then the episode 2 title, its first shop and level 1 (the backup save at the level start writes tyrian.sav with the new high score). */
+    'session-ep1-end': {
+      tail: 60, extra: seed, setup,
+      steps: () => [...loadSlot(1), { sc: RET }, ...typed('Ace 7x'), { sc: BKSP, after: 10 }, { sc: RET, after: 10 }, { sc: RET }, { sc: RET, idle: true }, ...shopNextLevel(60), { sc: SPACE, hold: 30, after: 60 }],
+    },
+    /** Episode 5 ends in a game that began in episode 1: no high score, credits (cut short by a key), the SuperCarrot roll, back to episode 1. */
+    'session-ep5-credits': {
+      tail: 60, extra: seed, setup,
+      steps: () => [...loadSlot(2), idleKey(), idleKey(), idleKey(), { sc: RET, after: 1500 }, idleKey(), idleKey(), ...shopNextLevel(60), { sc: SPACE, hold: 30, after: 60 }],
+    },
+    /** The credits run to their end (the last tick repeats until a key), so every text line, picture and ship pass is drawn. */
+    'session-ep5-credits-full': {
+      tail: 40, extra: seed, setup,
+      steps: () => [...loadSlot(2), idleKey(), idleKey(), idleKey(), { sc: RET, after: 7800 }, idleKey(), idleKey(), ...shopNextLevel(60), { sc: SPACE, hold: 30, after: 60 }],
+    },
+  };
+}
 
 function run(name: string, write: boolean): void {
   const spec = SPECS[name];
@@ -122,12 +153,15 @@ function run(name: string, write: boolean): void {
   let ok = true;
   void runGame(ctx).catch((e: unknown) => { if (!(e instanceof Stop)) { ok = false; console.error(e); } }).then(() => {
     if (!ok) return;
-    const keys: KeyPress[] = steps.map((s, i) => {
-      const frame = sr.fires[i]! - 1; // the oracle's frame index: the key is injected after that frame is presented
-      return s.hold ? { frame, scancode: s.sc, hold: s.hold } : { frame, scancode: s.sc };
+    // the oracle's frame index: the key is injected after that frame is presented
+    const keys: KeyPress[] = steps.flatMap((s, i) => {
+      if (s.ch !== undefined) return [];
+      const frame = sr.fires[i]! - (s.idle ? 0 : 1);
+      return [s.hold ? { frame, scancode: s.sc, hold: s.hold } : { frame, scancode: s.sc }];
     });
-    const lastEnd = Math.max(...keys.map((k) => k.frame + (k.hold ?? 0)));
-    const sc: Scenario = { maxFrames: lastEnd + spec.tail + 1, keys, hash: true, state2: true, saveDump: true, ...(spec.extra ?? {}) };
+    const text: TypedChar[] = steps.flatMap((s, i) => (s.ch === undefined ? [] : [{ frame: sr.fires[i]! - 1, scancode: s.sc, char: s.ch }]));
+    const lastEnd = Math.max(...keys.map((k) => k.frame + (k.hold ?? 0)), ...text.map((t) => t.frame));
+    const sc: Scenario = { maxFrames: lastEnd + spec.tail + 1, keys, ...(text.length ? { text } : {}), hash: true, state2: true, saveDump: true, ...(spec.extra ?? {}) };
     console.log(`${name}: ${JSON.stringify(sc)}`);
     if (write) writeScenario(name, sc);
   });

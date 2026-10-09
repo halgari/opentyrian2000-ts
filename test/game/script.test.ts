@@ -17,6 +17,9 @@ import { useScript } from '../helpers/script';
 
 // The shop is exercised separately (test/golden/script.test.ts uses the real stub); here its effects are scripted.
 const shop = vi.hoisted(() => ({ impl: (_ctx: unknown): void => {}, calls: 0 }));
+// the real JE_nextEpisode is covered by test/golden/episode-end.test.ts; here it only marks that the command reached it
+vi.mock('../../src/screens/episode-end', () => ({ nextEpisode: async (): Promise<void> => { throw new Error('JE_nextEpisode'); } }));
+
 vi.mock('../../src/screens/shop', () => ({
   itemScreen: async (ctx: unknown): Promise<void> => { shop.calls++; shop.impl(ctx); },
 }));
@@ -453,7 +456,7 @@ describeData('episode script parser: text screens', () => {
     const draw = predict.rng.rand() % 3;
     const expectBlock = predict.game.config.secretHint + draw * 3;
     ctx.frameSink = () => ctx.input.push(KEY); // a key every frame: skips the glow animation and dismisses the screen
-    await expect(run(ctx)).rejects.toThrow(/JE_nextEpisode/); // Task 13
+    await expect(run(ctx)).rejects.toThrow(/JE_nextEpisode/);
     const t = ctx.game.text;
     expect(t.levelWarningText[0]).toBe(`${ctx.assets.helpText.miscText[37]} ${totalScore(ctx, ctx.game.players[0])}`);
     expect(t.levelWarningText[1]).toBe('');
