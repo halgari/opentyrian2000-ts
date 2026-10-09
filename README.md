@@ -22,6 +22,14 @@ browser.
 `pnpm oracle` needs git, gcc, make, pkg-config and the SDL2 development headers
 (SDL2_net is not needed).
 
+Oracle environment variables (set by `tools/oracle/run.ts`; see `tools/oracle/dump-frames.patch`):
+`OT_DUMP` raw frames, `OT_HASH` per-frame CRC-32 of palette+pixels, `OT_STATE` per-frame 16 x u32
+state record, `OT_DEMO=n` plays `demo.n` next, `OT_RAW_EVERY`/`OT_RAW_FRAMES` select raw frames,
+`OT_FAST=1` virtual clock (no real-time waits; frame content is identical). The `demo-1`..`demo-5`
+scenarios write `test-data/oracle/<name>.hash` and `.state`. To dump a raw window for debugging:
+
+    pnpm oracle:run demo-1 --raw 1200-1260    # -> test-data/oracle/demo-1.raw.frames
+
 ## Build & deploy
 
     pnpm build            # type-check, then produce a static dist/

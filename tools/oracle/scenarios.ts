@@ -1,7 +1,30 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Shared by the oracle runner and the golden tests. Scancodes are SDL scancodes.
 export interface KeyPress { frame: number; scancode: number }
-export interface Scenario { maxFrames: number; keys: KeyPress[] }
+export interface Scenario {
+  maxFrames: number;
+  keys: KeyPress[];
+  /** Preset OT_DEMO=n: the Demo menu item plays demo.n. */
+  demo?: number;
+  /** Also write <name>.hash (OT_HASH). */
+  hash?: boolean;
+  /** Also write <name>.state (OT_STATE). */
+  state?: boolean;
+}
+
+/** Main-menu keys (from the idle menu at frame 141) that select Demo (item 5): Down x5, Return. */
+const DEMO_KEYS: KeyPress[] = [
+  ...[141, 142, 143, 144, 145].map((frame) => ({ frame, scancode: 81 })),
+  { frame: 146, scancode: 40 },
+];
+
+/**
+ * maxFrames = index of the first idle-title-menu frame after the demo + 1 (measured: that frame's
+ * hash equals boot frame 141's). The frame count includes the 162-frame boot/menu prefix.
+ */
+const demoScenario = (n: number, maxFrames: number): Scenario => ({
+  maxFrames, keys: DEMO_KEYS, demo: n, hash: true, state: true,
+});
 
 export const SCENARIOS = {
   /** Intro logos, title logo slide, menu fade-in, idle menu (frames 0–141). */
@@ -16,6 +39,11 @@ export const SCENARIOS = {
       { frame: 144, scancode: 82 },
     ],
   },
+  'demo-1': demoScenario(1, 6917),
+  'demo-2': demoScenario(2, 5267),
+  'demo-3': demoScenario(3, 2476),
+  'demo-4': demoScenario(4, 2016),
+  'demo-5': demoScenario(5, 3265),
 } satisfies Record<string, Scenario>;
 
 export type ScenarioName = keyof typeof SCENARIOS;
