@@ -4,7 +4,7 @@ import { createCtx, type Ctx } from '../../src/ctx';
 import { runGame } from '../../src/game';
 import { VirtualClock } from '../../src/platform/clock';
 import { NullPresenter } from '../../src/video/presenter';
-import { SCENARIOS, type ScenarioName } from '../../tools/oracle/scenarios';
+import { SCENARIOS, type Scenario, type ScenarioName } from '../../tools/oracle/scenarios';
 import { testArchive } from '../helpers/data';
 import { frameCrc } from '../helpers/hash-frames';
 import { STATE_FIELDS, type StateRecord } from '../helpers/state-trace';
@@ -45,6 +45,9 @@ export async function runDemoScenario(
     assets: loadAssets(testArchive!), clock: new VirtualClock(), presenter: new NullPresenter(),
     versionString: 'oracle', seed: 1,
   });
+  // OT_DEMO=n presets demo_num = n-1 so the Demo menu item plays demo.n
+  const presetDemo = (scenario as Scenario).demo;
+  if (presetDemo !== undefined) ctx.game.demo.demoNum = presetDemo - 1;
   const hashes: number[] = [];
   const states: StateRecord[] = [];
   ctx.frameSink = (screen, palette) => {
@@ -65,4 +68,35 @@ export async function runDemoScenario(
     if (!(e instanceof StopScenario)) throw e;
   }
   return { hashes: Uint32Array.from(hashes), states, ctx };
+}
+
+/** Like runDemoScenario, but returns copies of the presented pixels for the wanted frame indices. */
+export async function runDemoFrames(
+  name: ScenarioName, maxFrames: number, wanted: ReadonlySet<number>,
+): Promise<Map<number, Uint8Array>> {
+  const scenario = SCENARIOS[name];
+  const ctx = createCtx({
+    assets: loadAssets(testArchive!), clock: new VirtualClock(), presenter: new NullPresenter(),
+    versionString: 'oracle', seed: 1,
+  });
+  const presetDemo = (scenario as Scenario).demo;
+  if (presetDemo !== undefined) ctx.game.demo.demoNum = presetDemo - 1;
+  const out = new Map<number, Uint8Array>();
+  let index = 0;
+  ctx.frameSink = (screen) => {
+    if (wanted.has(index)) out.set(index, screen.pixels.slice());
+    for (const k of scenario.keys) {
+      if (k.frame === index) {
+        ctx.input.push({ type: 'keydown', scancode: k.scancode, mod: 0 });
+        ctx.input.push({ type: 'keyup', scancode: k.scancode });
+      }
+    }
+    if (++index >= maxFrames) throw new StopScenario();
+  };
+  try {
+    await runGame(ctx);
+  } catch (e) {
+    if (!(e instanceof StopScenario)) throw e;
+  }
+  return out;
 }

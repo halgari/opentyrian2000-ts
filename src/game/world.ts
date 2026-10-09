@@ -651,6 +651,7 @@ export interface VarzGroup {
   /** mainint.c file scope */
   button: boolean[];                   // bool[4]
   constantLastX: number;               // JE_shortint
+  mouseX: number; mouseY: number; mouseXB: number; mouseYB: number; // JE_word (mainint.c file scope; stale when endLevel)
   textErase: number;                   // JE_word
   upgradeCost: number; downgradeCost: number; // JE_word
   performSave: boolean; jumpSection: boolean; useLastBank: boolean;
@@ -918,7 +919,7 @@ export function createGameWorld(): GameWorld {
       SFExecuted: new Uint8Array(2),
       quit: false, loadLevelOk: false, tempStr: '',
       button: [false, false, false, false],
-      constantLastX: 0, textErase: 0, upgradeCost: 0, downgradeCost: 0,
+      constantLastX: 0, mouseX: 0, mouseY: 0, mouseXB: 0, mouseYB: 0, textErase: 0, upgradeCost: 0, downgradeCost: 0,
       performSave: false, jumpSection: false, useLastBank: false,
       pauseGamePressed: false, ingamemenuPressed: false,
       warningCol: 0, warningColChange: 0, warningSoundDelay: 0, armorShipDelay: 0, musicFade: false,
