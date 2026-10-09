@@ -14,6 +14,7 @@
     "ref": "bash tools/fetch-reference.sh",
     "oracle:build": "bash tools/oracle/build.sh",
     "oracle:run": "tsx tools/oracle/run.ts",
+    "oracle:discover": "tsx tools/oracle/discover.ts",
     "oracle": "pnpm oracle:build && tsx tools/oracle/run.ts all"
   },
   "devDependencies": {

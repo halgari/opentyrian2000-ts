@@ -1,0 +1,77 @@
+{
+  "name": "newgame-ep1-first-shop-to-level",
+  "tail": 10,
+  "steps": [
+    {
+      "key": 40,
+      "label": "title: New Game",
+      "at": 141
+    },
+    {
+      "key": 40,
+      "label": "gameplay select: Full Game"
+    },
+    {
+      "key": 40,
+      "label": "episode select: Episode 1"
+    },
+    {
+      "key": 40,
+      "label": "difficulty select: Normal"
+    },
+    {
+      "key": 81,
+      "label": "shop: Down"
+    },
+    {
+      "key": 81,
+      "label": "shop: Down"
+    },
+    {
+      "key": 81,
+      "label": "shop: Down"
+    },
+    {
+      "key": 81,
+      "label": "shop: Down"
+    },
+    {
+      "key": 40,
+      "label": "shop: Next Level"
+    },
+    {
+      "key": 40,
+      "label": "planet map: select level 1"
+    },
+    {
+      "key": 44,
+      "hold": 300,
+      "wait": 120,
+      "label": "level 1: hold fire (frames 349-649)"
+    },
+    {
+      "key": 80,
+      "hold": 40,
+      "wait": 6,
+      "label": "level 1: left"
+    },
+    {
+      "key": 82,
+      "hold": 30,
+      "wait": 50,
+      "label": "level 1: up"
+    },
+    {
+      "key": 79,
+      "hold": 60,
+      "wait": 50,
+      "label": "level 1: right"
+    },
+    {
+      "key": 81,
+      "hold": 40,
+      "wait": 70,
+      "label": "level 1: down"
+    }
+  ]
+}

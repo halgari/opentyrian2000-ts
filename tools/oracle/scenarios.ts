@@ -1,9 +1,23 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Shared by the oracle runner and the golden tests. Scancodes are SDL scancodes.
-export interface KeyPress { frame: number; scancode: number }
+/** hold = frames the key stays down (keyup after frame + hold); 0 or absent = tap (down+up after `frame`). */
+export interface KeyPress { frame: number; scancode: number; hold?: number }
+/** m: relative motion (a=dx, b=dy, window pixels); d / u: button down / up (a = SDL button, 1 left 2 middle 3 right). */
+export interface MouseEvent { frame: number; type: 'm' | 'd' | 'u'; a: number; b?: number }
 export interface Scenario {
   maxFrames: number;
   keys: KeyPress[];
+  mouse?: MouseEvent[];
+  /** Also write <name>.state2 (OT_STATE2, see test/helpers/state-trace.ts). */
+  state2?: boolean;
+  /** Copy tyrian.sav / tyrian.cfg at exit into test-data/oracle/<name>.save/ (OT_SAVEDUMP). */
+  saveDump?: boolean;
+  /** Repo-relative path of a tyrian.sav copied into the oracle HOME before the run. */
+  homeSeed?: string;
+  /** Repo-relative alternate data directory (default data/tyrian2000). */
+  dataDir?: string;
+  /** OT_IDLE_POLLS override. */
+  idlePolls?: number;
   /** Preset OT_DEMO=n: the Demo menu item plays demo.n. */
   demo?: number;
   /** Also write <name>.hash (OT_HASH). */
@@ -56,6 +70,9 @@ export const SCENARIOS = {
     // Frame 584 is the first idle title-menu frame after the abort (measured, hash equals boot frame 141's).
     keys: [...DEMO_KEYS, { frame: 513, scancode: 44 }, ...demoKeysAt(584)],
   },
+  // <discovered> -- entries between these markers are written by tools/oracle/discover.ts
+  "newgame-ep1-first-shop-to-level": { maxFrames: 660, keys: [{ frame: 141, scancode: 40 }, { frame: 167, scancode: 40 }, { frame: 188, scancode: 40 }, { frame: 209, scancode: 40 }, { frame: 221, scancode: 81 }, { frame: 222, scancode: 81 }, { frame: 223, scancode: 81 }, { frame: 224, scancode: 81 }, { frame: 225, scancode: 40 }, { frame: 229, scancode: 40 }, { frame: 349, scancode: 44, hold: 300 }, { frame: 355, scancode: 80, hold: 40 }, { frame: 405, scancode: 82, hold: 30 }, { frame: 455, scancode: 79, hold: 60 }, { frame: 525, scancode: 81, hold: 40 }], hash: true, state2: true, saveDump: true },
+  // </discovered>
 } satisfies Record<string, Scenario>;
 
 export type ScenarioName = keyof typeof SCENARIOS;

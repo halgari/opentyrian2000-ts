@@ -1,3 +1,15 @@
+diff --git a/src/game_menu.c b/src/game_menu.c
+index b1bd0ae..ebe1f1d 100644
+--- a/src/game_menu.c
++++ b/src/game_menu.c
+@@ -88,6 +88,7 @@ static JE_MenuChoiceType menuChoices;
+ static JE_integer col, colC;
+ static JE_byte lastCurSel;
+ static JE_integer curMenu;
++int oracle_cur_menu(void) { return curMenu; } /* opentyrian2000-ts oracle */
+ static JE_byte curSel[MENU_MAX]; /* [1..maxmenu] */
+ static JE_byte curItemType, curItem, cursor;
+ static JE_boolean leftPower, rightPower, rightPowerAfford;
 diff --git a/src/mtrand.c b/src/mtrand.c
 index ca3160f..8c5334b 100644
 --- a/src/mtrand.c
@@ -61,10 +73,10 @@ index 9c73dda..0f6ff31 100644
  #include <stdbool.h>
 diff --git a/src/oracle.c b/src/oracle.c
 new file mode 100644
-index 0000000..f832d39
+index 0000000..053d83e
 --- /dev/null
 +++ b/src/oracle.c
-@@ -0,0 +1,221 @@
+@@ -0,0 +1,441 @@
 +/* Reference-oracle hooks for opentyrian2000-ts (not part of upstream).
 + * OT_DUMP=path       append one raw record per JE_showVGA: u32 frame, 768 palette bytes, 64000 pixels
 + * OT_RAW_EVERY=n     with OT_DUMP: only dump frames where frame % n == 0 ...
@@ -76,16 +88,31 @@ index 0000000..f832d39
 + * OT_FAST=1          virtual clock: SDL_GetTicks/SDL_Delay never block (see oracle.h)
 + * OT_SEED=n          mt_srand seed (default 1)
 + * OT_MAX_FRAMES=n    exit(0) after n frames have been dumped
-+ * OT_KEYS=f:sc,...   after frame f is presented, inject key down+up for SDL scancode sc
++ * OT_STATE2=path     append one v2 state record per JE_showVGA: 36 x u32/s32 LE, see write_state2
++ * OT_KEYS=f:sc[:hold],...  after frame f is presented, inject key down+up (hold 0 = tap) for SDL scancode sc;
++ *                    with hold h > 0: keydown after frame f, keyup after frame f+h
++ * OT_MOUSE=f:m:dx:dy | f:d:btn | f:u:btn, ...  after frame f: relative motion / button down / button up
++ *                    (SDL button numbers: 1 left, 2 middle, 3 right). Motion coordinates are window
++ *                    coordinates accumulated from (0,0).
++ * OT_IDLE_POLLS=n    (default 2000; intro logo waits exceed 250 polls) if no frame is presented for n SDL_Delay polls, the next pending
++ *                    OT_KEYS/OT_MOUSE entry (and every other entry with the same frame number) is injected
++ *                    anyway, so keys reach screens that draw once and then block. Entries stay in the order
++ *                    given to the environment (sorted by frame, stable).
++ * OT_IDLELOG=path  append one line (last presented frame index) each time the idle rule fires (discovery runner)
++ * OT_SAVEDUMP=dir    at exit, copy tyrian.sav / tyrian.cfg from the user dir into dir
 + */
 +#define ORACLE_NO_CLOCK_MACROS
 +#include "oracle.h"
 +#include "backgrnd.h"
++#include "config.h"
++#include "episodes.h"
++#include "keyboard.h"
 +#include "palette.h"
 +#include "player.h"
 +#include "shots.h"
 +#include "varz.h"
 +#include <stdio.h>
++#include <sys/stat.h>
 +#include <stdlib.h>
 +#include <string.h>
 +
@@ -93,7 +120,7 @@ index 0000000..f832d39
 +extern Uint8 demo_num;                /* varz.c */
 +void oracle_get_palette(Uint8 out[768]);
 +
-+static FILE *dump, *hashf, *statef;
++static FILE *dump, *hashf, *statef, *state2f;
 +static int initialized;
 +static unsigned long frame;
 +static unsigned long max_frames;
@@ -120,16 +147,25 @@ index 0000000..f832d39
 +	return is_fast() ? vclock : SDL_GetTicks();
 +}
 +
++static void inject_idle(void);
++static unsigned long idle_polls, idle_limit = 2000;
++
 +void oracle_delay(Uint32 ms)
 +{
++	inject_idle();
 +	if (is_fast())
 +		vclock += ms;
 +	else
 +		SDL_Delay(ms);
 +}
 +
++static void save_dump(void);
++
 +unsigned long oracle_seed(unsigned long fallback)
 +{
++	const char *ip = getenv("OT_IDLE_POLLS");
++	if (ip && *ip) idle_limit = strtoul(ip, NULL, 10);
++	if (getenv("OT_SAVEDUMP")) atexit(save_dump);
 +	const char *s = getenv("OT_SEED");
 +	const char *d = getenv("OT_DEMO");
 +	(void)fallback;
@@ -157,29 +193,166 @@ index 0000000..f832d39
 +	return ~crc;
 +}
 +
-+/* ---- key injection ---- */
-+static void inject_keys(unsigned long f)
++/* ---- key / mouse injection ---- */
++enum { ACT_TAP, ACT_DOWN, ACT_UP, ACT_MOTION, ACT_BTN_DOWN, ACT_BTN_UP };
++typedef struct { unsigned long frame; int kind; int a, b; int fired; } Action;
++static Action *acts;
++static size_t nacts, capacts, nextact;
++static int acts_loaded;
++static int mouse_wx, mouse_wy;
++
++static void add_act(unsigned long f, int kind, int a, int b)
++{
++	if (nacts == capacts)
++	{
++		capacts = capacts ? capacts * 2 : 64;
++		acts = realloc(acts, capacts * sizeof(*acts));
++	}
++	acts[nacts].frame = f; acts[nacts].kind = kind; acts[nacts].a = a; acts[nacts].b = b; acts[nacts].fired = 0;
++	nacts++;
++}
++
++static int act_cmp(const void *x, const void *y)
++{
++	const Action *p = x, *q = y;
++	return p->frame < q->frame ? -1 : p->frame > q->frame ? 1 : 0;
++}
++
++/* stable sort by frame: stash the original index in `fired` */
++static int act_cmp_stable(const void *x, const void *y)
++{
++	int c = act_cmp(x, y);
++	return c ? c : ((const Action *)x)->fired - ((const Action *)y)->fired;
++}
++
++static void load_acts(void)
 +{
 +	const char *keys = getenv("OT_KEYS");
++	acts_loaded = 1;
 +	while (keys && *keys)
 +	{
 +		unsigned long kf = strtoul(keys, (char **)&keys, 10);
-+		if (*keys != ':') return;
++		if (*keys != ':') break;
 +		keys++;
 +		int sc = (int)strtol(keys, (char **)&keys, 10);
-+		if (kf == f)
++		unsigned long hold = 0;
++		if (*keys == ':') { keys++; hold = strtoul(keys, (char **)&keys, 10); }
++		if (hold == 0)
++			add_act(kf, ACT_TAP, sc, 0);
++		else
 +		{
-+			SDL_Event ev;
-+			memset(&ev, 0, sizeof(ev));
-+			ev.type = SDL_KEYDOWN;
-+			ev.key.state = SDL_PRESSED;
-+			ev.key.keysym.scancode = (SDL_Scancode)sc;
-+			SDL_PushEvent(&ev);
-+			ev.type = SDL_KEYUP;
-+			ev.key.state = SDL_RELEASED;
-+			SDL_PushEvent(&ev);
++			add_act(kf, ACT_DOWN, sc, 0);
++			add_act(kf + hold, ACT_UP, sc, 0);
 +		}
 +		if (*keys == ',') keys++;
++	}
++	const char *mouse = getenv("OT_MOUSE");
++	while (mouse && *mouse)
++	{
++		unsigned long mf = strtoul(mouse, (char **)&mouse, 10);
++		if (*mouse != ':') break;
++		mouse++;
++		char t = *mouse++;
++		if (*mouse != ':') break;
++		mouse++;
++		int a = (int)strtol(mouse, (char **)&mouse, 10), b = 0;
++		if (t == 'm')
++		{
++			if (*mouse != ':') break;
++			mouse++;
++			b = (int)strtol(mouse, (char **)&mouse, 10);
++			add_act(mf, ACT_MOTION, a, b);
++		}
++		else
++			add_act(mf, t == 'd' ? ACT_BTN_DOWN : ACT_BTN_UP, a, 0);
++		if (*mouse == ',') mouse++;
++	}
++	for (size_t i = 0; i < nacts; ++i) acts[i].fired = (int)i;
++	qsort(acts, nacts, sizeof(*acts), act_cmp_stable);
++	for (size_t i = 0; i < nacts; ++i) acts[i].fired = 0;
++}
++
++static void push_key(int down, int sc)
++{
++	SDL_Event ev;
++	memset(&ev, 0, sizeof(ev));
++	ev.type = down ? SDL_KEYDOWN : SDL_KEYUP;
++	ev.key.state = down ? SDL_PRESSED : SDL_RELEASED;
++	ev.key.keysym.scancode = (SDL_Scancode)sc;
++	SDL_PushEvent(&ev);
++}
++
++static void fire_act(const Action *a)
++{
++	SDL_Event ev;
++	memset(&ev, 0, sizeof(ev));
++	switch (a->kind)
++	{
++	case ACT_TAP: push_key(1, a->a); push_key(0, a->a); break;
++	case ACT_DOWN: push_key(1, a->a); break;
++	case ACT_UP: push_key(0, a->a); break;
++	case ACT_MOTION:
++		mouse_wx += a->a; mouse_wy += a->b;
++		ev.type = SDL_MOUSEMOTION;
++		ev.motion.x = mouse_wx; ev.motion.y = mouse_wy;
++		ev.motion.xrel = a->a; ev.motion.yrel = a->b;
++		SDL_PushEvent(&ev);
++		break;
++	case ACT_BTN_DOWN: case ACT_BTN_UP:
++		ev.type = a->kind == ACT_BTN_DOWN ? SDL_MOUSEBUTTONDOWN : SDL_MOUSEBUTTONUP;
++		ev.button.state = a->kind == ACT_BTN_DOWN ? SDL_PRESSED : SDL_RELEASED;
++		ev.button.button = (Uint8)a->a;
++		ev.button.x = mouse_wx; ev.button.y = mouse_wy;
++		SDL_PushEvent(&ev);
++		break;
++	}
++}
++
++/* Normal rule: after frame f is presented, fire every pending entry with frame <= f, in order. */
++static void inject_keys(unsigned long f)
++{
++	if (!acts_loaded) load_acts();
++	while (nextact < nacts && acts[nextact].frame <= f)
++		fire_act(&acts[nextact++]);
++}
++
++/* Idle rule (called from every SDL_Delay): after idle_limit polls without a presented frame, fire
++ * the head pending entry and every following entry with the same frame number. */
++static void inject_idle(void)
++{
++	if (!acts_loaded) load_acts();
++	if (nextact >= nacts) return;
++	if (++idle_polls < idle_limit) return;
++	idle_polls = 0;
++	{
++		const char *lp = getenv("OT_IDLELOG");
++		FILE *lf = lp ? fopen(lp, "a") : NULL;
++		if (lf) { fprintf(lf, "%ld\n", (long)frame - 1); fclose(lf); }
++	}
++	unsigned long f = acts[nextact].frame;
++	while (nextact < nacts && acts[nextact].frame == f)
++		fire_act(&acts[nextact++]);
++}
++
++static void save_dump(void)
++{
++	const char *dir = getenv("OT_SAVEDUMP");
++	static const char *const names[] = { "tyrian.sav", "tyrian.cfg" };
++	if (!dir) return;
++	mkdir(dir, 0755);
++	for (int i = 0; i < 2; ++i)
++	{
++		char src[600], dst[600];
++		snprintf(src, sizeof(src), "%s/%s", get_user_directory(), names[i]);
++		snprintf(dst, sizeof(dst), "%s/%s", dir, names[i]);
++		FILE *in = fopen(src, "rb");
++		if (!in) continue;
++		FILE *out = fopen(dst, "wb");
++		char buf[4096];
++		size_t n;
++		while (out && (n = fread(buf, 1, sizeof(buf), in)) > 0) fwrite(buf, 1, n, out);
++		if (out) fclose(out);
++		fclose(in);
 +	}
 +}
 +
@@ -234,6 +407,60 @@ index 0000000..f832d39
 +	fflush(statef);
 +}
 +
++extern int oracle_cur_menu(void); /* game_menu.c */
++
++/* State record v2: 36 x 32-bit little-endian words (s32 where marked), in this order:
++ *  0 frame            1 mtCalls          2 cash (low 32 bits of player[0].cash)
++ *  3 front power      4 rear power       5..16 items[12] (pItems order: front id, rear id, super_arcade,
++ *  sidekick L, sidekick R, generator, sidekick_level, sidekick_series, initial_episode_num, shield, special, ship)
++ * 17 mainLevel       18 nextLevel       19 saveLevel       20 episodeNum
++ * 21 difficultyLevel (s32)  22 levelEnd  23 endLevel  24 reallyEndLevel  25 gameLoaded
++ * 26 curMenu (s32)   27 lvlFileNum      28 armor          29 shield
++ * 30 temp  31 temp2  32 temp3  33 tempW   34 p0 x (s32)    35 p0 y (s32) */
++static void write_state2(unsigned long f)
++{
++	Uint32 r[36];
++	int k = 0;
++	r[k++] = (Uint32)f;
++	r[k++] = (Uint32)oracle_mt_calls;
++	r[k++] = (Uint32)player[0].cash;
++	r[k++] = player[0].items.weapon[FRONT_WEAPON].power;
++	r[k++] = player[0].items.weapon[REAR_WEAPON].power;
++	r[k++] = player[0].items.weapon[FRONT_WEAPON].id;
++	r[k++] = player[0].items.weapon[REAR_WEAPON].id;
++	r[k++] = player[0].items.super_arcade_mode;
++	r[k++] = player[0].items.sidekick[LEFT_SIDEKICK];
++	r[k++] = player[0].items.sidekick[RIGHT_SIDEKICK];
++	r[k++] = player[0].items.generator;
++	r[k++] = player[0].items.sidekick_level;
++	r[k++] = player[0].items.sidekick_series;
++	r[k++] = initial_episode_num;
++	r[k++] = player[0].items.shield;
++	r[k++] = player[0].items.special;
++	r[k++] = player[0].items.ship;
++	r[k++] = mainLevel;
++	r[k++] = nextLevel;
++	r[k++] = saveLevel;
++	r[k++] = episodeNum;
++	r[k++] = (Uint32)(Sint32)difficultyLevel;
++	r[k++] = levelEnd;
++	r[k++] = endLevel;
++	r[k++] = reallyEndLevel;
++	r[k++] = gameLoaded;
++	r[k++] = (Uint32)(Sint32)oracle_cur_menu();
++	r[k++] = lvlFileNum;
++	r[k++] = player[0].armor;
++	r[k++] = player[0].shield;
++	r[k++] = temp;
++	r[k++] = temp2;
++	r[k++] = temp3;
++	r[k++] = tempW;
++	r[k++] = (Uint32)(Sint32)player[0].x;
++	r[k++] = (Uint32)(Sint32)player[0].y;
++	fwrite(r, 4, 36, state2f);
++	fflush(state2f);
++}
++
 +void oracle_frame(SDL_Surface *screen)
 +{
 +	if (!initialized)
@@ -245,6 +472,8 @@ index 0000000..f832d39
 +		if (path) hashf = fopen(path, "wb");
 +		path = getenv("OT_STATE");
 +		if (path) statef = fopen(path, "wb");
++		path = getenv("OT_STATE2");
++		if (path) state2f = fopen(path, "wb");
 +		const char *m = getenv("OT_MAX_FRAMES");
 +		max_frames = m ? strtoul(m, NULL, 10) : 0;
 +		const char *e = getenv("OT_RAW_EVERY");
@@ -276,13 +505,16 @@ index 0000000..f832d39
 +		}
 +	}
 +	if (statef) write_state(frame);
++	if (state2f) write_state2(frame);
 +	inject_keys(frame);
++	idle_polls = 0;
 +	frame++;
 +	if (max_frames && frame >= max_frames)
 +	{
 +		if (dump) fclose(dump);
 +		if (hashf) fclose(hashf);
 +		if (statef) fclose(statef);
++		if (state2f) fclose(state2f);
 +		exit(0);
 +	}
 +}
