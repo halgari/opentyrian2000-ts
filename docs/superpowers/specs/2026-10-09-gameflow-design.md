@@ -8,7 +8,7 @@ Survey: `2026-10-09-gameflow-survey.md`. It is the authoritative map of call pat
 ## 1. Goal
 
 A player in the browser can do everything the single-player C game allows:
-- start a new game (episode 1–5, any difficulty);
+- start a new game (episode 1–5, any difficulty), in full-game (story) or **1-player arcade** mode (`onePlayerAction`);
 - play every level with keyboard and mouse;
 - go through the episode scripts (briefings, data cubes, level select maps);
 - use the shop/upgrade screen;
@@ -25,7 +25,7 @@ Behaviour stays frame-exact versus the C oracle wherever a golden scenario can d
 - `tyrian.sav` written by TS is byte-identical to the C's for the same session.
 - The browser plays a full game with no unported throws on the single-player path.
 
-**Out of scope** (later or never): two-player, network, super-arcade/SuperTyrian/galaga codes, timed battle, Destruct, joystick (the Gamepad API is optional polish in sub-project 5), the ship editor, and screenshot/debug keys.
+**Out of scope** (later or never): two-player arcade, network, super-arcade/SuperTyrian/galaga codes, timed battle, Destruct, joystick (the Gamepad API is optional polish in sub-project 5), the ship editor, and screenshot/debug keys.
 
 ## 2. Architecture additions
 
