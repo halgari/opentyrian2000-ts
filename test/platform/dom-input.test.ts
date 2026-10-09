@@ -111,6 +111,22 @@ const drain = (i: Input): number[] => {
 };
 
 describe('dom-input: browser keys vs game keys (Review Focus 1)', () => {
+  it('lets Alt+S and Alt+L (shop quick save/load) reach the game with the Alt key held', () => {
+    const { target, input } = setup();
+    target.dispatchEvent(keyEvent('keydown', { code: 'AltLeft', altKey: true }));
+    input.serviceEvents(false);
+    for (const [code, key, sc] of [['KeyS', 's', 22], ['KeyL', 'l', 15]] as const) {
+      const e = keyEvent('keydown', { code, key, altKey: true });
+      target.dispatchEvent(e);
+      expect(e.defaultPrevented).toBe(true); // otherwise the browser opens a menu
+      input.serviceEvents(true);
+      expect(input.keysactive[sc]).toBe(1);
+      expect(input.keysactive[226]).toBe(1);
+      expect(input.newText).toBe(false); // Alt chords do not type
+      target.dispatchEvent(keyEvent('keyup', { code, altKey: true }));
+      input.serviceEvents(false);
+    }
+  });
   it('prevents the default of Alt keydown and keyup (a bare Alt release focuses the menu bar)', () => {
     const { target } = setup();
     const down = keyEvent('keydown', { code: 'AltLeft', altKey: true });

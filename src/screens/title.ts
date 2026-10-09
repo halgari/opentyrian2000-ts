@@ -19,6 +19,11 @@ import { MOUSE_POINTER_NORMAL, mouseReplace, mouseStartFilter } from '../video/m
 import { PLANET_SHAPES, blitSprite } from '../video/sprite';
 import { copySurface } from '../video/surface';
 import { showVGA } from '../video/video';
+import { helpSystem } from './help-system';
+import { highScoreScreen } from './highscores';
+import { loadScreen } from './loadscreen';
+import { newGame } from './select';
+import { setupMenu } from './setup';
 import { stubScreen } from './stub';
 
 export const SA_DESTRUCT = 10;
@@ -197,12 +202,28 @@ export async function titleScreen(ctx: Ctx): Promise<boolean> {
       audio.playSample(S_SELECT);
       switch (selectedIndex) {
         case MENU_ITEM_NEW_GAME:
+          await fadeBlack(ctx, 15);
+          if (await newGame(ctx)) return true;
+          restart = true;
+          break;
         case MENU_ITEM_LOAD_GAME:
+          await fadeBlack(ctx, 15);
+          if (await loadScreen(ctx)) return true;
+          restart = true;
+          break;
         case MENU_ITEM_HIGH_SCORES:
+          await fadeBlack(ctx, 15);
+          await highScoreScreen(ctx);
+          restart = true;
+          break;
         case MENU_ITEM_INSTRUCTIONS:
+          await fadeBlack(ctx, 15);
+          await helpSystem(ctx, 1);
+          restart = true;
+          break;
         case MENU_ITEM_SETUP:
           await fadeBlack(ctx, 15);
-          await stubScreen(ctx, menuText[selectedIndex]!);
+          await setupMenu(ctx);
           restart = true;
           break;
         case MENU_ITEM_DEMO:
