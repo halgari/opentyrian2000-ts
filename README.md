@@ -43,6 +43,7 @@ placeholder screens. Audio, gameplay and the rest arrive in later sub-projects; 
 - `src/platform` – clock, delays, input, audio interface.
 - `src/screens` – ported game screens. Blocking C loops are `async` functions.
 - `tools/oracle` – builds the original C with a frame-dump patch; golden tests compare.
+  It also builds `reference/oracle/audio-render` (OPL + LDS music from the C sources) and writes reference PCM to `test-data/oracle/audio/`.
 
 ## Credits & licence
 

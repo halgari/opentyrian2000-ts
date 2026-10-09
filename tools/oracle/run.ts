@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SCENARIOS, type ScenarioName } from './scenarios';
+import { AUDIO_SCENARIOS, SCENARIOS, type AudioScenarioName, type ScenarioName } from './scenarios';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const BIN = join(ROOT, 'reference/oracle/opentyrian2000');
@@ -36,10 +36,35 @@ function run(name: ScenarioName): void {
   console.log(`oracle ${name}: ${frames} frames -> ${out}`);
 }
 
+const AUDIO_BIN = join(ROOT, 'reference/oracle/audio-render');
+const AUDIO_OUT = join(OUT, 'audio');
+
+function runAudio(name: AudioScenarioName): void {
+  const sc = AUDIO_SCENARIOS[name];
+  const out = join(AUDIO_OUT, `${name}.pcm`);
+  rmSync(out, { force: true });
+  const res = spawnSync(
+    AUDIO_BIN,
+    [join(DATA, 'music.mus'), String(sc.song), String(sc.samples), sc.mode, String(sc.musicVolume), String(sc.fadeAt), out],
+    { stdio: ['ignore', 'ignore', 'inherit'], timeout: 180_000 },
+  );
+  if (res.status !== 0) throw new Error(`audio oracle ${name} exited with ${res.status ?? res.signal}`);
+  const want = sc.mode === 'voltable' ? 256 * 4 : sc.samples * 2;
+  const got = statSync(out).size;
+  if (got !== want) throw new Error(`audio oracle ${name}: expected ${want} bytes, got ${got}`);
+  console.log(`audio oracle ${name}: ${got} bytes -> ${out}`);
+}
+
 mkdirSync(OUT, { recursive: true });
+mkdirSync(AUDIO_OUT, { recursive: true });
 const arg = process.argv[2] ?? 'all';
-const names = arg === 'all' ? (Object.keys(SCENARIOS) as ScenarioName[]) : [arg as ScenarioName];
-for (const n of names) {
-  if (!(n in SCENARIOS)) throw new Error(`unknown scenario ${n}`);
-  run(n);
+if (arg === 'all') {
+  for (const n of Object.keys(SCENARIOS) as ScenarioName[]) run(n);
+  for (const n of Object.keys(AUDIO_SCENARIOS) as AudioScenarioName[]) runAudio(n);
+} else if (arg in AUDIO_SCENARIOS) {
+  runAudio(arg as AudioScenarioName);
+} else if (arg in SCENARIOS) {
+  run(arg as ScenarioName);
+} else {
+  throw new Error(`unknown scenario ${arg}`);
 }
