@@ -655,6 +655,13 @@ export interface VarzGroup {
   upgradeCost: number; downgradeCost: number; // JE_word
   performSave: boolean; jumpSection: boolean; useLastBank: boolean;
   pauseGamePressed: boolean; ingamemenuPressed: boolean; // pause_pressed, ingamemenu_pressed
+  // globals JE_main initialises that the earlier world pass did not list (fonthand.h, musmast.h, network.h)
+  warningCol: number;                  // JE_byte
+  warningColChange: number;            // JE_shortint
+  warningSoundDelay: number;           // JE_byte
+  armorShipDelay: number;              // JE_word
+  musicFade: boolean;
+  yourInGameMenuRequest: boolean;
 }
 
 /** Scratch globals (varz.c:296-300). Writers must wrap to the C type. */
@@ -914,6 +921,8 @@ export function createGameWorld(): GameWorld {
       constantLastX: 0, textErase: 0, upgradeCost: 0, downgradeCost: 0,
       performSave: false, jumpSection: false, useLastBank: false,
       pauseGamePressed: false, ingamemenuPressed: false,
+      warningCol: 0, warningColChange: 0, warningSoundDelay: 0, armorShipDelay: 0, musicFade: false,
+      yourInGameMenuRequest: false,
     },
     scratch: { temp: 0, temp2: 0, temp3: 0, tempW: 0, b: 0, x: 0, y: 0, tempDat: 0, tempDat2: 0, tempDat3: 0 },
     map: {
