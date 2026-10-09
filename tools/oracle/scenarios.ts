@@ -26,6 +26,12 @@ const demoScenario = (n: number, maxFrames: number): Scenario => ({
   maxFrames, keys: DEMO_KEYS, demo: n, hash: true, state: true,
 });
 
+/** Demo selection at the idle title menu starting at frame `f`. */
+const demoKeysAt = (f: number): KeyPress[] => [
+  ...[0, 1, 2, 3, 4].map((i) => ({ frame: f + i, scancode: 81 })),
+  { frame: f + 5, scancode: 40 },
+];
+
 export const SCENARIOS = {
   /** Intro logos, title logo slide, menu fade-in, idle menu (frames 0–141). */
   boot: { maxFrames: 142, keys: [] },
@@ -44,6 +50,12 @@ export const SCENARIOS = {
   'demo-3': demoScenario(3, 2476),
   'demo-4': demoScenario(4, 2016),
   'demo-5': demoScenario(5, 3265),
+  /** Demo 1, any key at first loop frame (213) + 300 aborts it; back at the title, Demo again plays demo.2. */
+  'demo-abort': {
+    maxFrames: 1200, demo: 1, hash: true, state: true,
+    // Frame 584 is the first idle title-menu frame after the abort (measured, hash equals boot frame 141's).
+    keys: [...DEMO_KEYS, { frame: 513, scancode: 44 }, ...demoKeysAt(584)],
+  },
 } satisfies Record<string, Scenario>;
 
 export type ScenarioName = keyof typeof SCENARIOS;

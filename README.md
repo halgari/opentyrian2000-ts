@@ -43,6 +43,10 @@ C original (verified by golden frame tests). Menu items other than navigation sh
 placeholder screens. Sub-project 2 (Audio) — music (OPL2/LDS) and sound effects, verified
 against the C oracle and played in the browser through an AudioWorklet. Gameplay and the
 rest arrive in later sub-projects; see `docs/superpowers/specs/`.
+Sub-project 3 (Gameplay) — the five built-in demos play from the title menu (Demo) with music
+and sound effects, frame-exact against the C oracle (pixels and a per-frame state trace),
+including aborting a demo with a key and playing the next one. Starting a new game, the
+shop/menus and the other level types arrive in later sub-projects.
 
 ## Architecture (short)
 
