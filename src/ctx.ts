@@ -6,6 +6,7 @@ import { NullAudio, type Audio } from './platform/audio';
 import type { Clock } from './platform/clock';
 import { DelayTimer } from './platform/delay';
 import { Input } from './platform/input';
+import { memoryAdapter, type StorageAdapter } from './platform/storage';
 import { createMouseCursor, type MouseCursor } from './video/mouse';
 import { PaletteState } from './video/palette';
 import type { Presenter } from './video/presenter';
@@ -37,12 +38,15 @@ export interface Ctx {
   shopSpriteSheet: Sprite2Sheet | null;
   mouse: MouseCursor;
   state: GameState;
+  /** The user directory (tyrian.sav / tyrian.cfg / opentyrian.cfg); in-memory unless a browser adapter is passed. */
+  storage: StorageAdapter;
   /** All C gameplay globals (spec §2.1). */
   game: GameWorld;
 }
 
 export function createCtx(opts: {
   assets: Assets; clock: Clock; presenter: Presenter; audio?: Audio; versionString?: string; seed?: number;
+  storage?: StorageAdapter;
 }): Ctx {
   const rng = new MersenneTwister();
   rng.srand(opts.seed ?? (Date.now() / 1000) >>> 0); // main(): mt_srand(time(NULL))
@@ -60,6 +64,7 @@ export function createCtx(opts: {
     shopSpriteSheet: null,
     mouse: createMouseCursor(),
     state: { versionString: opts.versionString ?? VERSION, moveTyrianLogoUp: false, xmas: false, playDemo: false, loadDestruct: false },
+    storage: opts.storage ?? memoryAdapter(),
     game: createGameWorld(),
   };
 }

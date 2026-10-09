@@ -7,7 +7,14 @@
 //   src/mainint.c (JE_initPlayerData)
 import type { Ctx } from '../ctx';
 import { u8 } from '../core/int';
-import { defaultDosKeySettings, defaultKeySettings, defaultMouseSettings, FIRST_LEVEL, FRONT_WEAPON, REAR_WEAPON, SA_NONE } from './world';
+import { STORAGE_KEYS } from '../platform/storage';
+import {
+  backupCorruptSav, parseCfg, parseOpentyrianConfig, parseSav, readStoredCfg, readStoredSav,
+} from './save';
+import {
+  defaultDosKeySettings, FIRST_LEVEL, FRONT_WEAPON, initialItemAvail, REAR_WEAPON, SA_NONE, SAVE_FILES_SIZE,
+  type ConfigGroup,
+} from './world';
 
 // port of JE_initProcessorType (config.c:511)
 export function initProcessorType(ctx: Ctx): void {
@@ -89,19 +96,7 @@ export function setNewGameSpeed(ctx: Ctx): void {
   ctx.delay.setDelay(c.frameCountMax);
 }
 
-/**
- * port of JE_loadConfiguration (config.c:777), the "no tyrian.cfg / no tyrian.sav" branch only.
- * Browser builds have no user directory, so the file branches are never taken. This reproduces
- * the 174 mt_rand() draws that make up the made-up high-score tables (config.c:965-996).
- * Also folds in load_opentyrian_config's defaults (config.c:213) that touch gameplay-visible state.
- */
-export function loadConfigurationDefaults(ctx: Ctx): void {
-  const g = ctx.game;
-  const c = g.config;
-  const rng = ctx.rng;
-  const names = ctx.assets.helpText.defaultHighScoreNames;
-  const teams = ctx.assets.helpText.defaultTeamNames;
-
+function applyCfgDefaults(c: ConfigGroup): void {
   c.soundEffects = 1;
   c.dosKeySettings.set(defaultDosKeySettings);
   c.background2 = true;
@@ -111,23 +106,23 @@ export function loadConfigurationDefaults(ctx: Ctx): void {
   c.processorType = 3;
   c.gameSpeed = 4;
   c.versionNum = 3;
+}
 
-  // load_opentyrian_config: defaults (opentyrian.cfg is absent)
-  c.keySettings.set(defaultKeySettings);
-  c.mouseSettings.set(defaultMouseSettings);
+/** The "We didn't have a save file! Let's make up random stuff!" branch (config.c:955-996): 174 mt_rand draws. */
+function makeUpSaveDefaults(ctx: Ctx): void {
+  const c = ctx.game.config;
+  const rng = ctx.rng;
+  const names = ctx.assets.helpText.defaultHighScoreNames;
+  const teams = ctx.assets.helpText.defaultTeamNames;
 
-  if (c.tyrMusicVolume > 255) c.tyrMusicVolume = 255;
-  if (c.fxVolume > 255) c.fxVolume = 255;
-  ctx.audio.setVolume(c.tyrMusicVolume, c.fxVolume); // set_volume()
-
-  // No save file: make up random stuff
   c.editorLevel = 800;
-  // (saveTemp[SAVE_FILES_SIZE + z] = initialItemAvail[z] seeds the shop item table; the shop is sub-project 4.)
+  for (let z = 0; z < 100; z++) c.saveTemp[SAVE_FILES_SIZE + z] = initialItemAvail[z]!;
 
   for (let z = 0; z < c.saveFiles.length; z++) {
     const sf = c.saveFiles[z]!;
     sf.level = 0;
-    sf.name = ' '.repeat(14);
+    sf.name.fill(0, 0, 15);
+    sf.name.fill(0x20, 0, 14); // 14 spaces, NUL at [14]
     sf.highScore1 = ((rng.rand() % 20) + 1) * 1000;
     if (z % 6 > 2) {
       sf.highScore2 = ((rng.rand() % 20) + 1) * 1000;
@@ -154,12 +149,73 @@ export function loadConfigurationDefaults(ctx: Ctx): void {
       else e.playerName = names[rng.rand() % 39] ?? '';
     }
   }
-
-  initProcessorType(ctx);
 }
 
-// JE_sortHighScores (mainint.c:1092) is not ported: it only reorders the made-up high-score
-// tables, draws no RNG, and nothing in the demo path reads them (SP4: high-score screens).
+/** Clamp volumes and push them to the mixer (config.c:821-827). */
+function applyVolumes(ctx: Ctx): void {
+  const c = ctx.game.config;
+  if (c.tyrMusicVolume > 255) c.tyrMusicVolume = 255;
+  if (c.fxVolume > 255) c.fxVolume = 255;
+  ctx.audio.setVolume(c.tyrMusicVolume, c.fxVolume); // set_volume()
+}
+
+/**
+ * The no-tyrian.cfg / no-opentyrian.cfg / no-tyrian.sav path of JE_loadConfiguration (config.c:777),
+ * ignoring storage. Reproduces the 174 mt_rand() draws of the made-up high-score tables.
+ */
+export function loadConfigurationDefaults(ctx: Ctx): void {
+  const c = ctx.game.config;
+  applyCfgDefaults(c);
+  parseOpentyrianConfig(c, null); // load_opentyrian_config defaults
+  applyVolumes(ctx);
+  makeUpSaveDefaults(ctx);
+  initProcessorType(ctx);
+  c.configurationLoaded = true;
+}
+
+/**
+ * port of JE_loadConfiguration (config.c:777): tyrian.cfg, opentyrian.cfg and tyrian.sav from
+ * ctx.storage. The 174 RNG draws happen only when no usable save is stored. A corrupt or foreign
+ * save (the C exit(255)s) is kept under a backup key, a warning is logged and the defaults are used.
+ */
+export function loadConfiguration(ctx: Ctx): void {
+  const c = ctx.game.config;
+
+  const cfg = readStoredCfg(ctx);
+  if (!(cfg && parseCfg(c, cfg))) {
+    if (cfg) console.warn('opentyrian: invalid tyrian.cfg in storage; continuing using defaults');
+    applyCfgDefaults(c);
+  }
+
+  parseOpentyrianConfig(c, ctx.storage.get(STORAGE_KEYS.opentyrianCfg));
+  applyVolumes(ctx);
+
+  const sav = readStoredSav(ctx);
+  let loaded = false;
+  if (sav) {
+    const errs = parseSav(c, sav);
+    if (errs.length === 0) loaded = true;
+    else {
+      const backup = backupCorruptSav(ctx, ctx.storage.get(STORAGE_KEYS.sav) ?? '');
+      console.warn(`opentyrian: stored tyrian.sav is invalid (${errs.join('; ')}); kept a copy as "${backup}" and using defaults`);
+    }
+  }
+  if (!loaded) makeUpSaveDefaults(ctx);
+
+  initProcessorType(ctx);
+  c.configurationLoaded = true;
+}
+
+// port of JE_sortHighScores (mainint.c:1092): bubble the 3 entries of each table into descending order
+export function sortHighScores(ctx: Ctx): void {
+  const t = ctx.game.config.t2kHighScores;
+  for (let table = 0; table < 20; ++table) {
+    const e = t[table]!;
+    if (e[1]!.score > e[0]!.score) { const x = e[0]!; e[0] = e[1]!; e[1] = x; }
+    if (e[2]!.score > e[1]!.score) { const x = e[1]!; e[1] = e[2]!; e[2] = x; }
+    if (e[1]!.score > e[0]!.score) { const x = e[0]!; e[0] = e[1]!; e[1] = x; }
+  }
+}
 
 // port of JE_initPlayerData (mainint.c:1042)
 export function initPlayerData(ctx: Ctx): void {

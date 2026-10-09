@@ -6,6 +6,7 @@ import { DATA_URL, fetchArchive } from './data/archive';
 import { runGame } from './game';
 import { BrowserClock } from './platform/clock';
 import { attachDomInput } from './platform/dom-input';
+import { localStorageAdapter } from './platform/storage';
 import { WebAudio, createAudioContext, createAudioOrNull } from './platform/web-audio';
 import { CanvasPresenter } from './video/presenter';
 
@@ -47,7 +48,7 @@ async function boot(): Promise<void> {
   const audio = await createAudioOrNull(ac, assets.music, assets.tyrianSnd, assets.voicesSnd);
   audio.setVolume(191, 191); // C config default when no config file exists (volume = 191 / sample volume = 191)
   if (location.search.includes('debug') && audio instanceof WebAudio) exposeDebug(audio);
-  const ctx = createCtx({ assets, clock: new BrowserClock(), presenter: new CanvasPresenter(canvas), audio });
+  const ctx = createCtx({ assets, clock: new BrowserClock(), presenter: new CanvasPresenter(canvas), audio, storage: localStorageAdapter() });
   attachDomInput({
     target: window,
     canvas,

@@ -32,6 +32,10 @@ export const MAX_PWEAPON = 81;
 export const EVENT_MAXIMUM = 2500;
 export const ENEMY_COUNT = 100; // JE_MultiEnemyType: 100 enemies
 export const SAVE_FILES_NUM = 11 * 2;
+/** config.h: sizes of the original TYRIAN.SAV image */
+export const SAVE_FILES_SIZE = 2398;
+export const SIZEOF_SAVEGAMETEMP = SAVE_FILES_SIZE + 4 + 100;
+export const SAVE_FILE_SIZE = SIZEOF_SAVEGAMETEMP - 4;
 export const MAX_STARS = 100;
 export const STARFIELD_HUE = 0x90;
 export const WEAP_NUM = 1818;
@@ -553,9 +557,34 @@ export class Player {
 
 /** config.c T2KHighScoreType */
 export interface T2KHighScore { score: number; playerName: string; difficulty: number }
-/** The parts of config.h JE_SaveFileType that the no-save-file defaults branch writes. */
+/** config.h JE_SaveFileType (the on-disk layout is in src/game/save.ts). */
 export interface SaveFile {
-  level: number; name: string; highScore1: number; highScore2: number; highScoreName: string;
+  encode: number;                      // JE_word
+  level: number;                       // JE_word
+  items: Uint8Array;                   // JE_PItemsType, byte[12]
+  score: number; score2: number;       // JE_longint (s32)
+  levelName: string;                   // char[11]
+  /** char[15]: kept as raw bytes because the file stores 14 raw bytes (stale bytes after the NUL survive a save). */
+  name: Uint8Array;
+  cubes: number;                       // JE_byte
+  power: Uint8Array;                   // JE_byte[2]
+  episode: number;                     // JE_byte
+  lastItems: Uint8Array;               // JE_PItemsType
+  difficulty: number; secretHint: number; input1: number; input2: number; // JE_byte
+  gameHasRepeated: boolean;
+  initialDifficulty: number;           // JE_byte
+  highScore1: number; highScore2: number; // JE_longint
+  highScoreName: string;               // char[30]
+  highScoreDiff: number;               // JE_byte
+}
+
+export function newSaveFile(): SaveFile {
+  return {
+    encode: 0, level: 0, items: new Uint8Array(12), score: 0, score2: 0, levelName: '', name: new Uint8Array(15),
+    cubes: 0, power: new Uint8Array(2), episode: 0, lastItems: new Uint8Array(12), difficulty: 0, secretHint: 0,
+    input1: 0, input2: 0, gameHasRepeated: false, initialDifficulty: 0, highScore1: 0, highScore2: 0,
+    highScoreName: '', highScoreDiff: 0,
+  };
 }
 
 /** config.c / nortsong.c / opentyr.c-level settings and per-game state. */
@@ -600,7 +629,12 @@ export interface ConfigGroup {
   pentiumMode: boolean;
   gameSpeed: number;                   // JE_byte
   processorType: number;               // JE_byte
-  saveFiles: SaveFile[];               // JE_SaveFilesType[22] (subset of fields)
+  saveFiles: SaveFile[];               // JE_SaveFilesType[22]
+  /** config.c saveTemp[2502]: decrypted image; bytes 2398.. are the shop's item-availability table (JE_EditorItemAvailType). */
+  saveTemp: Uint8Array;
+  inputDevice_: number; jConfigure: number; midiPort: number; // JE_byte (tyrian.cfg only)
+  joyButtonAssign: Uint8Array;         // JE_byte[4]
+  configurationLoaded: boolean;
   t2kHighScores: T2KHighScore[][];     // [20][3]
   editorLevel: number;                 // JE_word
   /** nortsong.c */
@@ -897,7 +931,9 @@ export function createGameWorld(): GameWorld {
       background2: false, smoothScroll: false, wild: false, superWild: false, starActive: false,
       topEnemyOver: false, skyEnemyOverAll: false, background2notTransparent: false,
       soundEffects: 0, versionNum: 0, fastPlay: 0, pentiumMode: false, gameSpeed: 0, processorType: 0,
-      saveFiles: arr(SAVE_FILES_NUM, () => ({ level: 0, name: '', highScore1: 0, highScore2: 0, highScoreName: '' })),
+      saveFiles: arr(SAVE_FILES_NUM, () => newSaveFile()),
+      saveTemp: new Uint8Array(SIZEOF_SAVEGAMETEMP),
+      inputDevice_: 0, jConfigure: 0, midiPort: 1, joyButtonAssign: Uint8Array.of(1, 4, 5, 5), configurationLoaded: false, // config.c:773-774
       t2kHighScores: arr(20, () => arr(3, () => ({ score: 0, playerName: '', difficulty: 0 }))),
       editorLevel: 0,
       tyrMusicVolume: 0, fxVolume: 0,
