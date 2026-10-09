@@ -16,6 +16,7 @@
 // JE_word=u16, JE_longint=s32, JE_boolean/bool=boolean, JE_real=float32, uint=u32, ulong=64-bit.
 // Scalar fields are plain JS numbers: the code that assigns them applies u8()/s16()/... wrapping
 // (src/core/int.ts) exactly where the C narrows. Typed-array elements wrap by themselves.
+import type { ShotOut } from './shots';
 import { V_ACCELERATE, V_BOSS, V_CLEARED_PLATFORM, V_DANGER, V_ENEMIES, V_SPIKES } from '../audio/ids';
 import type { Sprite2Sheet } from '../video/sprite2';
 
@@ -737,6 +738,8 @@ export interface PlayerShotsGroup {
   spraySpecial: boolean;
   doIced: number;                      // JE_byte
   infiniteShot: boolean;
+  /** JE_main's per-shot locals (persist across slots; uninitialised in C) */
+  shotOut: ShotOut;
 }
 
 export interface ExplosionsGroup {
@@ -960,6 +963,10 @@ export function createGameWorld(): GameWorld {
       shotAvail: new Uint8Array(MAX_PWEAPON),
       zinglonDuration: 0, astralDuration: 0, flareDuration: 0, flareStart: false, flareColChg: 0,
       specialWait: 0, nextSpecialWait: 0, spraySpecial: false, doIced: 0, infiniteShot: false,
+      shotOut: {
+        isSpecial: false, shotX: 0, shotY: 0, shotDamage: 0, blastFilter: 0, chain: 0, playerNum: 1,
+        specialRadiusW: 0, specialRadiusH: 0,
+      },
     },
     explosions: {
       explosions: arr(MAX_EXPLOSIONS, () => new Explosion()),
