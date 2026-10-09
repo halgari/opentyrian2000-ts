@@ -7,23 +7,24 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadItemDat } from '../../src/data/itemdat';
 import { analyzeLevel } from '../../src/data/level';
-import { ALL_DEMO_LEVELS, buildDemo, demoScenarioName, SPECIAL_POOL, type DemoLevel } from './demo-levels';
+import { ALL_DEMO_LEVELS, buildDemo, demoScenarioName, LONG_DEMO_LEVELS, longScenarioName, SPECIAL_POOL, type DemoLevel } from './demo-levels';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const DATA = join(ROOT, 'data/tyrian2000');
 export const DEMO_DIR = join(ROOT, 'test-data/demos');
 const ORACLE = join(ROOT, 'test-data/oracle');
 
-export const demoPath = (lv: DemoLevel): string => join(DEMO_DIR, `${demoScenarioName(lv.ep, lv.file)}.demo`);
-export const dataDirRel = (lv: DemoLevel): string => `test-data/oracle/data-${demoScenarioName(lv.ep, lv.file)}`;
+export const demoPath = (lv: DemoLevel, long = false): string => join(DEMO_DIR, `${long ? longScenarioName(lv.ep, lv.file) : demoScenarioName(lv.ep, lv.file)}.demo`);
+export const dataDirRel = (lv: DemoLevel, long = false): string =>
+  `test-data/oracle/data-${long ? longScenarioName(lv.ep, lv.file) : demoScenarioName(lv.ep, lv.file)}`;
 
-/** Writes the demo file and the alt data dir for one level (idempotent). */
-export function writeLevelDemo(lv: DemoLevel): void {
+/** Writes the demo file and the alt data dir for one level (idempotent). `long` = the lvlx-<ep>-<nn> variant. */
+export function writeLevelDemo(lv: DemoLevel, long = false): void {
   mkdirSync(DEMO_DIR, { recursive: true });
-  const bytes = buildDemo(lv);
-  const path = demoPath(lv);
+  const bytes = buildDemo(lv, long);
+  const path = demoPath(lv, long);
   if (!existsSync(path) || Buffer.compare(readFileSync(path), bytes) !== 0) writeFileSync(path, bytes);
-  const dir = join(ROOT, dataDirRel(lv));
+  const dir = join(ROOT, dataDirRel(lv, long));
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   for (const f of readdirSync(DATA)) {
@@ -36,6 +37,8 @@ export function writeLevelDemo(lv: DemoLevel): void {
 export function ensureLevelDemo(name: string): void {
   const lv = ALL_DEMO_LEVELS.find((l) => demoScenarioName(l.ep, l.file) === name);
   if (lv) writeLevelDemo(lv);
+  const lx = LONG_DEMO_LEVELS.find((l) => longScenarioName(l.ep, l.file) === name);
+  if (lx) writeLevelDemo(lx, true);
 }
 
 /** Checks that every id in every demo header names a real item of that episode's tables; returns coverage counts. */
@@ -83,6 +86,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   mkdirSync(ORACLE, { recursive: true });
   validate();
   for (const lv of ALL_DEMO_LEVELS) writeLevelDemo(lv);
+  for (const lv of LONG_DEMO_LEVELS) writeLevelDemo(lv, true);
   const sizes = ALL_DEMO_LEVELS.map((lv) => lstatSync(demoPath(lv)).size);
   console.log(`wrote ${ALL_DEMO_LEVELS.length} demos (${Math.min(...sizes)}..${Math.max(...sizes)} bytes) to ${DEMO_DIR}`);
 }

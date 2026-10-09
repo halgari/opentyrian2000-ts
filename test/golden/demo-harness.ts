@@ -50,6 +50,8 @@ export async function runDemoScenario(
   name: ScenarioName | Scenario, maxFrames: number = typeof name === 'string' ? SCENARIOS[name].maxFrames : name.maxFrames,
   /** Archive file overrides, e.g. { 'demo.1': bytes } (the oracle's alternate data dir). */
   overrides?: Record<string, Uint8Array>,
+  /** Called after every presented frame (coverage probes). */
+  onFrame?: (ctx: Ctx, index: number) => void,
 ): Promise<{ hashes: Uint32Array; states: StateRecord[]; ctx: Ctx }> {
   const scenario: Scenario = typeof name === 'string' ? SCENARIOS[name] : name;
   const ctx = createCtx({
@@ -65,6 +67,7 @@ export async function runDemoScenario(
     const index = hashes.length;
     hashes.push(frameCrc(palette, screen.pixels));
     states.push(stateRecord(ctx, index));
+    onFrame?.(ctx, index);
     for (const k of scenario.keys) {
       if (k.frame === index) {
         ctx.input.push({ type: 'keydown', scancode: k.scancode, mod: 0 });

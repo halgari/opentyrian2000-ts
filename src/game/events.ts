@@ -616,6 +616,7 @@ export function eventSystem(ctx: Ctx): void {
         if (sc.temp === 5) sc.temp = 3;
         g.backgrounds.smoothieData[sc.temp - 1] = e.eventdat3;
       }
+      break;
 
     case 65:
       v.background3x1 = e.eventdat === 0;

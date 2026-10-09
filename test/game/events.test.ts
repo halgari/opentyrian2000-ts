@@ -584,7 +584,9 @@ describe('eventJump and the sentinel', () => {
 describe('event 64 (smoothies) and event 99 (random explosions)', () => {
   it('sets smoothies[dat-1] to a boolean and smoothie_data[dat-1]; kind 5 stores into slot 3 (shared with kind 3)', () => {
     const { ctx, g } = mk();
+    g.varz.background3x1 = true;
     run(ctx, { eventtype: 64, eventdat: 1, eventdat2: 1, eventdat3: 7 });
+    expect(g.varz.background3x1).toBe(true); // must not fall through into event 65
     expect(g.config.smoothies[0]).toBe(true);
     expect(g.backgrounds.smoothieData[0]).toBe(7);
     run(ctx, { eventtype: 64, eventdat: 5, eventdat2: 2, eventdat3: 9 });

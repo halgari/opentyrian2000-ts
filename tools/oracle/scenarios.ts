@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-import { ALL_DEMO_LEVELS, demoScenarioName, maxFramesFor } from './demo-levels';
+import { ALL_DEMO_LEVELS, demoScenarioName, LONG_DEMO_LEVELS, longScenarioName, maxFramesFor, maxFramesForLong } from './demo-levels';
 // Shared by the oracle runner and the golden tests. Scancodes are SDL scancodes.
 /** hold = frames the key stays down (keyup after frame + hold); 0 or absent = tap (down+up after `frame`). */
 export interface KeyPress { frame: number; scancode: number; hold?: number }
@@ -160,6 +160,17 @@ export const LEVEL_SCENARIOS: Record<string, Scenario> = Object.fromEntries(
   ALL_DEMO_LEVELS.map((lv) => [
     demoScenarioName(lv.ep, lv.file),
     { maxFrames: maxFramesFor(lv), keys: DEMO_KEYS, demo: 1, hash: true, state: true, dataDir: `test-data/oracle/data-${demoScenarioName(lv.ep, lv.file)}` } satisfies Scenario,
+  ]),
+);
+
+/**
+ * lvlx-<ep>-<nn>: long-run demos (tools/oracle/demo-levels.ts LONG_LEVELS) that survive to the late smoothie / flip / lighting /
+ * random-explosion events the standard demos never reach. Same harness as lvl-*; keys come from tools/oracle/long-keys.ts.
+ */
+export const LONG_LEVEL_SCENARIOS: Record<string, Scenario> = Object.fromEntries(
+  LONG_DEMO_LEVELS.map((lv) => [
+    longScenarioName(lv.ep, lv.file),
+    { maxFrames: maxFramesForLong(lv), keys: DEMO_KEYS, demo: 1, hash: true, state: true, dataDir: `test-data/oracle/data-${longScenarioName(lv.ep, lv.file)}` } satisfies Scenario,
   ]),
 );
 

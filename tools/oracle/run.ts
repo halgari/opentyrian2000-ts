@@ -5,7 +5,7 @@ import { mkdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { OUT, DATA, ROOT, runOracle } from './lib';
 import { ensureLevelDemo } from './gen-demos';
-import { AUDIO_SCENARIOS, LEVEL_SCENARIOS, SCENARIOS, type AudioScenarioName, type Scenario } from './scenarios';
+import { AUDIO_SCENARIOS, LEVEL_SCENARIOS, LONG_LEVEL_SCENARIOS, SCENARIOS, type AudioScenarioName, type Scenario } from './scenarios';
 
 const RECORD = 4 + 768 + 64000;
 
@@ -13,8 +13,8 @@ const RECORD = 4 + 768 + 64000;
 interface RawOpts { frames?: string; every?: string; fixture?: boolean }
 
 function run(name: string, raw: RawOpts = {}): void {
-  const sc: Scenario = (SCENARIOS as Record<string, Scenario>)[name] ?? LEVEL_SCENARIOS[name]!;
-  if (name in LEVEL_SCENARIOS) ensureLevelDemo(name);
+  const sc: Scenario = (SCENARIOS as Record<string, Scenario>)[name] ?? LEVEL_SCENARIOS[name] ?? LONG_LEVEL_SCENARIOS[name]!;
+  if (name in LEVEL_SCENARIOS || name in LONG_LEVEL_SCENARIOS) ensureLevelDemo(name);
   const rawMode = raw.frames !== undefined || raw.every !== undefined;
   // Hash/state scenarios write .hash/.state/.state2; the raw dump is then only produced on request (--raw).
   const hashed = sc.hash === true || sc.state === true || sc.state2 === true;
@@ -94,17 +94,18 @@ const arg = argv[0] ?? 'all';
 if (arg === 'all') {
   for (const n of Object.keys(SCENARIOS)) run(n);
   for (const n of Object.keys(LEVEL_SCENARIOS)) run(n);
+  for (const n of Object.keys(LONG_LEVEL_SCENARIOS)) run(n);
   for (const n of Object.keys(AUDIO_SCENARIOS) as AudioScenarioName[]) runAudio(n);
 } else if (arg in AUDIO_SCENARIOS) {
   runAudio(arg as AudioScenarioName);
 } else if (arg === 'levels') {
   // keep going after a crashing oracle run and list the failures at the end
   const failed: string[] = [];
-  for (const n of Object.keys(LEVEL_SCENARIOS)) {
+  for (const n of [...Object.keys(LEVEL_SCENARIOS), ...Object.keys(LONG_LEVEL_SCENARIOS)]) {
     try { run(n); } catch (e) { failed.push(`${n}: ${(e as Error).message}`); }
   }
   if (failed.length) { console.error(`FAILED oracle runs:\n${failed.join('\n')}`); process.exitCode = 1; }
-} else if (arg in SCENARIOS || arg in LEVEL_SCENARIOS) {
+} else if (arg in SCENARIOS || arg in LEVEL_SCENARIOS || arg in LONG_LEVEL_SCENARIOS) {
   run(arg, rawOpts);
 } else {
   throw new Error(`unknown scenario ${arg}`);

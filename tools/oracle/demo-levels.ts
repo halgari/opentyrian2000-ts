@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Pure (no fs) description + generator of the synthetic level demos (Task 3 of sub-project 4).
 // Shared by tools/oracle/gen-demos.ts (writes the files), scenarios.ts (lvl-<ep>-<nn> scenarios) and the golden test.
+import { LONG_KEYS } from './long-keys';
 
 /**
  * Every level record of tyrianN.lvl: file numbers 1..count with (n-1)*2 < lvlNum-1 (ep1 37 entries -> 18, ep2/3 25 -> 12,
@@ -106,20 +107,54 @@ export function keyLegs(seed: number, frames: number): Array<[keys: number, wait
   return legs;
 }
 
+/**
+ * Survival key stream for the long demos: stays low on the screen (mostly horizontal legs, rare short vertical nudges),
+ * fire held, so the player lives through the late events. Legs of 8..80 frames.
+ */
+export function keyLegsSafe(seed: number, frames: number): Array<[keys: number, wait: number]> {
+  const rnd = prng(seed);
+  const legs: Array<[number, number]> = [];
+  let left = frames;
+  while (left > 0) {
+    const len = Math.min(left, 8 + Math.floor(rnd() * 73));
+    let keys = FIRE;
+    const h = rnd();
+    if (h < 0.4) keys |= LEFT; else if (h < 0.8) keys |= RIGHT;
+    const v = rnd();
+    if (v < 0.04) keys |= UP; else if (v < 0.14) keys |= DOWN;
+    if (rnd() < 0.08) keys |= CHANGE;
+    if (rnd() < 0.15) keys |= SK_L;
+    if (rnd() < 0.15) keys |= SK_R;
+    const last = legs[legs.length - 1];
+    if (last && last[0] === keys) last[1] += len;
+    else legs.push([keys, len]);
+    left -= len;
+  }
+  return legs;
+}
+
 /** Frames of key stream for level index k (1500..2499, seeded). */
 export const demoFramesFor = (lv: DemoLevel): number => 1500 + Math.floor(prng(lv.ep * 1000 + lv.file + 77)() * 1000);
 
 /**
  * Bytes of demo.N for a level: 32-byte header (load_next_demo layout) then `(keys u8, wait u16 BE)*`. The first wait is the
  * header's. Every 7th level ends with one stray byte, every 11th with two, so the short-read EOF paths are covered too
- * (replay_demo_keys: feof after a partial record -> false).
+ * (replay_demo_keys: feof after a partial record -> false). `long` selects the long-run variant (see LONG_LEVELS).
  */
-export function buildDemo(lv: DemoLevel): Uint8Array {
+export function buildDemo(lv: DemoLevel, long = false): Uint8Array {
+  if (long) return demoBytes(lv, longLoadoutFor(lv), 0, longLegs(lv));
   const lo = loadoutFor(lv.index);
-  const frames = demoFramesFor(lv);
   const rnd = prng(lv.ep * 31 + lv.file * 7919);
   const initialWait = Math.floor(rnd() * 31);
-  const legs = keyLegs(lv.ep * 100000 + lv.file * 13 + 5, frames);
+  const legs = keyLegs(lv.ep * 100000 + lv.file * 13 + 5, demoFramesFor(lv));
+  const bytes = Array.from(demoBytes(lv, lo, initialWait, legs));
+  if (lv.index % 7 === 3) bytes.push(FIRE);
+  else if (lv.index % 11 === 5) bytes.push(FIRE | LEFT, 0);
+  return Uint8Array.from(bytes);
+}
+
+/** Header + key legs of a demo file (load_next_demo layout). */
+export function demoBytes(lv: DemoLevel, lo: DemoLoadout, initialWait: number, legs: ReadonlyArray<readonly [keys: number, wait: number]>): Uint8Array {
   const out: number[] = [];
   out.push(lv.ep);
   for (let i = 0; i < 10; i++) out.push(i < lv.name.length ? lv.name.charCodeAt(i) : 0);
@@ -128,13 +163,54 @@ export function buildDemo(lv: DemoLevel): Uint8Array {
   out.push(lo.shield, lo.special, lo.ship, lo.frontPower, lo.rearPower, 0, 0, 0, lv.song);
   out.push(initialWait >> 8, initialWait & 255);
   for (const [keys, wait] of legs) out.push(keys, wait >> 8, wait & 255);
-  if (lv.index % 7 === 3) out.push(FIRE);
-  else if (lv.index % 11 === 5) out.push(FIRE | LEFT, 0);
   return Uint8Array.from(out);
+}
+
+/** Key legs of a long demo: the searched stream from long-keys.ts (tools/oracle/survive.ts), else the plain survival stream. */
+export function longLegs(lv: DemoLevel): Array<[number, number]> {
+  const enc = LONG_KEYS[longScenarioName(lv.ep, lv.file)];
+  if (enc === undefined) return keyLegsSafe(lv.ep * 100000 + lv.file * 13 + 5 + 977, LONG_FRAMES);
+  return decodeLegs(enc);
+}
+export function encodeLegs(legs: ReadonlyArray<readonly [number, number]>): string {
+  return btoa(String.fromCharCode(...legs.flatMap(([k, w]) => [k, w >> 8, w & 255])));
+}
+export function decodeLegs(enc: string): Array<[number, number]> {
+  const b = Uint8Array.from(atob(enc), (c) => c.charCodeAt(0));
+  const out: Array<[number, number]> = [];
+  for (let i = 0; i + 2 < b.length; i += 3) out.push([b[i]!, (b[i + 1]! << 8) | b[i + 2]!]);
+  return out;
+}
+
+/**
+ * Long-run demos (scenarios `lvlx-<ep>-<nn>`): the shipped levels whose smoothie / flip / lighting / random-explosion events lie
+ * beyond the ~2000 frames the standard demos play. The key stream is found by `tsx tools/oracle/survive.ts <ep>-<file> <goal>`
+ * (a greedy two-level search that replays candidates through the TS port, which is bit-exact with the C on these demos) and
+ * stored in long-keys.ts; the loadout is fixed strong gear (see longLoadoutFor). Late events covered:
+ *   ep1 16: blur @3015, lava off/on @9465     ep4 3: water @3660         ep4 10: blur @2590
+ *   ep4 12: flip @2976                        ep4 13: flip @5136         ep4 15: lava @3440, water @3490, iced @5000, random explosions @10000
+ *   ep4 20: blur on/off @2922 / @9125
+ * Difficulty: the C demo loader forces NORMAL and never sets `initialDifficulty` (event 66 compares that global, so it keeps its
+ * zero-initialised value and every `66` skips): ep4 4 and 15 skip their early `64@2` lighting event in the C as well, and no
+ * demo can raise the difficulty without patching the oracle. Lighting (kind 6, `starShowVGA` code 2) is covered by ep1 15 and
+ * ep4 20 (64@0 / 64@140) in the standard set, the lighting event of ep4 4/15 only differs by the `66` gate.
+ */
+export const LONG_LEVELS: ReadonlyArray<readonly [ep: number, file: number]> = [
+  [1, 16], [4, 3], [4, 10], [4, 12], [4, 13], [4, 15], [4, 20],
+];
+export const LONG_FRAMES = 12000;
+export const longScenarioName = (ep: number, file: number): string => `lvlx-${ep}-${String(file).padStart(2, '0')}`;
+export const LONG_DEMO_LEVELS: DemoLevel[] = LONG_LEVELS.map(([ep, file]) => ALL_DEMO_LEVELS.find((l) => l.ep === ep && l.file === file)!);
+
+export function longLoadoutFor(lv: DemoLevel): DemoLoadout {
+  const base = loadoutFor(lv.index);
+  // strong gear so the search can both survive and clear waves: Mega Pulse / Rear Mega Pulse at power 11, ship 12/13, shield 11, generator 6
+  return { ...base, front: 19, rear: 22, frontPower: 11, rearPower: 11, ship: lv.index % 2 === 0 ? 12 : 13, shield: 11, generator: 6, special: 0 };
 }
 
 /** Frames the oracle/TS run per level: 162-frame boot+menu prefix, level load, key stream, then 150 frames for the level end/fade/title. */
 export const maxFramesFor = (lv: DemoLevel): number => 260 + demoFramesFor(lv) + 150;
+export const maxFramesForLong = (lv: DemoLevel): number => 260 + longLegs(lv).reduce((n, [, w]) => n + w, 0) + 150;
 
 /** Levels expected to fail: none (the smoothie, flip/lighting and random-explosion paths landed with Task 4 of sub-project 4). */
 export const EXPECTED_FAIL: ReadonlySet<string> = new Set<string>();
