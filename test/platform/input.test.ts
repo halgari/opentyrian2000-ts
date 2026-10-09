@@ -42,10 +42,27 @@ describe('Input.serviceEvents (port of service_SDL_events)', () => {
     i.serviceEvents(false);
     expect(i.mouseInactive).toBe(true);
   });
+  it('an event pushed right after a handled key event arrives one service call later (the oracle SDL pump rule)', () => {
+    // measured on the C oracle (tools/oracle session-skip-levels, one service_SDL_events call per frame): keydowns injected on
+    // consecutive frames F2, F6, F7 were handled at frames 788, 790, 791 (injected after 787, 788, 789)
+    const i = new Input();
+    const seen: number[] = [];
+    const frame = (n: number): void => { i.serviceEvents(true); if (i.newkey) seen.push(n); };
+    i.push({ type: 'keydown', scancode: 59, mod: 0 });     // after frame 787
+    frame(788);
+    i.push({ type: 'keydown', scancode: 63, mod: 0 });     // after frame 788
+    frame(789);                                            // nothing yet: the pump did not run after the key handled at 788
+    i.push({ type: 'keydown', scancode: 64, mod: 0 });     // after frame 789
+    frame(790);                                            // pump: F6 and F7 become visible, F6 is handled
+    frame(791);
+    expect(seen).toEqual([788, 790, 791]);
+    expect([i.keysactive[59], i.keysactive[63], i.keysactive[64]]).toEqual([1, 1, 1]);
+  });
   it('releaseAll queues keyups for held keys', () => {
     const i = new Input();
     i.push({ type: 'keydown', scancode: 79, mod: 0 });
     i.serviceEvents(false);
+    i.serviceEvents(false); // an empty poll re-arms the pump (see Input.pollEvent)
     i.releaseAll();
     i.serviceEvents(false);
     expect([i.keydown, i.keysactive[79]]).toEqual([false, 0]);

@@ -51,10 +51,29 @@ export class Input {
   private mouseRelativeEnabled = false;
   private mouseWindowXRelative = 0;
   private mouseWindowYRelative = 0;
-  private readonly queue: InputEvent[] = [];
+  /** Events pushed since the last pump (the platform side of SDL's queue); `visible` is what SDL_PollEvent can return. */
+  private readonly staged: InputEvent[] = [];
+  private readonly visible: InputEvent[] = [];
+  private lastPollEmpty = true;
 
   push(e: InputEvent): void {
-    this.queue.push(e);
+    this.staged.push(e);
+  }
+
+  /**
+   * SDL_PollEvent as the oracle (SDL2 through sdl2-compat) behaves: events pushed by the platform only become visible when the pump
+   * runs, and the pump runs on a poll only if the previous poll found nothing. service_SDL_events returns after every key event
+   * without polling again, so in a loop that calls it once per frame an event pushed right after one that was just handled arrives one
+   * frame late (measured: keys on consecutive frames, one service call per frame, tools/oracle session-skip-levels).
+   */
+  private pollEvent(): InputEvent | null {
+    if (this.lastPollEmpty && this.staged.length > 0) {
+      this.visible.push(...this.staged);
+      this.staged.length = 0;
+    }
+    const ev = this.visible.shift() ?? null;
+    this.lastPollEmpty = ev === null;
+    return ev;
   }
 
   /** SDL releases held keys when the window loses focus; the DOM does not. */
@@ -97,8 +116,7 @@ export class Input {
       this.newmouse = false;
       this.newText = false;
     }
-    while (this.queue.length > 0) {
-      const ev = this.queue.shift()!;
+    for (let ev = this.pollEvent(); ev !== null; ev = this.pollEvent()) {
       switch (ev.type) {
         case 'keydown':
           this.keysactive[ev.scancode] = 1;

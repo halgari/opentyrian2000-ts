@@ -399,6 +399,7 @@ describeData('tab losing focus mid-level (Review Focus 3)', () => {
     // held Right key goes up with the blur (SDL releases it)
     target.dispatchEvent(Object.assign(new Event('keydown'), { code: 'ArrowRight', key: '', altKey: false, ctrlKey: false, shiftKey: false, metaKey: false }));
     ctx.input.serviceEvents(true);
+    ctx.input.serviceEvents(false); // an empty poll re-arms the pump (see Input.pollEvent)
     target.dispatchEvent(new Event('blur'));
     ctx.input.serviceEvents(false); // the keyup; other input calls in the frame deliver the focus event
     ctx.input.serviceEvents(false);

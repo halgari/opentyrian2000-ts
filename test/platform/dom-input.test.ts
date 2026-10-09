@@ -74,6 +74,7 @@ describe('dom-input', () => {
     const { target, input } = setup();
     target.dispatchEvent(keyEvent('keydown', { code: 'ArrowRight' }));
     input.serviceEvents(false);
+    input.serviceEvents(false); // an empty poll re-arms the pump (see Input.pollEvent)
     target.dispatchEvent(new Event('blur'));
     input.serviceEvents(false);
     expect([input.keydown, input.keysactive[79]]).toEqual([false, 0]);
@@ -115,6 +116,7 @@ describe('dom-input: browser keys vs game keys (Review Focus 1)', () => {
     const { target, input } = setup();
     target.dispatchEvent(keyEvent('keydown', { code: 'AltLeft', altKey: true }));
     input.serviceEvents(false);
+    input.serviceEvents(false); // an empty poll re-arms the pump (see Input.pollEvent)
     for (const [code, key, sc] of [['KeyS', 's', 22], ['KeyL', 'l', 15]] as const) {
       const e = keyEvent('keydown', { code, key, altKey: true });
       target.dispatchEvent(e);
@@ -124,6 +126,8 @@ describe('dom-input: browser keys vs game keys (Review Focus 1)', () => {
       expect(input.keysactive[226]).toBe(1);
       expect(input.newText).toBe(false); // Alt chords do not type
       target.dispatchEvent(keyEvent('keyup', { code, altKey: true }));
+      input.serviceEvents(false);
+      input.serviceEvents(false);
       input.serviceEvents(false);
     }
   });
@@ -234,6 +238,7 @@ describe('dom-input: window focus (Review Focus 3)', () => {
     const { target, input } = setup();
     target.dispatchEvent(keyEvent('keydown', { code: 'ArrowRight' }));
     input.serviceEvents(false);
+    input.serviceEvents(false); // an empty poll re-arms the pump (see Input.pollEvent)
     target.dispatchEvent(new Event('blur'));
     input.serviceEvents(false); // the keyup (a key event ends one pass)
     expect(input.keysactive[79]).toBe(0);
