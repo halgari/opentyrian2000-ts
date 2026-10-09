@@ -19,6 +19,15 @@ browser.
     pnpm oracle           # build the patched C original and record golden frames
     pnpm test             # now also runs the golden frame comparisons
 
+`pnpm oracle` needs git, gcc, make, pkg-config and the SDL2 development headers
+(SDL2_net is not needed).
+
+## Build & deploy
+
+    pnpm build            # type-check, then produce a static dist/
+
+`dist/` includes `data/tyrian2000.t2kpak`; serve it with any static host.
+
 ## Status
 
 Sub-project 1 (Foundation) — intro, title screen and main menu, pixel-identical to the
