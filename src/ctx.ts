@@ -52,7 +52,7 @@ export interface Ctx {
   /** Web-only: multi-tab tyrian.sav merge state (src/game/save-sync.ts). */
   saveSync: SaveSync;
   /** Web-only display hooks: `main.ts` fills the two callbacks; tests leave them null. */
-  display: { scalingMode: ScalingMode; onScalingChange: ((m: ScalingMode) => void) | null; toggleFullscreen: (() => void) | null };
+  display: { scalingMode: ScalingMode; onScalingChange: ((m: ScalingMode) => void) | null; toggleFullscreen: (() => void) | null; isFullscreen: (() => boolean) | null };
   /** The jukebox backdrop (starlib.c statics); created on first use, kept for the session like the C statics. */
   starlib: Starlib | null;
 }
@@ -85,7 +85,7 @@ export function createCtx(opts: {
     storage: opts.storage ?? memoryAdapter(),
     game,
     saveSync: newSaveSync(),
-    display: { scalingMode: 'fit-4-3', onScalingChange: null, toggleFullscreen: null },
+    display: { scalingMode: 'fit-4-3', onScalingChange: null, toggleFullscreen: null, isFullscreen: null },
     starlib: null,
   };
 }

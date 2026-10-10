@@ -15,6 +15,7 @@ import { waitDelayPlain } from '../platform/wait';
 import { Align, Font, drawFontHv } from '../video/font';
 import { initStepFadePalette, initStepFadeSolid, stepFadePalette } from '../video/palette';
 import { starlibInit, starlibMain } from '../video/starlib';
+import { VGA_PALETTE } from '../video/vga-palette';
 import { fillRect } from '../video/surface';
 import { showVGA } from '../video/video';
 import { MUSIC_TITLE, SOUND_TITLE } from './jukebox-titles';
@@ -39,7 +40,7 @@ export async function jukebox(ctx: Ctx): Promise<void> {
   let paletteFadeSteps = 15;
 
   const diff = new Int32Array(768);
-  initStepFadePalette(palette, diff, palette.colors, 0, 255);
+  initStepFadePalette(palette, diff, VGA_PALETTE, 0, 255);
 
   starlibInit(ctx);
 

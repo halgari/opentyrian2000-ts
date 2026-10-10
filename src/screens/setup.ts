@@ -89,6 +89,7 @@ export async function setupMenu(ctx: Ctx): Promise<void> {
   const xMenuItemValue = xMenuItemName + wMenuItemName, wMenuItemValue = 95, wMenuItem = wMenuItemName + wMenuItemValue;
   const yMenuItems = 37, dyMenuItems = 21, hMenuItem = 13;
 
+  let fsShown: boolean | null = null; // the state just requested (the browser applies it a moment later); cleared on the next input
   const setVolume = (): void => audio.setVolume(c.tyrMusicVolume, c.fxVolume);
 
   for (;;) {
@@ -118,6 +119,9 @@ export async function setupMenu(ctx: Ctx): Promise<void> {
         case Item.SoundVolume:
           barDrawShadow(screen, xMenuItemValue, y, 1, audio.samplesDisabled ? 170 : 174, idiv(c.fxVolume + 4, 8), 2, 10);
           rectangle(screen, xMenuItemValue - 2, y - 2, xMenuItemValue + 96, y + 11, 242);
+          break;
+        case Item.Fullscreen:
+          drawFontHvShadow(screen, tables, xMenuItemValue, y, (fsShown ?? ctx.display.isFullscreen?.() ?? false) ? 'On' : 'Off', Font.Normal, Align.Left, 15, -3 + (selected ? 2 : 0), false, 2);
           break;
         case Item.ScalingMode:
           drawFontHvShadow(screen, tables, xMenuItemValue, y, SCALING_MODE_NAMES[ctx.display.scalingMode], Font.Normal, Align.Left, 15, -3 + (selected ? 2 : 0), false, 2);
@@ -152,6 +156,7 @@ export async function setupMenu(ctx: Ctx): Promise<void> {
       mouseMoved = input.mouseX !== oldMouseX || input.mouseY !== oldMouseY;
     } while (!(input.newkey || input.newmouse || mouseMoved));
 
+    fsShown = null;
     let action = false;
 
     if (mouseMoved || input.newmouse) {
@@ -278,7 +283,7 @@ export async function setupMenu(ctx: Ctx): Promise<void> {
           break;
         case Item.Fullscreen:
           audio.playSample(S_CLICK);
-          ctx.display.toggleFullscreen?.();
+          if (ctx.display.toggleFullscreen) { fsShown = !(ctx.display.isFullscreen?.() ?? false); ctx.display.toggleFullscreen(); }
           break;
         case Item.ScalingMode:
           cycleScaling(1);

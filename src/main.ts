@@ -81,18 +81,25 @@ async function boot(): Promise<void> {
   });
   const toggleFullscreen = (): void => {
     if (document.fullscreenElement) void document.exitFullscreen();
-    else void document.documentElement.requestFullscreen();
+    else void document.documentElement.requestFullscreen().catch(() => {});
   };
   // Setup > Graphics: the canvas box follows the window (index.html's stylesheet is the fit-4-3 default until a mode is set)
   const applyScaling = (): void => {
     if (ctx.display.scalingMode === 'fit-4-3') { canvas.style.width = ''; canvas.style.height = ''; return; } // the stylesheet rule
-    const { w, h } = canvasBox(ctx.display.scalingMode, window.innerWidth, window.innerHeight);
+    const { w, h } = canvasBox(ctx.display.scalingMode, window.innerWidth, window.innerHeight, window.devicePixelRatio || 1);
     canvas.style.width = `${w}px`;
     canvas.style.height = `${h}px`;
   };
   ctx.display.onScalingChange = applyScaling;
   ctx.display.toggleFullscreen = toggleFullscreen;
+  ctx.display.isFullscreen = () => document.fullscreenElement !== null;
   window.addEventListener('resize', () => { if (ctx.display.scalingMode !== 'fit-4-3') applyScaling(); });
+  // a devicePixelRatio change (moving between monitors, page zoom) re-runs the computation; the query is re-armed each time
+  const watchDpr = (): void => {
+    const mq = window.matchMedia?.(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+    mq?.addEventListener('change', () => { applyScaling(); watchDpr(); }, { once: true });
+  };
+  watchDpr();
   const detachInput = attachDomInput({
     target: window,
     canvas,

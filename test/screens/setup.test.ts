@@ -50,9 +50,18 @@ describeData('setup: Graphics page and Jukebox', () => {
     expect(c.scalingMode).toBe('fit-4-3');
   });
 
-  it('Jukebox opens from Setup and Esc returns to it', async () => {
+  it('Jukebox opens from Setup, plays on Enter, and Esc returns to Setup (a second Esc leaves it)', async () => {
     const ctx = menuCtx();
-    await drive(ctx, setupMenu, (t) => t.tap(D, D, R).wait(40).tap(E).wait(60).tap(E), 120);
+    const calls: string[] = [];
+    const audio = ctx.audio;
+    audio.playSong = (n: number) => { calls.push(`play ${n}`); };
+    let frames = 0;
+    const present = ctx.presenter.present.bind(ctx.presenter);
+    ctx.presenter.present = (...a: Parameters<typeof present>) => { frames++; present(...a); };
+    await drive(ctx, setupMenu, (t) => t.tap(D, D, R).wait(40).tap(R).wait(10).tap(E).wait(70).tap(E), 120);
     expect(ctx.starlib).not.toBeNull();
+    expect(frames).toBeGreaterThan(60); // the jukebox presented its own frames
+    expect(calls.length).toBeGreaterThanOrEqual(2); // the initial random song, then Enter's next song
+    expect(calls.filter((c) => c.startsWith('play'))).toHaveLength(calls.length);
   });
 });

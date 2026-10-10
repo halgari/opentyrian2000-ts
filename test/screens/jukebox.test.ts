@@ -5,6 +5,7 @@ import type { Audio } from '../../src/platform/audio';
 import { jukebox } from '../../src/screens/jukebox';
 import { SC } from '../../tools/oracle/scenarios-shopc';
 import { describeData } from '../helpers/data';
+import { VGA_PALETTE } from '../../src/video/vga-palette';
 import { drive, menuCtx } from '../helpers/drive';
 
 const KEY_S = 22, KEY_SLASH = 56, KEY_SEMI = 51, KEY_PERIOD = 55;
@@ -62,5 +63,20 @@ describeData('jukebox', () => {
     const { ctx } = jukeCtx();
     await drive(ctx, jukebox, (t) => t.tap(SC.Escape), 80);
     expect(Array.from(ctx.palette.current).every((v) => v === 0)).toBe(true);
+  });
+
+  it('fades in to the DOS VGA palette (vga_palette), not the game palette', async () => {
+    const { ctx } = jukeCtx();
+    ctx.palette.colors.fill(77); // a game palette that must not be used
+    let sawVga = false;
+    const present = ctx.presenter.present.bind(ctx.presenter);
+    ctx.presenter.present = (...a: Parameters<typeof present>) => {
+      if (ctx.palette.current.every((v, i) => v === VGA_PALETTE[i])) sawVga = true;
+      present(...a);
+    };
+    await drive(ctx, jukebox, (t) => t.wait(30).tap(SC.Escape), 80);
+    expect(VGA_PALETTE).toHaveLength(768);
+    expect(Array.from(VGA_PALETTE.subarray(0, 6))).toEqual([0, 0, 0, 0, 0, 168]);
+    expect(sawVga).toBe(true);
   });
 });

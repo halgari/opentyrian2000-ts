@@ -15,4 +15,12 @@ describe('canvasBox', () => {
     expect(canvasBox('integer', 1920, 1080)).toEqual({ w: 1600, h: 1000 }); // 5x fits; 6x = 1920x1200 does not fit the height
     expect(canvasBox('integer', 100, 100)).toEqual({ w: 320, h: 200 });
   });
+  it.each([[1, 5], [1.25, 6], [1.5, 8], [2, 10]])('integer at devicePixelRatio %s is %sx in device pixels', (dpr, k) => {
+    const { w, h } = canvasBox('integer', 1920, 1080, dpr);
+    expect(w * dpr).toBeCloseTo(320 * k, 9);
+    expect(h * dpr).toBeCloseTo(200 * k, 9);
+  });
+  it('integer never drops below 1x device pixel, even in a tiny window', () => {
+    expect(canvasBox('integer', 100, 100, 2)).toEqual({ w: 160, h: 100 });
+  });
 });

@@ -2,6 +2,10 @@
 import { expect, it } from 'vitest';
 import { runGame } from '../../src/game';
 import { titleScreen } from '../../src/screens/title';
+import { SC } from '../../tools/oracle/scenarios-shopc';
+import { initPlayerData, loadConfigurationDefaults } from '../../src/game/config';
+import { scanForEpisodes } from '../../src/game/episodes';
+import { STORAGE_KEYS } from '../../src/platform/storage';
 import { describeData } from '../helpers/data';
 import { testCtx } from '../helpers/ctx';
 
@@ -46,5 +50,32 @@ describeData('titleScreen', () => {
     };
     await expect(runGame(ctx)).rejects.toBe(stop);
     expect(demoFrames).toBeGreaterThan(0);
+  });
+  it('saves the configuration after Setup (Scaling Mode reaches opentyrian.cfg)', async () => {
+    const ctx = testCtx()!;
+    ctx.vga.cur = ctx.vga.screen;
+    loadConfigurationDefaults(ctx);
+    initPlayerData(ctx);
+    scanForEpisodes(ctx);
+    // The title waits 30 s of virtual time before it returns for the demo, so the oracle's idle injector would be too late;
+    // type each key once the screen has been idle (no frame, a few sleeps) instead.
+    const keys: number[] = [SC.Down, SC.Down, SC.Down, SC.Down, SC.Return, // Setup is the fifth row
+      SC.Return, SC.Down, SC.Right, SC.Escape, SC.Escape, // Graphics, Scaling Mode, Right, back out of both
+      SC.Escape]; // quit the title
+    let idle = 0;
+    const sleep = ctx.clock.sleep.bind(ctx.clock);
+    ctx.clock.sleep = (ms: number) => {
+      if (++idle >= 5 && keys.length > 0) {
+        idle = 0;
+        const sc = keys.shift()!;
+        ctx.input.push({ type: 'keydown', scancode: sc, mod: 0 });
+        ctx.input.push({ type: 'keyup', scancode: sc });
+      }
+      return sleep(ms);
+    };
+    ctx.frameSink = () => { idle = 0; };
+    expect(await titleScreen(ctx)).toBe(false);
+    expect(keys).toHaveLength(0);
+    expect(JSON.parse(ctx.storage.get(STORAGE_KEYS.opentyrianCfg)!).scalingMode).toBe('fit-8-5');
   });
 });
