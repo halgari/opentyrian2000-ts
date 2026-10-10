@@ -3,7 +3,7 @@
 // the generated scenarios (polish-*) live in the `<discovered>` region of scenarios.ts and are run by test/golden/polish.test.ts.
 import type { Ctx } from '../../src/ctx';
 import { DIFFICULTY_SUICIDE, DIFFICULTY_ZINGLON } from '../../src/game/world';
-import { DOWN, ESC, RET, SPACE, UP, gameOver, idleKey, loadSlot, playHolds, typed, type Spec } from './ts-steps';
+import { DOWN, ESC, RET, SPACE, UP, gameOver, idleKey, loadSlot, playHolds, skipLevel, typed, type Spec } from './ts-steps';
 import type { ScriptStep } from '../../test/helpers/script-input';
 import { defineSeed } from './ts-save';
 
@@ -24,6 +24,12 @@ let registered = false;
 export function registerPolishSeeds(): void {
   if (registered) return;
   registered = true;
+  // empty timed battle tables: a score of 1000 (one life) beats them, which the random default tables (lowest 1000..2300) do not allow
+  defineSeed('polish-timed', [
+    { slot: 1, name: 'TIMED SEED', episode: 1, level: 1, mutate: (ctx) => {
+      for (let t = 0; t < 3; t++) for (const e of ctx.game.config.t2kHighScores[t]!) { e.score = 100 * (1 + t); e.playerName = 'NOBODY'; }
+    } },
+  ]);
   defineSeed('polish-engage', [
     // the backup the shop's `]b` would have written (slot 11) and the ENGAGE sections themselves
     { slot: 11, name: 'BACKUP EP4', episode: 4, level: 40, cash: 50000, levelName: 'TIME WAR' },
@@ -82,4 +88,16 @@ export const POLISH_SPECS_CODES: Record<string, Spec> = {
   /** ENGAGE with JE_whoa left to run its 300 iterations; Esc at the episode select cancels back to the title (Review Focus 1). */
   'polish-code-engage-cancel': { tail: 40, extra: { saveDump: false }, steps: () => [
     ...typedAtTitle('ENGAGE'), { sc: RET, after: 320 }, idleKey(DOWN), idleKey(ESC), { sc: DOWN, after: 60 }] },
+};
+
+export const POLISH_SPECS_TIMED: Record<string, Spec> = {
+  /** Title -> New Game -> item 3 (Timed Battle) -> Deliani -> Normal -> level: fire held, then, once the fire key is released (the C blocks in wait_noinput on a held key), the F2+F6+F7 cheat ends it with the ship alive (the timer itself needs ~5200 frames): tally with the lives bonus, name entry, table. */
+  'polish-timed-deliani': { seed: 'polish-timed', tail: 60, steps: () => [
+    { sc: RET }, { sc: DOWN }, { sc: DOWN }, { sc: RET }, idleKey(), idleKey(), ...playHolds(400, 21), ...skipLevel(30), idleKey(), ...typed('Ace', 20), { sc: RET, after: 20 }, idleKey()] },
+  /** Same, idle ship: dies, mainLevel = 0, straight back to the title with no name entry and no backup restore. */
+  'polish-timed-die': { tail: 80, extra: { saveDump: false }, steps: () => [
+    { sc: RET }, { sc: DOWN }, { sc: DOWN }, { sc: RET }, idleKey(), idleKey(), gameOver(), { sc: DOWN, after: 200 }] },
+  /** Space Station: episode 5 data, table 1; the ship dies (timed battle death straight to the title). */
+  'polish-timed-station': { tail: 60, extra: { saveDump: false }, steps: () => [
+    { sc: RET }, { sc: DOWN }, { sc: DOWN }, { sc: RET }, idleKey(DOWN), { sc: RET }, idleKey(), ...playHolds(450, 33), idleKey(), idleKey()] },
 };

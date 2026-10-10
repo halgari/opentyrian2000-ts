@@ -21,7 +21,6 @@ export async function jeMain(ctx: Ctx): Promise<void> {
   const demo = ctx.state.playDemo;
 
   if (c.twoPlayerMode || c.galagaMode) throw new Error('unported: two-player/galaga level'); // TODO(sp5)
-  if (c.timedBattleMode) throw new Error('unported: timed battle'); // TODO(sp5)
 
   for (;;) {
     // start_level_first:
@@ -62,7 +61,10 @@ export async function jeMain(ctx: Ctx): Promise<void> {
         ctx.audio.fadeSong();
         await fadeBlack(ctx, 10);
 
-        // (timedBattleMode: rejected above)
+        if (c.timedBattleMode) { // port of JE_main (tyrian2.c:697)
+          c.mainLevel = 0;
+          return;
+        }
         loadGame(ctx, c.twoPlayerMode ? 22 : 11);
         if (v.doNotSaveBackup) {
           c.superTyrian = false;

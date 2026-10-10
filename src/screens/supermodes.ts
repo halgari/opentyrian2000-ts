@@ -8,7 +8,7 @@ import { SONG_TITLE, V_GOOD_LUCK } from '../audio/ids';
 import { u16 } from '../core/int';
 import type { Ctx } from '../ctx';
 import { loadPic } from '../data/pic';
-import { DIFFICULTY_SUICIDE, DIFFICULTY_ZINGLON } from '../game/world';
+import { DIFFICULTY_SUICIDE, DIFFICULTY_ZINGLON, SA_NORTSHIPZ } from '../game/world';
 import { waitDelayPlain, waitInput, waitNoInput } from '../platform/wait';
 import { Scancode } from '../platform/scancodes';
 import { fadeBlack, fadePalette } from '../video/fade';
@@ -70,8 +70,6 @@ export async function newSuperArcadeGame(ctx: Ctx, i: number): Promise<boolean> 
   return g.varz.gameLoaded;
 }
 
-const SA_NORTSHIPZ = 7;
-
 // port of newSuperTyrianGame (tyrian2.c:3719)
 export async function newSuperTyrianGame(ctx: Ctx): Promise<boolean> {
   const g = ctx.game;
@@ -92,8 +90,8 @@ export async function newSuperTyrianGame(ctx: Ctx): Promise<boolean> {
   if (c.initialDifficulty === DIFFICULTY_ZINGLON) outText(screen, tables, 10, 40, ht.superTyrianText[4]!, 15, 4);
   outText(screen, tables, 10, 60, ht.superTyrianText[5]!, 15, 4);
 
-  // snprintf into a 26 byte buffer: at most 25 characters
-  const buf = `${ht.miscTextB[4]!} ${ht.pName[0]!}`.slice(0, 25);
+  // snprintf into a 27 byte buffer: at most 26 characters
+  const buf = `${ht.miscTextB[4]!} ${ht.pName[0]!}`.slice(0, 26);
   dString(screen, tables, fontCenter(buf, tables, FONT_SHAPES), 110, buf, FONT_SHAPES);
 
   audio.playSong(16);

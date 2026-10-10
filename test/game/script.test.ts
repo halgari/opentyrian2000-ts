@@ -171,13 +171,9 @@ describeData('episode script parser: control flow', () => {
     expect(ctx.game.scratch.temp).toBe(16);
   });
 
-  it('timed-battle commands are inert outside timed battle and unported inside it', async () => {
-    const lines = ['*1', ']T[ 43 44 45 46 47', ']q[', ']n[', ']S[', LEVEL];
-    const ctx = makeCtx(lines);
+  it('timed-battle commands are inert outside timed battle (inside: test/game/timed-battle.test.ts)', async () => {
+    const ctx = makeCtx(['*1', ']T[ 43 44 45 46 47', ']q[', ']n[', ']S[', LEVEL]);
     expect(await run(ctx)).toBe('level');
-    const t = makeCtx(lines);
-    t.game.config.timedBattleMode = true;
-    await expect(run(t)).rejects.toThrow(/unported/);
   });
 
   it.each([']g[', ']V 001[', ']R 001['])('%s is unported and throws', async (cmd) => {

@@ -82,6 +82,7 @@ export const EPISODE_AVAILABLE = 5;
 export const SA_LASTSHIP = 9;
 /** varz.h SA_* enum */
 export const SA_NONE = 0;
+export const SA_NORTSHIPZ = 7;
 export const SA_SUPERTYRIAN = 254;
 export const SA_ARCADE = 255;
 /** episodes.h */

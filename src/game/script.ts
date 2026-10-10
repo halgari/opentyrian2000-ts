@@ -12,6 +12,7 @@ import { loadPic } from '../data/pic';
 import { atoiAt, cstr, cstrlen, ScriptReader, strPopInt } from '../data/script-file';
 import { nextEpisode } from '../screens/episode-end';
 import { playAnim } from '../screens/anim';
+import { highScoreCheck } from '../screens/highscores';
 import { itemScreen } from '../screens/shop';
 import { waitDelay, waitInput } from '../platform/wait';
 import { fadeBlack, fadePalette, fadeWhite } from '../video/fade';
@@ -469,13 +470,22 @@ export async function runEpisodeScript(ctx: Ctx, s: Uint8Array): Promise<ScriptR
             break;
 
           case 'T':
-            // TODO(sp5): tyrian2.c:3004 timed battle
-            if (c.timedBattleMode) throw new Error('unported: ]T timed battle (tyrian2.c:3004)');
+            // port of ]T (tyrian2.c:3004)
+            if (c.timedBattleMode) {
+              // ]T[ 43 44 45 46 47 -- Episode 1
+              // ]T[ 03 03 04 05 06 -- Episode 5
+              c.mainLevel = u8(atoi(c.timeBattleSelection * 3));
+              v.jumpSection = true;
+            }
             break;
 
           case 'q':
-            // TODO(sp5): tyrian2.c:3015 timed battle high score
-            if (c.timedBattleMode) throw new Error('unported: ]q timed battle (tyrian2.c:3015)');
+            // port of ]q (tyrian2.c:3015)
+            if (c.timedBattleMode) {
+              await highScoreCheck(ctx);
+              c.mainLevel = 0;
+              return 'return';
+            }
             break;
         }
       }

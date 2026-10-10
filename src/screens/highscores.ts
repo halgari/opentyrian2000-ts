@@ -164,18 +164,26 @@ export async function highScoreCheck(ctx: Ctx): Promise<void> {
   const c = g.config;
   const sc = g.scratch;
   const tables = assets.shapes.tables;
-  const { miscText, episodeName } = assets.helpText;
+  const { miscText, episodeName, timedBattleName } = assets.helpText;
   const screen = vga.screen;
   if (!ctx.shopSpriteSheet) ctx.shopSpriteSheet = loadCompShapes(assets.archive, '1'); // need mouse pointer sprite
 
-  // TODO(sp5): two-player and timed battle high scores (mainint.c:2035-2062, 2090-2092, 2113-2118)
-  if (c.twoPlayerMode || c.timedBattleMode) throw new Error('unported: JE_highScoreCheck two-player / timed battle (mainint.c:2022)');
+  // TODO(sp5): two-player high scores (mainint.c:2035-2062, 2090-2092, 2113-2118), Task 6
+  if (c.twoPlayerMode) throw new Error('unported: JE_highScoreCheck two-player (mainint.c:2022)');
+  const timed = c.timedBattleMode;
 
   sortHighScores(ctx);
 
-  const table = 10 + (g.items.initialEpisodeNum - 1) * 2;
-  // single player highscore includes cost of upgrades
-  const tempScore = s32(totalScore(ctx, g.players[0])); // Sint32 temp_score
+  let table = 10 + (g.items.initialEpisodeNum - 1) * 2;
+  let tempScore: number; // Sint32 temp_score
+  if (timed) {
+    // timed battle score is just money
+    tempScore = s32(g.players[0].cash);
+    table = c.timeBattleSelection - 1;
+  } else {
+    // single player highscore includes cost of upgrades
+    tempScore = s32(totalScore(ctx, g.players[0]));
+  }
 
   let slot: number;
   for (slot = 0; slot < 3; ++slot) {
@@ -197,7 +205,7 @@ export async function highScoreCheck(ctx: Ctx): Promise<void> {
   showVGA(ctx);
   palette.colors.set(palette.palettes[0]!);
 
-  audio.playSong(33);
+  if (!timed) audio.playSong(33); // Doesn't play this music
 
   /* Enter Thy name */
   let flash = 8 * 16 + 10;
@@ -206,6 +214,9 @@ export async function highScoreCheck(ctx: Ctx): Promise<void> {
   const stemp: string[] = new Array<string>(29).fill(' ');
 
   sc.temp = 0;
+
+  // As astoundingly ugly as this makes the shade below look, this is in fact what Tyrian 2000 does.
+  if (timed) loadPic(assets.pics, palette, screen, 13, false);
 
   barShade(screen, 65, 55, 255, 155);
 
@@ -292,7 +303,7 @@ export async function highScoreCheck(ctx: Ctx): Promise<void> {
   } while (!quit);
 
   const entry = c.t2kHighScores[table]![slot]!;
-  if (!cancel) {
+  if (!cancel || timed) { // Timed Battle mode doesn't allow cancelling, so we ignore it
     entry.score = tempScore;
     entry.playerName = stemp.join('');
     entry.difficulty = c.difficultyLevel;
@@ -302,7 +313,8 @@ export async function highScoreCheck(ctx: Ctx): Promise<void> {
   loadPic(assets.pics, palette, screen, 2, false);
 
   dString(screen, tables, fontCenter(miscText[50]!, tables, FONT_SHAPES), 10, miscText[50]!, FONT_SHAPES);
-  dString(screen, tables, fontCenter(episodeName[g.items.episodeNum]!, tables, SMALL_FONT_SHAPES), 35, episodeName[g.items.episodeNum]!, SMALL_FONT_SHAPES);
+  const caption = timed ? timedBattleName[c.timeBattleSelection]! : episodeName[g.items.episodeNum]!;
+  dString(screen, tables, fontCenter(caption, tables, SMALL_FONT_SHAPES), 35, caption, SMALL_FONT_SHAPES);
 
   for (let i = 0; i < 3; ++i) {
     if (i !== slot) {

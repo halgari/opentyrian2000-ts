@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Ported from: src/mainint.c (JE_endLevelAni, JE_drawCube)
 import { S_ITEM, V_LEVEL_END } from '../audio/ids';
-import { idiv, s8, u16, u8 } from '../core/int';
+import { idiv, s8, u16, u32, u8 } from '../core/int';
 import type { Ctx } from '../ctx';
 import { waitDelayPlain, waitNoInput } from '../platform/wait';
 import { adjustDifficulty } from '../game/economy';
@@ -38,9 +38,9 @@ export async function endLevelAni(ctx: Ctx): Promise<void> {
   const miscText = ctx.assets.helpText.miscText;
   const [p0] = g.players;
 
-  // TODO(sp5): twoPlayerMode and timedBattleMode branches (mainint.c:2753-2763, 2772-2824)
+  // TODO(sp5): twoPlayerMode branches (mainint.c:2753-2763, 2824), Task 6
   if (c.twoPlayerMode) throw new Error('unported: JE_endLevelAni twoPlayerMode (mainint.c:2753)');
-  if (c.timedBattleMode) throw new Error('unported: JE_endLevelAni timedBattleMode (mainint.c:2764)');
+  const miscTextB = ctx.assets.helpText.miscTextB;
 
   // grant shipedit privileges
   const grantShipEdit = (offset: number): void => { c.saveTemp[SAVE_FILES_SIZE + offset] = 1; };
@@ -74,13 +74,38 @@ export async function endLevelAni(ctx: Ctx): Promise<void> {
 
   await outTextGlow(ctx, screen, 30, 50, `${miscText[28 - 1]} ${p0.cash}`);
 
+  if (c.timedBattleMode) {
+    const x = idiv(g.varz.levelTimerCountdown, 10) * 100;
+    await outTextGlow(ctx, screen, 40, 75, `${miscTextB[6]} ${x}`);
+    p0.cash = u32(p0.cash + x);
+  }
+
   // temp = roundf(enemyKilled * 100 / totalEnemy): int division first, then stored in a JE_byte
   let temp = g.enemies.totalEnemy === 0 ? 0 : u8(idiv(g.enemies.enemyKilled * 100, g.enemies.totalEnemy));
   await outTextGlow(ctx, screen, 40, 90, `${miscText[63 - 1]} ${temp}%`);
 
   c.editorLevel = u16(c.editorLevel + idiv(temp, 5));
 
-  if (!c.onePlayerAction) { // && !twoPlayerMode && !timedBattleMode
+  if (c.timedBattleMode) {
+    const optTable = ctx.assets.shapes.tables[OPTION_SHAPES]!;
+    for (temp = 1; temp <= p0.lives; temp++) {
+      ctx.audio.playSample(S_ITEM);
+      const x = 20 + 15 * temp;
+      const y = 115;
+      const frame = async (i: number): Promise<void> => {
+        ctx.delay.setDelay(c.frameCountMax);
+        blitSpriteHv(screen, x, y, optTable, 46, 0x9, i);
+        if (anyButton(ctx)) c.frameCountMax = 0;
+        showVGA(ctx);
+        await waitDelayPlain(ctx);
+      };
+      for (let i = -15; i <= 10; i++) await frame(s8(i));
+      for (let i = 10; i >= 0; i--) await frame(s8(i));
+    }
+    const x = p0.lives * 1000;
+    await outTextGlow(ctx, screen, 120, 120, `${miscTextB[7]} ${x}`);
+    p0.cash = u32(p0.cash + x);
+  } else if (!c.onePlayerAction) { // && !twoPlayerMode
     await outTextGlow(ctx, screen, 30, 120, miscText[4 - 1]!); // Cubes
 
     if (c.cubeMax > 0) {

@@ -15,6 +15,11 @@ registerPolishSeeds();
 const INSPECT: Record<string, (r: SessionResult) => void> = {
   // the super-arcade power-up substitution (tyrian2.c:1654-1665) must have fired (the counter starts at 1 and steps up on each substitution)
   'polish-code-stealth': (r) => { expect(r.ctx.game.config.superArcadePowerUp).toBeGreaterThan(1); },
+  // the name was entered into timed battle table 0
+  'polish-timed-deliani': (r) => {
+    const c = r.ctx.game.config;
+    expect(c.t2kHighScores[0]!.some((e) => e.playerName.trim() === 'ACE' && e.score > 0)).toBe(true);
+  },
 };
 
 const NAMES = Object.keys(SCENARIOS).filter((n) => n.startsWith('polish-'));

@@ -29,6 +29,7 @@ describeData('newSuperArcadeGame', () => {
     const ctx = menuCtx();
     expect(await drive(ctx, (c) => newSuperArcadeGame(c, 3), (t) => t.tap(R).wait(24).tap(E))).toBe(false);
     expect([ctx.game.config.onePlayerAction, ctx.game.config.superArcadeMode]).toEqual([false, 0]);
+    expect([ctx.game.varz.gameLoaded, ctx.game.config.superTyrian]).toEqual([false, false]);
   });
   it('Nort-Ship Z (i = 6) gets sidekick 24 in both slots (tyrian2.c:3676 onwards)', async () => {
     const ctx = menuCtx();

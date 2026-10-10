@@ -25,13 +25,16 @@ describeData('gameplaySelect', () => {
     ctx = menuCtx();
     expect(await drive(ctx, gameplaySelect, (t) => t.tap(E))).toBe(false);
   });
-  it('wraps with Up, and refuses the unported rows and the network row (the screen stays up)', async () => {
+  it('wraps with Up, accepts timed battle, and refuses 2-player (Task 6) and the network row (the screen stays up)', async () => {
     const ctx = menuCtx();
     // Up wraps to the network row: refused, still waiting -> the driver stops it
     await expect(drive(ctx, gameplaySelect, (t) => t.tap(U, R))).rejects.toBeInstanceOf(Stop);
     const c2 = menuCtx();
-    await expect(drive(c2, gameplaySelect, (t) => t.tap(D, D, R))).rejects.toBeInstanceOf(Stop); // timed battle (unported)
-    expect(c2.game.config.timedBattleMode).toBe(false);
+    expect(await drive(c2, gameplaySelect, (t) => t.tap(D, D, R))).toBe(true); // timed battle
+    expect([c2.game.config.timedBattleMode, c2.game.config.onePlayerAction, c2.game.config.twoPlayerMode]).toEqual([true, false, false]);
+    const c3 = menuCtx();
+    await expect(drive(c3, gameplaySelect, (t) => t.tap(D, D, D, R))).rejects.toBeInstanceOf(Stop); // 2-player arcade (unported)
+    expect(c3.game.config.twoPlayerMode).toBe(false);
   });
 });
 

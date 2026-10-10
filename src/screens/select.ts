@@ -122,8 +122,7 @@ function ensurePointerSprites(ctx: Ctx): void {
 }
 
 // port of gameplaySelect (menus.c:42)
-// TODO(sp5): 1 Player Timed Battle and 2 Player Arcade are drawn as in the C but refused with S_SPRING like the network row
-// (the C accepts them; their modes are unported).
+// TODO(sp5): 2 Player Arcade is drawn as in the C but refused with S_SPRING like the network row until Task 6 ports it.
 export async function gameplaySelect(ctx: Ctx): Promise<boolean> {
   const MENU_ITEM_1_PLAYER_FULL_GAME = 0, MENU_ITEM_1_PLAYER_ARCADE = 1, MENU_ITEM_1_PLAYER_TIMED_BATTLE = 2,
     MENU_ITEM_2_PLAYER_ARCADE = 3, MENU_ITEM_NETWORK = 4;
@@ -176,19 +175,81 @@ export async function gameplaySelect(ctx: Ctx): Promise<boolean> {
       switch (selected) {
         case MENU_ITEM_1_PLAYER_FULL_GAME:
         case MENU_ITEM_1_PLAYER_ARCADE:
+        case MENU_ITEM_1_PLAYER_TIMED_BATTLE:
           audio.playSample(S_SELECT);
           await fadeBlack(ctx, 10);
           c.onePlayerAction = selected === MENU_ITEM_1_PLAYER_ARCADE;
-          c.timedBattleMode = false;
+          c.timedBattleMode = selected === MENU_ITEM_1_PLAYER_TIMED_BATTLE;
           c.twoPlayerMode = false;
           return true;
-        default: // timed battle, 2-player arcade, network
+        default: // 2-player arcade (Task 6), network
           audio.playSample(S_SPRING);
           break;
       }
     }
 
     if (cancel) {
+      await fadeBlack(ctx, 15);
+      return false;
+    }
+  }
+}
+
+// port of timedBattleSelect (menus.c:678)
+export async function timedBattleSelect(ctx: Ctx): Promise<boolean> {
+  const { vga, palette, assets, audio } = ctx;
+  const g = ctx.game;
+  const tables = assets.shapes.tables;
+  const names = assets.helpText.timedBattleName;
+  ensurePointerSprites(ctx);
+
+  let restart = true;
+  const count = names.length - 1;
+  let selected = 0;
+  const xCenter = 160, yHeader = 20, yItems = 54, dyItems = 24, hItem = 13;
+  const w = new Array<number>(count).fill(0);
+
+  for (;;) {
+    if (restart) drawBackground(ctx, names[0]!, yHeader);
+    else copySurface(vga.screen, vga.screen2);
+
+    for (let i = 0; i < count; ++i) {
+      const text = names[i + 1]!;
+      w[i] = textWidth(text, tables, Font.Normal);
+      const x = xCenter - idiv(w[i]!, 2);
+      const y = yItems + dyItems * i;
+      drawFontHvShadow(vga.screen, tables, x, y, text, Font.Normal, Align.Left, 15, -4 + (i === selected ? 2 : 0), false, 2);
+    }
+
+    if (restart) {
+      ctx.mouse.cursor = MOUSE_POINTER_NORMAL;
+      await fadePalette(ctx, palette.colors, 10, 0, 255);
+      restart = false;
+    }
+
+    const mouseMoved = await pollMenu(ctx);
+    const { input } = ctx;
+
+    let action = false;
+    if (mouseMoved || input.newmouse) {
+      const r = mouseSelect(ctx, { count, xOf: (i) => xCenter - idiv(w[i]!, 2), yOf: (i) => yItems + dyItems * i, w, h: hItem }, selected);
+      selected = r.selected;
+      action = r.action;
+    }
+    const k = navKeys(ctx, selected, count);
+    selected = k.selected;
+    action = action || k.action;
+
+    if (action) {
+      audio.playSample(S_SELECT);
+      await fadeBlack(ctx, 10);
+      // I don't know how T2K determines episode from this, I'm assuming it's hardcoded (initial_episode_num is not touched)
+      initEpisode(ctx, selected === 0 ? 1 : 5);
+      g.config.timeBattleSelection = selected + 1;
+      return true;
+    }
+
+    if (k.cancel) {
       await fadeBlack(ctx, 15);
       return false;
     }
@@ -338,14 +399,17 @@ export async function difficultySelect(ctx: Ctx): Promise<boolean> {
   }
 }
 
-// port of newGame (tyrian2.c:3625); the timed battle branch is unported (gameplaySelect never returns it)
+// port of newGame (tyrian2.c:3625); the two-player branch is Task 6
 export async function newGame(ctx: Ctx): Promise<boolean> {
   const g = ctx.game;
   const c = g.config;
   const [p0] = g.players;
 
   if (await gameplaySelect(ctx)) {
-    if (await episodeSelect(ctx) && await difficultySelect(ctx)) g.varz.gameLoaded = true;
+    if (c.timedBattleMode) {
+      c.onePlayerAction = true;
+      if (await timedBattleSelect(ctx) && await difficultySelect(ctx)) g.varz.gameLoaded = true;
+    } else if (await episodeSelect(ctx) && await difficultySelect(ctx)) g.varz.gameLoaded = true;
 
     c.initialDifficulty = c.difficultyLevel;
 
