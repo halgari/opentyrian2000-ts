@@ -149,7 +149,7 @@ describeData('load screen, high scores and setup', () => {
     const ctx = menuCtx();
     ctx.game.config.tyrMusicVolume = 100;
     ctx.game.config.fxVolume = 100;
-    await drive(ctx, setupMenu, (t) => t.tap(R, SC.Right, SC.Right, D, SC.Left, E, D, D, R));
+    await drive(ctx, setupMenu, (t) => t.tap(D, R, SC.Right, SC.Right, D, SC.Left, E, D, D, D, R));
     expect(ctx.game.config.tyrMusicVolume).toBe(116);
     expect(ctx.game.config.fxVolume).toBe(92);
   });

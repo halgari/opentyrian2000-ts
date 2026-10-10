@@ -5,6 +5,7 @@ import { createCtx } from './ctx';
 import { DATA_URL, fetchArchive } from './data/archive';
 import { runGame } from './game';
 import { BrowserClock } from './platform/clock';
+import { canvasBox } from './platform/scaling';
 import { Joysticks } from './platform/gamepad';
 import { attachDomInput } from './platform/dom-input';
 import { attachPageLifecycle, attachSaveSync } from './game/save-sync';
@@ -78,6 +79,20 @@ async function boot(): Promise<void> {
       else void ac?.resume().catch(() => {});
     } catch { /* audio context already closed */ }
   });
+  const toggleFullscreen = (): void => {
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void document.documentElement.requestFullscreen();
+  };
+  // Setup > Graphics: the canvas box follows the window (index.html's stylesheet is the fit-4-3 default until a mode is set)
+  const applyScaling = (): void => {
+    if (ctx.display.scalingMode === 'fit-4-3') { canvas.style.width = ''; canvas.style.height = ''; return; } // the stylesheet rule
+    const { w, h } = canvasBox(ctx.display.scalingMode, window.innerWidth, window.innerHeight);
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${h}px`;
+  };
+  ctx.display.onScalingChange = applyScaling;
+  ctx.display.toggleFullscreen = toggleFullscreen;
+  window.addEventListener('resize', () => { if (ctx.display.scalingMode !== 'fit-4-3') applyScaling(); });
   const detachInput = attachDomInput({
     target: window,
     canvas,
@@ -86,10 +101,7 @@ async function boot(): Promise<void> {
       const c = ctx.game.config;
       return c.sharedKeyboard && (c.keySettings.includes(sc) || c.keySettings2.includes(sc));
     },
-    onToggleFullscreen: () => {
-      if (document.fullscreenElement) void document.exitFullscreen();
-      else void document.documentElement.requestFullscreen();
-    },
+    onToggleFullscreen: toggleFullscreen,
   });
   try {
     await runGame(ctx);

@@ -164,10 +164,17 @@ function applyVolumes(ctx: Ctx): void {
  * The no-tyrian.cfg / no-opentyrian.cfg / no-tyrian.sav path of JE_loadConfiguration (config.c:777),
  * ignoring storage. Reproduces the 174 mt_rand() draws of the made-up high-score tables.
  */
+/** Web only: the stored scaling mode reaches the live display state and the page. */
+function syncDisplay(ctx: Ctx): void {
+  ctx.display.scalingMode = ctx.game.config.scalingMode;
+  ctx.display.onScalingChange?.(ctx.display.scalingMode);
+}
+
 export function loadConfigurationDefaults(ctx: Ctx): void {
   const c = ctx.game.config;
   applyCfgDefaults(c);
   parseOpentyrianConfig(c, null); // load_opentyrian_config defaults
+  syncDisplay(ctx);
   applyVolumes(ctx);
   makeUpSaveDefaults(ctx);
   initProcessorType(ctx);
@@ -189,6 +196,7 @@ export function loadConfiguration(ctx: Ctx): void {
   }
 
   parseOpentyrianConfig(c, ctx.storage.get(STORAGE_KEYS.opentyrianCfg));
+  syncDisplay(ctx);
   applyVolumes(ctx);
 
   const sav = readStoredSav(ctx);

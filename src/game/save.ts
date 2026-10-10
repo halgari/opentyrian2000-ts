@@ -7,6 +7,7 @@
 //   JE_decryptSaveTemp and the tyrian.sav / tyrian.cfg / opentyrian.cfg formats)
 import type { Ctx } from '../ctx';
 import { u8 } from '../core/int';
+import { isScalingMode } from '../platform/scaling';
 import { base64ToBytes, bytesToBase64, STORAGE_KEYS } from '../platform/storage';
 import { initEpisode } from './episodes';
 import { mergeStoredSav, noteWritten } from './save-sync';
@@ -287,7 +288,7 @@ export function parseCfg(c: ConfigGroup, b: Uint8Array): boolean {
 export function serializeOpentyrianConfig(c: ConfigGroup): string {
   return JSON.stringify({
     version: 1, keySettings: Array.from(c.keySettings), mouseSettings: Array.from(c.mouseSettings),
-    keySettings2: Array.from(c.keySettings2), sharedKeyboard: c.sharedKeyboard, // web extension
+    keySettings2: Array.from(c.keySettings2), sharedKeyboard: c.sharedKeyboard, scalingMode: c.scalingMode, // web extensions
   });
 }
 
@@ -297,9 +298,10 @@ export function parseOpentyrianConfig(c: ConfigGroup, json: string | null): void
   c.mouseSettings.set(defaultMouseSettings);
   c.keySettings2.set(defaultKeySettings2);
   c.sharedKeyboard = false;
+  c.scalingMode = 'fit-4-3';
   if (json === null) return;
   try {
-    const o = JSON.parse(json) as { keySettings?: unknown; mouseSettings?: unknown; keySettings2?: unknown; sharedKeyboard?: unknown };
+    const o = JSON.parse(json) as { keySettings?: unknown; mouseSettings?: unknown; keySettings2?: unknown; sharedKeyboard?: unknown; scalingMode?: unknown };
     if (Array.isArray(o.keySettings)) {
       for (let i = 0; i < 8; i++) {
         const v = o.keySettings[i];
@@ -313,6 +315,7 @@ export function parseOpentyrianConfig(c: ConfigGroup, json: string | null): void
       }
     }
     if (o.sharedKeyboard === true) c.sharedKeyboard = true;
+    if (isScalingMode(o.scalingMode)) c.scalingMode = o.scalingMode;
     if (Array.isArray(o.mouseSettings)) {
       for (let i = 0; i < 3; i++) {
         const v = o.mouseSettings[i];

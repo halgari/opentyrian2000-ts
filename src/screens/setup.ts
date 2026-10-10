@@ -5,8 +5,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Ported from: src/opentyr.c (setupMenu)
 //
-// Web-lite: the Graphics (display, scaler, scaling mode), Jukebox and Destruct entries are not ported (the canvas scaling is the
-// page's business). Setup keeps Sound... (music and sound volume, on/off toggles) and Done, laid out like the C menu.
+// Web-lite: Graphics has Fullscreen (replaces the C's Display picker) and Scaling Mode (cycled in place instead of the C's picker
+// popup; Center is not offered). The Scaler picker and Destruct are not ported. Setup also has the web-only Controls... page.
+import { jukebox } from './jukebox';
 import { S_CLICK, S_CURSOR, S_SELECT, S_SPRING } from '../audio/ids';
 import { idiv } from '../core/int';
 import { changeVolume } from '../audio/volume';
@@ -14,6 +15,7 @@ import type { Ctx } from '../ctx';
 import { loadPic } from '../data/pic';
 import { loadCompShapes } from '../data/shapes';
 import { joystickCount, normalizeInputDevices } from '../game/twoplayer';
+import { SCALING_MODES, type ScalingMode } from '../platform/scaling';
 import { SDL_BUTTON_LEFT, SDL_BUTTON_RIGHT } from '../platform/input';
 import { Scancode } from '../platform/scancodes';
 import { fadeBlack, fadePalette } from '../video/fade';
@@ -25,8 +27,10 @@ import { copySurface, fillRect } from '../video/surface';
 import { rectangle } from '../video/vga256d';
 import { showVGA } from '../video/video';
 
-const enum Item { Done, Sound, MusicVolume, SoundVolume, Controls, SharedKeyboard }
-const enum MenuId { None, Setup, Sound, Controls }
+const enum Item { Done, Sound, MusicVolume, SoundVolume, Controls, SharedKeyboard, Graphics, Fullscreen, ScalingMode, Jukebox }
+const enum MenuId { None, Setup, Sound, Controls, Graphics }
+
+const SCALING_MODE_NAMES: Record<ScalingMode, string> = { 'fit-4-3': 'Fit 4:3', 'fit-8-5': 'Fit 8:5', integer: 'Integer' };
 
 interface MenuItem { id: Item; name: string; description: string }
 interface Menu { header: string; items: MenuItem[] }
@@ -35,9 +39,19 @@ const MENUS: Record<number, Menu> = {
   [MenuId.Setup]: {
     header: 'Setup',
     items: [
+      { id: Item.Graphics, name: 'Graphics...', description: 'Change the graphics settings.' },
       { id: Item.Sound, name: 'Sound...', description: 'Change the sound settings.' },
+      { id: Item.Jukebox, name: 'Jukebox', description: 'Listen to the music of Tyrian.' },
       { id: Item.Controls, name: 'Controls...', description: 'Change the control settings.' },
       { id: Item.Done, name: 'Done', description: 'Return to the main menu.' },
+    ],
+  },
+  [MenuId.Graphics]: {
+    header: 'Graphics',
+    items: [
+      { id: Item.Fullscreen, name: 'Fullscreen', description: 'Toggle fullscreen (also Alt+Enter or F11).' },
+      { id: Item.ScalingMode, name: 'Scaling Mode:', description: 'Change the scaling mode.' },
+      { id: Item.Done, name: 'Done', description: 'Return to the previous menu.' },
     ],
   },
   [MenuId.Sound]: {
@@ -67,8 +81,8 @@ export async function setupMenu(ctx: Ctx): Promise<void> {
   if (!ctx.shopSpriteSheet) ctx.shopSpriteSheet = loadCompShapes(assets.archive, '1'); // need mouse pointer sprites
 
   let restart = true;
-  const menuParents: number[] = [MenuId.None, MenuId.None, MenuId.None, MenuId.None];
-  const selectedIndexes: number[] = [0, 0, 0, 0];
+  const menuParents: number[] = [MenuId.None, MenuId.None, MenuId.None, MenuId.None, MenuId.None];
+  const selectedIndexes: number[] = [0, 0, 0, 0, 0];
   let currentMenu: number = MenuId.Setup;
 
   const xCenter = 160, yMenuHeader = 4, xMenuItem = 45, xMenuItemName = xMenuItem, wMenuItemName = 135;
@@ -104,6 +118,9 @@ export async function setupMenu(ctx: Ctx): Promise<void> {
         case Item.SoundVolume:
           barDrawShadow(screen, xMenuItemValue, y, 1, audio.samplesDisabled ? 170 : 174, idiv(c.fxVolume + 4, 8), 2, 10);
           rectangle(screen, xMenuItemValue - 2, y - 2, xMenuItemValue + 96, y + 11, 242);
+          break;
+        case Item.ScalingMode:
+          drawFontHvShadow(screen, tables, xMenuItemValue, y, SCALING_MODE_NAMES[ctx.display.scalingMode], Font.Normal, Align.Left, 15, -3 + (selected ? 2 : 0), false, 2);
           break;
         case Item.SharedKeyboard:
           drawFontHvShadow(screen, tables, xMenuItemValue, y, c.sharedKeyboard ? 'On' : 'Off', Font.Normal, Align.Left, 15, -3 + (selected ? 2 : 0), false, 2);
@@ -153,6 +170,10 @@ export async function setupMenu(ctx: Ctx): Promise<void> {
               } else if (input.lastmouseX >= xMenuItemValue && input.lastmouseX < xMenuItemValue + wMenuItemValue) {
                 const value = Math.min(Math.max(0, idiv((input.lastmouseX - xMenuItemValue) * 255, wMenuItemValue - 1)), 255);
                 switch (items[i]!.id) {
+                  case Item.Fullscreen:
+                  case Item.ScalingMode:
+                    action = true;
+                    break;
                   case Item.MusicVolume:
                     audio.playSample(S_CURSOR);
                     c.tyrMusicVolume = value;
@@ -171,6 +192,15 @@ export async function setupMenu(ctx: Ctx): Promise<void> {
         }
       }
     }
+
+    const cycleScaling = (step: number): void => {
+      audio.playSample(S_CLICK);
+      const n = SCALING_MODES.length;
+      const next = SCALING_MODES[(SCALING_MODES.indexOf(ctx.display.scalingMode) + step + n) % n]!;
+      ctx.display.scalingMode = next;
+      c.scalingMode = next; // persisted by saveConfiguration (opentyrian.cfg)
+      ctx.display.onScalingChange?.(next);
+    };
 
     const selectedId = items[selectedIndexes[currentMenu]!]!.id;
     const nudge = (musicDelta: number, fxDelta: number): void => {
@@ -206,6 +236,8 @@ export async function setupMenu(ctx: Ctx): Promise<void> {
             audio.playSample(S_CURSOR);
           } else if (selectedId === Item.SharedKeyboard) {
             action = true;
+          } else if (selectedId === Item.ScalingMode) {
+            cycleScaling(input.lastkeyScan === Scancode.Left ? -1 : 1);
           }
           break;
         }
@@ -231,6 +263,25 @@ export async function setupMenu(ctx: Ctx): Promise<void> {
           menuParents[MenuId.Sound] = currentMenu;
           currentMenu = MenuId.Sound;
           selectedIndexes[currentMenu] = 0;
+          break;
+        case Item.Graphics:
+          audio.playSample(S_SELECT);
+          menuParents[MenuId.Graphics] = currentMenu;
+          currentMenu = MenuId.Graphics;
+          selectedIndexes[currentMenu] = 0;
+          break;
+        case Item.Jukebox:
+          audio.playSample(S_SELECT);
+          await fadeBlack(ctx, 10);
+          await jukebox(ctx);
+          restart = true;
+          break;
+        case Item.Fullscreen:
+          audio.playSample(S_CLICK);
+          ctx.display.toggleFullscreen?.();
+          break;
+        case Item.ScalingMode:
+          cycleScaling(1);
           break;
         case Item.Controls:
           audio.playSample(S_SELECT);

@@ -19,6 +19,7 @@
 import type { ShotOut } from './shots';
 import { V_ACCELERATE, V_BOSS, V_CLEARED_PLATFORM, V_DANGER, V_ENEMIES, V_SPIKES } from '../audio/ids';
 import type { Sprite2Sheet } from '../video/sprite2';
+import type { ScalingMode } from '../platform/scaling';
 
 // ---------------------------------------------------------------------------------------------
 // Size constants (lvlmast.h, varz.h, shots.h, config.h, episodes.h, tyrian2.h)
@@ -613,6 +614,8 @@ export interface ConfigGroup {
   keySettings2: Int32Array;
   /** Web extension: shared-keyboard 2P enabled (off by default; stored in opentyrian.cfg). */
   sharedKeyboard: boolean;
+  /** Web extension: how the canvas fills the window (Setup > Graphics > Scaling Mode; stored in opentyrian.cfg). */
+  scalingMode: ScalingMode;
   mouseSettings: Uint8Array;           // JE_byte[3]
   levelFilter: number; levelFilterNew: number; levelBrightness: number; levelBrightnessChg: number; // JE_shortint
   filtrationAvail: boolean; filterActive: boolean; filterFade: boolean; filterFadeStart: boolean;
@@ -943,7 +946,7 @@ export function createGameWorld(): GameWorld {
       portConfigChange: false, portConfigDone: false,
       lastLevelName: '', levelName: '',
       mainLevel: 0, nextLevel: 0, saveLevel: 0,
-      dosKeySettings: new Uint8Array(8), keySettings: new Int32Array(8), keySettings2: Int32Array.from(defaultKeySettings2), sharedKeyboard: false, mouseSettings: new Uint8Array(3),
+      dosKeySettings: new Uint8Array(8), keySettings: new Int32Array(8), keySettings2: Int32Array.from(defaultKeySettings2), sharedKeyboard: false, scalingMode: 'fit-4-3', mouseSettings: new Uint8Array(3),
       levelFilter: 0, levelFilterNew: 0, levelBrightness: 0, levelBrightnessChg: 0,
       filtrationAvail: false, filterActive: false, filterFade: false, filterFadeStart: false,
       gameJustLoaded: false,
