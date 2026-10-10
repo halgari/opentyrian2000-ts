@@ -1,19 +1,35 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Usage: tsx tools/oracle/run.ts <scenario|levels|all> [--raw a-b[,c,...]] [--raw-every n] [--fixture]
+// Scenarios come from scenarios.ts (demos, shop, sessions), scenarios-input.ts (in-level input) and scenarios-shopc.ts (shop options, saves).
+// `all` also writes the TS-made save seeds (ts-save.ts) first and renders the audio references.
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, rmSync, statSync } from 'node:fs';
+import { mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { OUT, DATA, ROOT, runOracle } from './lib';
 import { ensureLevelDemo } from './gen-demos';
+import { INPUT_SCENARIOS } from './scenarios-input';
+import { SHOPC_SCENARIOS } from './scenarios-shopc';
+import { EPISODE_END_SAVE_REL, TS_SAVE_REL, buildEpisodeEndSave, buildTsSave } from './ts-save';
 import { AUDIO_SCENARIOS, LEVEL_SCENARIOS, LONG_LEVEL_SCENARIOS, SCENARIOS, type AudioScenarioName, type Scenario } from './scenarios';
 
 const RECORD = 4 + 768 + 64000;
+
+/** Scenarios with their own input scripts, keyed by name (their outputs are `.hash`/`.state2` and, when flagged, `.save/`). */
+const HASHED: Record<string, Scenario> = { ...INPUT_SCENARIOS, ...SHOPC_SCENARIOS };
+
+/** The HOME seeds of the `ts-save-load` / `session-ep*-end` scenarios: saves written by the TS port. */
+function writeTsSaves(): void {
+  mkdirSync(join(ROOT, 'test-data/ts-save'), { recursive: true });
+  writeFileSync(join(ROOT, EPISODE_END_SAVE_REL), buildEpisodeEndSave());
+  writeFileSync(join(ROOT, TS_SAVE_REL), buildTsSave());
+}
 
 /** `fixture`: write <name>.raw.frames (read by tests); otherwise debug dumps go to <name>.dbg.frames so they never clobber fixtures */
 interface RawOpts { frames?: string; every?: string; fixture?: boolean }
 
 function run(name: string, raw: RawOpts = {}): void {
-  const sc: Scenario = (SCENARIOS as Record<string, Scenario>)[name] ?? LEVEL_SCENARIOS[name] ?? LONG_LEVEL_SCENARIOS[name]!;
+  const sc: Scenario = (SCENARIOS as Record<string, Scenario>)[name] ?? HASHED[name] ?? LEVEL_SCENARIOS[name] ?? LONG_LEVEL_SCENARIOS[name]!;
+  if (sc.homeSeed) writeTsSaves();
   if (name in LEVEL_SCENARIOS || name in LONG_LEVEL_SCENARIOS) ensureLevelDemo(name);
   const rawMode = raw.frames !== undefined || raw.every !== undefined;
   // Hash/state scenarios write .hash/.state/.state2; the raw dump is then only produced on request (--raw).
@@ -92,7 +108,9 @@ if (fixtureIdx >= 0) argv.splice(fixtureIdx, 1);
 const rawOpts: RawOpts = { frames: flag('--raw'), every: flag('--raw-every'), fixture: fixtureIdx >= 0 };
 const arg = argv[0] ?? 'all';
 if (arg === 'all') {
+  writeTsSaves();
   for (const n of Object.keys(SCENARIOS)) run(n);
+  for (const n of Object.keys(HASHED)) run(n);
   for (const n of Object.keys(LEVEL_SCENARIOS)) run(n);
   for (const n of Object.keys(LONG_LEVEL_SCENARIOS)) run(n);
   for (const n of Object.keys(AUDIO_SCENARIOS) as AudioScenarioName[]) runAudio(n);
@@ -105,7 +123,7 @@ if (arg === 'all') {
     try { run(n); } catch (e) { failed.push(`${n}: ${(e as Error).message}`); }
   }
   if (failed.length) { console.error(`FAILED oracle runs:\n${failed.join('\n')}`); process.exitCode = 1; }
-} else if (arg in SCENARIOS || arg in LEVEL_SCENARIOS || arg in LONG_LEVEL_SCENARIOS) {
+} else if (arg in SCENARIOS || arg in HASHED || arg in LEVEL_SCENARIOS || arg in LONG_LEVEL_SCENARIOS) {
   run(arg, rawOpts);
 } else {
   throw new Error(`unknown scenario ${arg}`);

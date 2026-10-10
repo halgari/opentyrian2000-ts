@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Task 6 oracle scenarios: keyboard/mouse/pause/menu/game-over in level 1 of a new episode-1 game.
-// Run with `tsx tools/oracle/run-input.ts <name|all>`; outputs go to test-data/oracle/<name>.{hash,state2}.
+// Run with `pnpm oracle:run <name>` (tools/oracle/run.ts); outputs go to test-data/oracle/<name>.{hash,state2}.
 import type { KeyPress, MouseEvent, Scenario } from './scenarios';
 
 /** Title -> New Game -> episode 1 -> normal -> shop (Down x4) -> Next Level -> planet; level 1 starts about frame 331. */

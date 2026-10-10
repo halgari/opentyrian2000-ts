@@ -16,11 +16,35 @@ browser.
 ## Tests
 
     pnpm test             # unit tests; data tests run if `pnpm data` was run
-    pnpm oracle           # build the patched C original and record golden frames
-    pnpm test             # now also runs the golden frame comparisons
+    pnpm oracle           # build the patched C original and record every golden (see "Regenerating the oracle outputs")
+    pnpm test             # now also runs the golden comparisons
+    pnpm soak             # headless soak (opt-in, ~1 min), see below
 
 `pnpm oracle` needs git, gcc, make, pkg-config and the SDL2 development headers
-(SDL2_net is not needed).
+(SDL2_net is not needed). Golden tests skip when their oracle files (`test-data/`, gitignored) are absent.
+
+Runtime: the whole suite takes about 1 minute (98 files, ~865 tests) and `pnpm oracle` about 2 minutes (after the
+one-off C build). The long golden `test/golden/session-long.test.ts` (episode 1, levels 1-4, ~5100 frames) takes about 2 s.
+
+### Regenerating the oracle outputs
+
+One command rebuilds the C oracle and records everything under `test-data/oracle/`:
+
+    pnpm oracle                       # = pnpm oracle:build && tsx tools/oracle/run.ts all
+
+`run.ts all` writes the TS-made save seeds (`test-data/ts-save/`, see `tools/oracle/ts-save.ts`), then runs every scenario
+of `scenarios.ts` (demos, shop, `session-*`, episode end), `scenarios-input.ts` (in-level input), `scenarios-shopc.ts` (shop
+options, saves) and the 70 + 7 level demos, and renders the audio references. Single scenarios, e.g. after editing one:
+
+    pnpm oracle:run session-long-ep1          # any name from the scenario files (HASH, STATE2, save dump)
+    pnpm oracle:run levels                    # only the level demos, listing crashes at the end
+    pnpm oracle:build                         # rebuild the patched C binary only
+
+Session scenarios (`session-*`, `ts-save-load`) are authored from the TS port's own timeline and then checked by the C:
+
+    pnpm tsx tools/oracle/ts-scenario.ts session-long-ep1   # rewrites the `<discovered>` region of scenarios.ts
+    pnpm oracle:run session-long-ep1                         # the C records HASH + STATE2 + sav/cfg bytes
+    pnpm vitest run test/golden/session-long.test.ts         # TS must match all three
 
 Oracle environment variables (set by `tools/oracle/run.ts`; see `tools/oracle/dump-frames.patch`):
 `OT_DUMP` raw frames, `OT_HASH` per-frame CRC-32 of palette+pixels, `OT_STATE` per-frame 16 x u32
@@ -71,11 +95,33 @@ Sub-project 3 (Gameplay) — the five built-in demos play from the title menu (D
 and sound effects, frame-exact against the C oracle (pixels and a per-frame state trace),
 including aborting a demo with a key and playing the next one. Starting a new game, the
 shop/menus and the other level types arrive in later sub-projects.
-Sub-project 4 (Game flow) — a full session: New Game / Load / High Scores / Instructions / Setup from the title,
-the gameplay, episode and difficulty selects (1 Player Full Game and 1 Player Arcade), episode scripts, the shop,
-levels with keyboard and mouse control, the end-of-level tally, game over with restore from the level-start backup
-save, and saves in browser storage. Two-player, timed battle, galaga, SuperTyrian and the episode-end credits are
-not ported yet.
+Sub-project 4 (Game flow) - the whole story/arcade loop is playable in the browser:
+
+- Title: New Game, Load Game, High Scores, Instructions, Setup (web-lite: volumes and toggles), Demo, Quit.
+- 1 Player Full Game (episodes 1-5, Easy to the hidden difficulties) and 1 Player Arcade: episode scripts, story text,
+  data cubes, the shop (ship, weapons with power, shield, generator, sidekicks, specials, options, key/mouse
+  configuration, save/load), planet maps, levels with keyboard and mouse control, pause, the in-game menu, the end-of-level
+  tally, game over with restore from the level-start backup, episode end with high-score entry and the credits.
+- Saves, configuration and high scores live in browser localStorage (bytes identical to the C `tyrian.sav`/`tyrian.cfg`);
+  a corrupt blob is kept under a backup key, a blocked localStorage falls back to memory.
+- Verified against the C oracle frame by frame (pixels and a per-frame state record) for whole sessions from boot, including
+  the long run through four levels with shops and purchases; a headless soak plays every level of every episode with random
+  held keys and walks every episode script through its shops (`pnpm soak`); a headless-Chromium smoke test (new game, buy,
+  play, pause, in-game menu, quit, load the backup save, reload with the save still in localStorage) passed.
+
+Not ported yet (they throw `unported:` or are refused on the menu): two-player modes, 1 Player Timed Battle, Galaga/ENGAGE
+bonus modes, Super Arcade / SuperTyrian, network play, joystick, Destruct, the Jukebox and the graphics scaler setup.
+
+### Headless soak
+
+`pnpm soak` (= `SOAK=1 vitest run test/soak`; skipped without `SOAK=1`) starts every level record of every episode from a
+synthetic demo header with a random loadout (all ships, weapons, sidekicks, specials), hands the ship to a bot with seeded random
+held keys (two runs in three are immortal so the late events are reached) and checks: no throws, no `MegaData.oobReads`,
+and item/cash invariants after every frame; a second test walks each episode script with random keys through its
+story screens, shops and planet maps. Knobs: `SOAK_ROUNDS`, `SOAK_SEED`, `SOAK_FRAMES` (frames per level, default 8000),
+`SOAK_SCRIPT_FRAMES`. One round takes about 45 s. Known C-undefined case, reported but not failed: episode 5 level 1,
+when the level never ends (boss not killed), scrolls layer 3 past the top of its map (the C then reads neighbouring globals).
+
 
 ## Architecture (short)
 

@@ -24,7 +24,7 @@ import { EPISODE_END_SAVE_REL, buildEpisodeEndSave, buildTsSave } from './ts-sav
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
-const RET = 40, BKSP = 42, ESC = 41, SPACE = 44, DOWN = 81, UP = 82, F2 = 59, F6 = 63, F7 = 64;
+const RET = 40, RIGHT = 79, LEFT = 80, LCTRL = 224, LALT = 226, BKSP = 42, ESC = 41, SPACE = 44, DOWN = 81, UP = 82, F2 = 59, F6 = 63, F7 = 64;
 
 const dead = (): ((c: Ctx) => boolean) => {
   let wasAlive = false; // isAlive is also false before the level starts
@@ -48,6 +48,47 @@ const skipLevel = (wait: number): ScriptStep[] => [
 ];
 const gameOver = (): ScriptStep => ({ sc: RET, when: dead(), hold: 1 });
 
+
+/**
+ * Real held input for one level: fire held for `frames`, a sweep of arrow holds (deterministic LCG pattern, overlapping holds are
+ * allowed), the change-fire key tapped now and then, and the left / right sidekick keys held in bursts.
+ */
+const playHolds = (frames: number, seed: number): ScriptStep[] => {
+  let r = seed >>> 0;
+  const rnd = (n: number): number => { r = (Math.imul(r, 1664525) + 1013904223) >>> 0; return (r >>> 8) % n; };
+  const out: ScriptStep[] = [{ sc: SPACE, hold: frames, after: 0 }];
+  const dirs = [LEFT, RIGHT, UP, DOWN];
+  for (let used = 0; used < frames - 120;) {
+    const gap = 1 + rnd(25), hold = 5 + rnd(50);
+    const sc = rnd(9) === 0 ? (rnd(2) ? LCTRL : LALT) : rnd(14) === 0 ? RET : dirs[rnd(4)]!;
+    out.push(sc === RET ? { sc, after: gap } : { sc, hold, after: gap });
+    used += gap;
+  }
+  return out;
+};
+const readCube = (): ScriptStep[] => [{ sc: RET, after: 60 }, { sc: ESC, after: 100 }, { sc: ESC, after: 30 }];
+/** The weapon sim: power +2 on the current weapon, Done buys. */
+const buyWeapon = (): ScriptStep[] => [
+  { sc: RIGHT, after: 40 }, { sc: RIGHT, after: 12 }, { sc: DOWN, after: 12 }, { sc: DOWN, after: 12 }, { sc: RET, after: 12 }, { sc: RET, after: 12 },
+];
+/** A list screen (shield, generator, sidekick): the entry below the current one is bought. */
+const buyListItem = (): ScriptStep[] => [{ sc: DOWN, after: 20 }, { sc: RET, after: 12 }, { sc: ESC, after: 12 }];
+/** The sidekick screen (list plus sim): the entry below the current one, Return buys and leaves for the Upgrade Ship menu. */
+const buySidekick = (): ScriptStep[] => [{ sc: UP, after: 20 }, { sc: RET, after: 20 }];
+/**
+ * Shop: Upgrade Ship (the menu starts on Ship Type each visit), the sub-screen of `row` (1 front gun, 2 rear gun, 3 shield, 4 generator,
+ * 5 left sidekick, 6 right sidekick) with a purchase, Esc to the main menu, then Next Level (the main menu cursor stays on Upgrade Ship).
+ */
+const shopBuyNextLevel = (first: number, row = 1): ScriptStep[] => [
+  { sc: DOWN, after: first }, { sc: DOWN, after: 8 }, { sc: RET, after: 8 },
+  ...Array.from({ length: row }, () => ({ sc: DOWN, after: 12 })), { sc: RET, after: 12 },
+  ...(row <= 2 ? buyWeapon() : row <= 4 ? buyListItem() : buySidekick()),
+  { sc: ESC, after: 20 },
+  { sc: DOWN, after: 12 }, { sc: DOWN, after: 8 }, { sc: RET, after: 8 }, { sc: RET, after: 8 },
+];
+
+/** Frames of fire/arrow play per level and the seed of its pattern: levels 2-4 kill a ship that does not dodge after ~210-390 frames, so they are skipped (F2+F6+F7) before that. */
+const SEEDS = [1, 2, 3, 4], LENS = [2600, 300, 300, 300];
 interface Spec { steps: () => ScriptStep[]; tail: number; extra?: Partial<Scenario>; setup?: (ctx: Ctx) => void }
 
 const SPECS: Record<string, Spec> = {
@@ -56,6 +97,17 @@ const SPECS: Record<string, Spec> = {
   'session-arcade-ep1': {
     tail: 40,
     steps: () => [{ sc: RET }, { sc: DOWN }, { sc: RET }, { sc: RET }, { sc: RET }, { sc: RET, after: 12 }, { sc: SPACE, hold: 2600, after: 150 }],
+  },
+  /** Episode 1, levels 1-4 with real held input (fire, arrows, sidekicks), shops in between (a front weapon upgrade), backup saves. */
+  'session-long-ep1': {
+    tail: 40,
+    steps: () => [
+      { sc: RET }, { sc: RET }, { sc: RET }, { sc: RET },
+      ...shopBuyNextLevel(12, 1), ...playHolds(LENS[0]!, SEEDS[0]!), ...skipLevel(60),
+      ...readCube(), ...shopBuyNextLevel(40, 3), ...playHolds(LENS[1]!, SEEDS[1]!), ...skipLevel(60),
+      ...shopBuyNextLevel(60, 4), ...playHolds(LENS[2]!, SEEDS[2]!), ...skipLevel(60),
+      ...shopBuyNextLevel(60, 5), ...playHolds(LENS[3]!, SEEDS[3]!), ...skipLevel(60),
+    ],
   },
   /** Idle ship dies, any key at the game-over text, restore from the backup save, the shop, level 1 again. */
   'session-full-ep1': {

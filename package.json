@@ -15,7 +15,8 @@
     "oracle:build": "bash tools/oracle/build.sh",
     "oracle:run": "tsx tools/oracle/run.ts",
     "oracle:discover": "tsx tools/oracle/discover.ts",
-    "oracle": "pnpm oracle:build && tsx tools/oracle/run.ts all"
+    "oracle": "pnpm oracle:build && tsx tools/oracle/run.ts all",
+    "soak": "SOAK=1 vitest run test/soak"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",
