@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Pure (no fs) description + generator of the synthetic level demos (Task 3 of sub-project 4).
+// Pure (no fs) description and generator of the synthetic level demos.
 // Shared by tools/oracle/gen-demos.ts (writes the files), scenarios.ts (lvl-<ep>-<nn> scenarios) and the golden test.
 import { LONG_KEYS } from './long-keys';
 
@@ -212,5 +212,5 @@ export function longLoadoutFor(lv: DemoLevel): DemoLoadout {
 export const maxFramesFor = (lv: DemoLevel): number => 260 + demoFramesFor(lv) + 150;
 export const maxFramesForLong = (lv: DemoLevel): number => 260 + longLegs(lv).reduce((n, [, w]) => n + w, 0) + 150;
 
-/** Levels expected to fail: none (the smoothie, flip/lighting and random-explosion paths landed with Task 4 of sub-project 4). */
+/** Levels expected to differ from the C: none. */
 export const EXPECTED_FAIL: ReadonlySet<string> = new Set<string>();

@@ -26,7 +26,7 @@ function setTile1(ctx: Ctx, slot: number, value: number): void {
   ctx.game.map.megaData1.shapes.fill(value, slot * 672, slot * 672 + 672);
 }
 
-describe('map memory model (pointer arithmetic, survey 5.3)', () => {
+describe('map memory model (pointer arithmetic)', () => {
   it('level start pointers are row*cols - 1 (C: &mainmap[row][0] - 1)', () => {
     // 292 rows * 14 - 1; the blit then starts at mapYPos + mapXbpPos - 12 and walks +14 per tile row
     expect(292 * MAP1_COLS - 1).toBe(4087);
@@ -203,10 +203,10 @@ describe('starfield, filter, smoothies', () => {
 // ---------------------------------------------------------------------------------------------
 // Pixels vs the C original. demo-1, first level loop frame (213).
 //
-// Frame 213 also holds things other tasks draw. Compared region: the play window (x 24..287, y 0..183) minus
-//  - the ship (task 11): oracle p0x/p0y from the state record, rect screen x [p0x-40, p0x-7) (the play window starts at screen x 24, ship centre at p0x-24),
+// Frame 213 also holds things drawn by other modules. Compared region: the play window (x 24..287, y 0..183) minus
+//  - the ship: oracle p0x/p0y from the state record, rect screen x [p0x-40, p0x-7) (the play window starts at screen x 24, ship centre at p0x-24),
 //    y [p0y-17, p0y+22) (sprite 24x28 plus engine flame; measured from the diff bounding box 63..92 x 143..181);
-//  - the top message bar (task 8, drawLevelTopBars / level name text): x 88..191, y 8..23.
+//  - the top message bar (drawLevelTopBars / level name text): x 88..191, y 8..23.
 // Nothing else is drawn on this frame (enemyOnScreen = 0, no shots, no explosions in the oracle state).
 // ---------------------------------------------------------------------------------------------
 const raw = readFramesFile(resolve(ORACLE_DIR, 'demo-1.raw.frames'));
@@ -232,11 +232,11 @@ dp('background layer 1 pixels vs oracle (demo-1 frame 213)', () => {
 });
 
 // ---------------------------------------------------------------------------------------------
-// Starfield vs the C original. demo-4 is the demo whose stars are not hidden by ground (survey 4.1).
+// Starfield vs the C original. demo-4 is the demo whose stars are not hidden by ground.
 // The stars are advanced directly here (the full-demo goldens cover the live event-driven path): the oracle frame f shows the init positions advanced by (f - 213) updates with
 // move_speed 1 (frame 213 shows them unmoved: the event that turns the starfield on runs inside that frame).
 // Compared by hue (0x9_): the level-start brightness fade (filterScreen) rewrites the low nibble.
-// Window columns 0..263 of the oracle frame correspond to game_screen columns 24..287 (survey 4.1).
+// Window columns 0..263 of the oracle frame correspond to game_screen columns 24..287.
 // ---------------------------------------------------------------------------------------------
 const raw4 = readFramesFile(resolve(ORACLE_DIR, 'demo-4.raw.frames'));
 const d4 = testArchive && raw4 ? describe : describe.skip;
@@ -255,8 +255,8 @@ d4('starfield pixels vs oracle (demo-4)', () => {
     for (let y = 0; y < 184; y++) {
       for (let x = 0; x < 264; x++) {
         const sx = x + 24; // oracle screen column
-        if (sx >= 88 && sx < 192 && y >= 8 && y < 24) continue; // top message bar (task 8)
-        if (sx >= p0x - 44 && sx < p0x + 12 && y >= p0y - 17 && y < p0y + 24) continue; // ship (task 11), screen x = p0x - 24
+        if (sx >= 88 && sx < 192 && y >= 8 && y < 24) continue; // top message bar
+        if (sx >= p0x - 44 && sx < p0x + 12 && y >= p0y - 17 && y < p0y + 24) continue; // ship, screen x = p0x - 24
         const a = (surf.pixels[y * 320 + x + 24]! & 0xf0) === 0x90;
         const b = (o.pixels[y * 320 + x]! & 0xf0) === 0x90;
         if (a) stars++;

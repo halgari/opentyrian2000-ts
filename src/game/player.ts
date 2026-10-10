@@ -58,8 +58,6 @@ export function handleGotPurpleBall(ctx: Ctx, p: Player): void {
 
 type MouseKeys = readonly ['mouseX', 'mouseY'] | readonly ['mouseXB', 'mouseYB'];
 
-// port of JE_playerMovement (mainint.c:3497). playerNum is 1-based like the C.
-// The keyboard and mouse input paths are ported (input-level.ts); the joystick path is in readPlayerInput too.
 /**
  * The scattered spawn point of the Nort ship's banking sparks (mainint.c:4250):
  * `tempW + (mt_rand() % 8) - 4, this_player->y + (mt_rand() % 8) - 4` as call arguments. GCC (x86-64) evaluates
@@ -71,6 +69,8 @@ export function nortSparkPos(ctx: Ctx, baseX: number, baseY: number): [x: number
   return [x, y];
 }
 
+// port of JE_playerMovement (mainint.c:3497). playerNum is 1-based like the C.
+// Input reading lives in input-level.ts (readPlayerInput).
 export function playerMovement(
   ctx: Ctx, p: Player, inputDevice: number, playerNum: number, shipGr: number, shipGrPtr: Sprite2Sheet | null,
   mouse: MouseKeys,
@@ -91,7 +91,7 @@ export function playerMovement(
     if (p.weaponMode > sc.tempW) p.weaponMode = 1;
   }
 
-  // `redo:` label (survey 5.7): only the respawn path loops back
+  // `redo:` label: only the respawn path loops back
   for (;;) {
     /* Draw Player */
     if (!p.isAlive) {
@@ -758,7 +758,7 @@ export function mainGamePlayerFunctions(ctx: Ctx): void {
   }
 }
 
-/** True when the table read a pickup value of `evalue` (> 30000, no super arcade) makes in JE_playerCollide is outside its array. */
+/** True when a pickup value `evalue` (> 30000, no super arcade) would index outside its table in JE_playerCollide. */
 function pickupIndexOutOfRange(g: GameWorld, evalue: number): boolean {
   if (evalue > 32100) return evalue - 32100 >= g.items.special.length;
   if (evalue > 32000) return evalue - 32000 >= g.items.options.length;
@@ -766,9 +766,6 @@ function pickupIndexOutOfRange(g: GameWorld, evalue: number): boolean {
   return evalue - 30000 >= g.items.weaponPort.length || evalue - 30000 - 1 >= g.tables.specialArcadeWeapon.length;
 }
 
-// port of JE_playerCollide (mainint.c:4732); playerNum is 1-based like the C.
-// Reads/writes the C globals temp/temp2/temp3/b through g.scratch (they stay clobbered for later readers, survey 5.1).
-// The network name variants are omitted (no network).
 // port of the galaga branch of JE_playerCollide (mainint.c:4756-4764)
 export function spawnDragonwing(ctx: Ctx, thisPlayer: Player): void {
   const g = ctx.game;
@@ -782,6 +779,9 @@ export function spawnDragonwing(ctx: Ctx, thisPlayer: Player): void {
   p1.isAlive = true;
 }
 
+// port of JE_playerCollide (mainint.c:4732); playerNum is 1-based like the C.
+// Reads/writes the C globals temp/temp2/temp3/b through g.scratch (they stay clobbered for later readers).
+// The network name variants are omitted (no network).
 export function playerCollide(ctx: Ctx, thisPlayer: Player, playerNum: number): void {
   const g = ctx.game;
   const c = g.config;
@@ -803,7 +803,7 @@ export function playerCollide(ctx: Ctx, thisPlayer: Player, playerNum: number): 
     /*Collide*/
     const evalue = e.evalue;
     if (evalue > 29999) {
-      // Ruling (C UB; no-op to keep the browser alive): a pickup value whose table index is out of range (galaga doubles the
+      // C undefined behaviour, modelled as a no-op: a pickup value whose table index is out of range (galaga doubles the
       // value of every enemy of a group on each kill, so 30720 happens in real play) makes the C read neighbouring memory in
       // weaponPort[] / options[] / special[] / specialArcadeWeapon[]. Count it, warn once, free the pickup and apply nothing.
       if (evalue > 30000 && c.superArcadeMode === 0 && pickupIndexOutOfRange(g, evalue)) {

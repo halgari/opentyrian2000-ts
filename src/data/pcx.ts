@@ -8,7 +8,7 @@
 import type { Surface } from '../video/surface';
 
 /**
- * port of JE_loadPCX (pcxload.c) — only meant to load tshp2.pcx.
+ * port of JE_loadPCX (pcxload.c); only meant to load tshp2.pcx.
  * Decodes the 320x200 RLE image into `surface` and, when the file ends with a 0x0C-prefixed 768-byte VGA palette,
  * copies that palette (raw bytes, as the C does) into `colors`.
  */

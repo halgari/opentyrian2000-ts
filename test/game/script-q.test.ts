@@ -7,7 +7,7 @@ import { testCtx } from '../helpers/ctx';
 import { describeData } from '../helpers/data';
 import { useScript } from '../helpers/script';
 
-// JE_nextEpisode is Task 13: here it only reports "the last episode was finished" the way it does for ep5 -> ep1.
+// JE_nextEpisode is mocked here: it only reports "the last episode was finished" the way it does for ep5 -> ep1.
 const ep = vi.hoisted(() => ({ jumpBack: true }));
 vi.mock('../../src/screens/episode-end', () => ({
   nextEpisode: async (ctx: { game: { items: { jumpBackToEpisode1: boolean }; varz: { gameLoaded: boolean }; config: { mainLevel: number } } }): Promise<void> => {

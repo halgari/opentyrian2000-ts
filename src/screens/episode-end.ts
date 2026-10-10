@@ -15,7 +15,6 @@ import { showVGA } from '../video/video';
 import { playCredits } from './credits';
 import { highScoreCheck } from './highscores';
 
-
 // port of JE_nextEpisode (mainint.c:975); isNetworkGame and constantPlay are never set in the port
 export async function nextEpisode(ctx: Ctx): Promise<void> {
   const g = ctx.game;

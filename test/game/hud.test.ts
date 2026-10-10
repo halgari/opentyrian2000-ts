@@ -115,7 +115,7 @@ describeData('HUD drawing', () => {
 });
 
 // ---------------------------------------------------------------------------------------------
-// Task 8: level-loop HUD slots
+// Level-loop HUD slots
 // ---------------------------------------------------------------------------------------------
 import { drawBossBar, drawLevelTopBars, drawTimers, drawWarnings, inGameDisplays, barX } from '../../src/game/hud';
 import { S_WARNING } from '../../src/audio/ids';

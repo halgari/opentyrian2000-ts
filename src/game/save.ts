@@ -25,7 +25,7 @@ export const EPISODE_AVAILABLE = 5;
 
 /** Bytes of one save record in saveTemp. */
 export const SAVE_RECORD_SIZE = 109;
-/** Total tyrian.sav size: saveTemp + 30 x 35 B (timed battle) ... see writeSav. */
+/** Total tyrian.sav size: saveTemp + 30 x 35 B (timed battle scores) + 30 x 39 B (main game scores). */
 export const SAV_FILE_SIZE = SIZEOF_SAVEGAMETEMP + 10 * 3 * 35 + 10 * 3 * 39; // 4722
 export const CFG_FILE_SIZE = 28;
 

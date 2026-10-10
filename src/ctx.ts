@@ -47,7 +47,7 @@ export interface Ctx {
   state: GameState;
   /** The user directory (tyrian.sav / tyrian.cfg / opentyrian.cfg); in-memory unless a browser adapter is passed. */
   storage: StorageAdapter;
-  /** All C gameplay globals (spec §2.1). */
+  /** All C gameplay globals. */
   game: GameWorld;
   /** Web-only: multi-tab tyrian.sav merge state (src/game/save-sync.ts). */
   saveSync: SaveSync;

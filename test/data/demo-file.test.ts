@@ -31,7 +31,7 @@ it('DemoReader: big-endian waits', () => {
   expect(n).toBe(256);
 });
 
-// Header table: survey §1.5. [front id, rear id, front pwr, rear pwr, special, ship, left, right, shield, song, lvlFileNum, name]
+// Header table: [front id, rear id, front pwr, rear pwr, special, ship, left, right, shield, song, lvlFileNum, name]
 const HEADERS = [
   { name: 'TYRIAN   ', lvl: 9, ship: 1, fw: 7, fp: 1, rw: 29, rp: 1, sp: 0, sk: [21, 20], sh: 6, song: 18, frames: 7134, wait0: 38 },
   { name: 'SAVARA   ', lvl: 12, ship: 6, fw: 5, fp: 10, rw: 29, rp: 11, sp: 2, sk: [21, 21], sh: 8, song: 33, frames: 5043, wait0: 17 },

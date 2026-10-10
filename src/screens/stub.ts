@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Placeholder screens for features arriving in later sub-projects (not a port).
+// Plain text screens with no C counterpart: the quit-to-title message and the Destruct placeholder (Destruct is not ported).
 import type { Ctx } from '../ctx';
 import { waitDelayOrInput, waitInput, waitNoInput } from '../platform/wait';
 import { fadeBlack, fadePalette } from '../video/fade';

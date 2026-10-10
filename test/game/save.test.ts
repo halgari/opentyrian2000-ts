@@ -100,7 +100,7 @@ describe('opentyrian.cfg JSON', () => {
   });
 });
 
-describe('storage adapters (Review Focus 5)', () => {
+describe('storage adapters', () => {
   it('base64 helpers', () => {
     const b = Uint8Array.of(0, 255, 7, 128);
     expect(base64ToBytes(bytesToBase64(b))).toEqual(b);
@@ -178,7 +178,7 @@ describeData('persistence hooks', () => {
     expect(b.game.config.editorLevel).toBe(((1234 & 0xff) << 8) | (1234 >> 8));
   });
 
-  it('a corrupt save warns, is kept under a backup key, and the defaults (174 draws) are used (Review Focus 2)', () => {
+  it('a corrupt save warns, is kept under a backup key, and the defaults (174 draws) are used', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const a = mkCtx();
     loadConfiguration(a);
@@ -213,7 +213,7 @@ describeData('persistence hooks', () => {
     expect(s.get(STORAGE_KEYS.corruptSavPrefix + '1')).toBe('bm90IGEgc2F2ZQ==');
   });
 
-  it('blocked localStorage: the game saves and reloads in memory with a warning (Review Focus 5)', () => {
+  it('blocked localStorage: the game saves and reloads in memory with a warning', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const ctx = mkCtx(localStorageAdapter(() => { throw new Error('blocked'); }));
     loadConfiguration(ctx);

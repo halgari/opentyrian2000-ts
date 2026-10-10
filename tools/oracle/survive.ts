@@ -118,7 +118,7 @@ async function main(): Promise<void> {
     if (score[bi]! === 0) {
       fails++;
       console.error(`no survivor at level frame ${frames} (fail ${fails})`);
-      if (fails >= 3 && segs.length > 0) { const dropped = segs.pop()!; legs = mergeLegs(segs.flat()); frames -= segLen; fails = 0; void dropped; console.error(`backtrack to ${frames}`); }
+      if (fails >= 3 && segs.length > 0) { segs.pop(); legs = mergeLegs(segs.flat()); frames -= segLen; fails = 0; console.error(`backtrack to ${frames}`); }
       if (Date.now() - t0 > 3 * 3600_000) throw new Error('giving up');
       continue;
     }

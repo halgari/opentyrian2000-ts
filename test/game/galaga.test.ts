@@ -135,7 +135,7 @@ describeData('galaga', () => {
     expect([p0.lives, p0.cash, g.varz.galagaLife]).toEqual([11, 46000, 70000]);
   });
 
-  it('a galaga death returns to one player, and loadGame clears the galaga flag (Review Focus 4)', () => {
+  it('a galaga death returns to one player, and loadGame clears the galaga flag', () => {
     const ctx = galagaCtx();
     const g = ctx.game, c = g.config, p = g.players[0];
     c.twoPlayerMode = true;

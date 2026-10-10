@@ -2,7 +2,7 @@
 // Per-frame ship position of the oracle (STATE2 p0x/p0y) vs the TS non-demo input block (keyboard, relative mouse).
 // The first ~150 frames of level 1 have no enemies, so the position depends on the input alone: the TS player step is
 // driven here with the scenario's events, injected with the oracle's timing (after frame f is presented), from a ship
-// placed at the level-start position. Full-pipeline goldens (HASH + STATE2 through the shop) are Task 12's.
+// placed at the level-start position. Full-pipeline goldens (HASH + STATE2 through the shop) live elsewhere.
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { INPUT_SCENARIOS } from '../../tools/oracle/scenarios-input';

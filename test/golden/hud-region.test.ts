@@ -14,9 +14,9 @@ import { ORACLE_DIR, readFramesFile } from '../helpers/frames';
  * HUD region (x >= 264 or y >= 184 of the visible 320x200 screen) of demo-1's first level-loop frames against the
  * oracle raw frames (`pnpm oracle:run demo-1 --raw 213-215 --fixture`).
  *
- * Excluded because they depend on modules that are not in this task:
- *  - armor bar (x 307..315, y >= 137): p0armor is set by getShipInfo (task 7); the oracle has 10 there.
- *  - shield bar is included: p0shield already equals the oracle (task 4 report).
+ * Excluded:
+ *  - armor bar (x 307..315, y >= 137): p0armor is set by getShipInfo; the oracle has 10 there.
+ * The shield bar is included: p0shield equals the oracle.
  * Cash (x 30, y 175) and the lives/bomb sprites are outside the region (drawn on the game window).
  */
 const FIRST_LOOP_FRAME = 213;
@@ -53,7 +53,7 @@ d('golden: demo-1 HUD region', () => {
       for (let y = 0; y < 200; y++) {
         for (let x = 0; x < 320; x++) {
           if (!(x >= 264 || y >= 184)) continue;
-          if (x >= 307 && x <= 315 && y >= 137) continue; // armor bar: getShipInfo (task 7)
+          if (x >= 307 && x <= 315 && y >= 137) continue; // armor bar: set by getShipInfo
           if (actual[y * 320 + x] !== f.pixels[y * 320 + x]) bad.push(`(${x},${y}) got ${actual[y * 320 + x]} want ${f.pixels[y * 320 + x]}`);
         }
       }

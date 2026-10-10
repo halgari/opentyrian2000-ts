@@ -43,7 +43,7 @@ export class Input {
   newText = false;
   lastText = '';
   mouseInactive = true; // mouse.c
-  /** keyboard.c: initial false in the C; SDL delivers FOCUS_GAINED at window creation, so true here (survey 4). */
+  /** keyboard.c: initial false in the C; SDL delivers FOCUS_GAINED at window creation, so true here. */
   windowHasFocus = true;
   /** keyboard.c mouse_pressed[4]: fire main, left sidekick, right sidekick, change rear mode. */
   readonly mousePressed: boolean[] = [false, false, false, false];

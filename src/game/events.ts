@@ -376,7 +376,7 @@ export function eventSystem(ctx: Ctx): void {
         if (c.superArcadeMode !== SA_NONE) {
           if (e.eventdat === 534) e.eventdat = 827;
         } else if (!c.superTyrian) {
-          const lives = g.players[0].lives; // alias of items.weapon[0].power (survey 5.2)
+          const lives = g.players[0].lives; // alias of items.weapon[0].power
 
           if (e.eventdat === 533 && (lives === 11 || (ctx.rng.rand() % 15) < lives)) {
             // enemy will drop random special weapon
@@ -711,7 +711,7 @@ export function eventSystem(ctx: Ctx): void {
       break;
 
     case 77:
-      // pointers are flat slot indexes (spec 2.5): &mainmap[0][0] + n == n
+      // pointers are flat slot indexes: &mainmap[0][0] + n == n
       bg.mapYPos = idiv(e.eventdat, 2);
       if (e.eventdat2 > 0) bg.mapY2Pos = idiv(e.eventdat2, 2);
       else bg.mapY2Pos = idiv(e.eventdat, 2);

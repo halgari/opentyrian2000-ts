@@ -16,7 +16,7 @@ function testCtx() {
   return ctx;
 }
 
-const EXPECTED_EVENTS = [1010, 832, 379, 517, 552]; // survey 1.5: events per demo level
+const EXPECTED_EVENTS = [1010, 832, 379, 517, 552]; // events per demo level
 
 describeData('loadMap (demo branch)', () => {
   it.each([1, 2, 3, 4, 5])('installs demo %i: events, sentinel, map slots and tile bytes', async (n) => {
@@ -142,7 +142,7 @@ describeData('runLevel (skeleton loop)', () => {
     // sidekicks; JE_doSpecialShot (varz.c:692) also counts SHOT_SPECIAL (index 8) down unconditionally
     expect(Array.from(g.config.shotRepeat)).toEqual([0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1]);
     expect(g.sprites.explosionSpriteSheet).not.toBeNull();
-    expect(g.config.levelBrightness).toBe(-10); // -14 + 4 loop frames: filterScreen (task 5) now runs the brightness fade
+    expect(g.config.levelBrightness).toBe(-10); // -14 + 4 loop frames: filterScreen now runs the brightness fade
   });
 
   it('ends on a key press during the demo and runs the start_level epilogue', async () => {

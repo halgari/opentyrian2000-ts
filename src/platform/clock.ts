@@ -22,7 +22,7 @@ export class VirtualClock implements Clock {
   }
   advance(ms: number): void {
     this.t += Math.max(0, Math.ceil(ms));
-    if (this.t > this.limitMs) throw new Error(`VirtualClock limit exceeded (${this.limitMs} ms) — is the game waiting for input that never comes?`);
+    if (this.t > this.limitMs) throw new Error(`VirtualClock limit exceeded (${this.limitMs} ms): is the game waiting for input that never comes?`);
   }
   async sleep(ms: number): Promise<void> {
     this.advance(ms);

@@ -309,7 +309,7 @@ export async function levelSetup(ctx: Ctx): Promise<LevelLocals | null> {
   b.mapY = 300 - 8;
   b.mapY2 = 600 - 8;
   b.mapY3 = 600 - 8;
-  // mapYPos = &megaData1.mainmap[mapY][0] - 1 (pointers are flat slot indexes, spec 2.5)
+  // mapYPos = &megaData1.mainmap[mapY][0] - 1 (pointers are flat slot indexes)
   b.mapYPos = b.mapY * MAP1_COLS - 1;
   b.mapY2Pos = b.mapY2 * MAP2_COLS - 1;
   b.mapY3Pos = b.mapY3 * MAP3_COLS - 1;
@@ -537,7 +537,7 @@ function playSoundQueue(ctx: Ctx): void {
  * One iteration of level_loop (tyrian2.c:1088-2396). Returns 'end' for `goto start_level` (reallyEndLevel),
  * 'restart' for `goto level_loop` (the F1 path of the key handling), else 'next' (falls to the loop's end: `goto level_loop`
  * after the normal tail; the distinction matters only to callers that count presented frames).
- * Slot order follows survey 6.2; every slot is wired (the demo goldens pin the order).
+ * The slot order is pinned by the demo goldens.
  */
 export async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<'next' | 'restart' | 'end'> {
   const g = ctx.game;

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Headless soak (skipped unless SOAK=1): a bot with seeded random held keys plays every level record of every episode in the TS port
-// (levels are started directly from a synthetic demo header, the way the Task 3 goldens do, then handed to the bot), and walks every
+// (levels are started directly from a synthetic demo header, the way the demo goldens do, then handed to the bot), and walks every
 // episode's script with random keys through its shops, story screens and planet maps.
 //
 // Asserts: nothing throws (every `unported:` error is a finding, except the dead `]V`/`]R` reveals), no MegaData.oobReads (the C reads
@@ -107,7 +107,7 @@ async function playLevel(lv: DemoLevel, seed: number, frames: number): Promise<{
   const lo = randomLoadout(r, lv.index);
   const ctx = newCtx({ 'demo.1': demoBytes(lv, lo, 0, [[0, 0]]) });
   const g = ctx.game;
-  ctx.state.playDemo = true; // loadMap takes demo.1 (the level record, loadout and song), as in the Task 3 goldens
+  ctx.state.playDemo = true; // loadMap takes demo.1 (the level record, loadout and song), as in the demo goldens
   g.demo.demoNum = 0;
   const loc = await levelSetup(ctx);
   ctx.state.playDemo = false; // from here on the keyboard drives the ship

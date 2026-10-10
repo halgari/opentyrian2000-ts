@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Task 11 oracle scenarios (shop C): options, key/mouse config, help, save/load, data cubes.
+// Oracle scenarios for shop C: options, key/mouse config, help, save/load, data cubes.
 // Run with `pnpm oracle:run <name>` (tools/oracle/run.ts); outputs go to test-data/oracle/<name>.{hash,state2,save/}.
 // Oracle frame 220 is the first frame of the first shop of a new episode-1 / Normal game; the keys before it
 // (title -> New Game -> episode 1 -> normal) are PRELUDE.
@@ -39,7 +39,7 @@ export class Timeline {
     for (const ch of s) { this.text.push({ frame: this.f, scancode: ch === ' ' ? SC.Space : SC.A, char: ch }); this.f += this.gap; }
     return this;
   }
-  /** Moves the pointer to game pixel (x, y) (2 window pixels per game pixel, as the Task 10 scenarios do). */
+  /** Moves the pointer to game pixel (x, y) (2 window pixels per game pixel). */
   moveTo(x: number, y: number): this {
     this.mouse.push({ frame: this.f, type: 'm', a: 2 * x - this.wx, b: 2 * y - this.wy });
     this.wx = 2 * x; this.wy = 2 * y; this.f += this.gap; return this;

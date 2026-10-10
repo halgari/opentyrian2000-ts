@@ -12,7 +12,7 @@ import { levelFrame, levelSetup, allPlayersDead } from './level';
 import { loadGame } from './save';
 import { SA_NONE } from './world';
 
-// port of JE_main (tyrian2.c:621): `start_level_first` -> level_loop -> `start_level` -> JE_loadMap ...
+// port of JE_main (tyrian2.c:621): `start_level_first`, then `level_loop`, then `start_level` and JE_loadMap.
 // Demos run one level and return; a normal game loops until the shop is quit (mainLevel == 0).
 export async function jeMain(ctx: Ctx): Promise<void> {
   const g = ctx.game;

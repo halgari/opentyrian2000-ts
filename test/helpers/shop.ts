@@ -8,7 +8,7 @@ import type { KeyPress } from '../../tools/oracle/scenarios';
 import { frameCrc } from './hash-frames';
 import { testCtx } from './ctx';
 
-/** A world in the state newGame leaves it in for episode 1, Normal (Task 12 will do this through the menus). */
+/** A world in the state newGame leaves it in for episode 1, Normal. */
 export function newGameWorld(): Ctx {
   const ctx = testCtx()!;
   loadConfigurationDefaults(ctx);

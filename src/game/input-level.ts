@@ -48,7 +48,7 @@ export function gammaCheck(ctx: Ctx): boolean {
   return temp;
 }
 
-// port of JE_mainKeyboardInput (mainint.c:3147). Returns whether the frame must restart (skipStarShowVGA set by F1).
+// port of JE_mainKeyboardInput (mainint.c:3147). F1 help sets varz.skipStarShowVGA, which the caller checks.
 // Dead in this port (no network, no extraAvail, no constantPlay): the TAB/CapsLock edited-ship blocks,
 // the isNetworkGame request branches and the `constantPlay` cheat toggle.
 export async function mainKeyboardInput(ctx: Ctx): Promise<void> {
@@ -92,7 +92,7 @@ export async function mainKeyboardInput(ctx: Ctx): Promise<void> {
   if (c.superTyrian) c.youAreCheating = false;
 
   /* {DEBUG} */
-  // The FPS overlay that `debug` enables is not ported (not reachable by a player); the toggle and its counters are, so the key combination is harmless.
+  // The FPS overlay that `debug` enables is not ported; the toggle and its counters are.
   if (ks[SC.F10] && ks[Scancode.Backspace]) {
     ks[SC.F10] = 0;
     v.debug = !v.debug;
@@ -229,8 +229,8 @@ export function gameOverKeyWait(ctx: Ctx): void {
 }
 
 /**
- * The non-demo input block of JE_playerMovement (mainint.c:3679-3790): keyboard (device 0 or 1) and mouse (0 or 2).
- * Also the joystick block (device 0 or >= 3, mainint.c:3679). Moves the ship by the keyboard and pad, fills `button[]` and
+ * The non-demo input block of JE_playerMovement (mainint.c:3679-3790): joystick (device 0 or >= 3), keyboard (0 or 1)
+ * and mouse (0 or 2). Moves the ship by the keyboard and pad, fills `button[]` and
  * returns the mouse delta (mouseXC, mouseYC) that the caller clamps and applies, and the analog link-gun angle.
  */
 export function readPlayerInput(ctx: Ctx, p: Player, inputDevice: number): { mouseXC: number; mouseYC: number; linkGun: LinkGunAnalog } {

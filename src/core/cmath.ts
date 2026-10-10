@@ -27,7 +27,7 @@ export function rngMod(r: number, m: number): number {
   return m < 0 ? r : r % m;
 }
 
-/** C sinf(): float32 of Math.sin (may differ from glibc in the last ulp; see spec §2.4). */
+/** C sinf(): float32 of Math.sin (may differ from glibc in the last ulp). */
 export const sinf = (x: number): number => Math.fround(Math.sin(Math.fround(x)));
 /** C cosf(): float32 of Math.cos. */
 export const cosf = (x: number): number => Math.fround(Math.cos(Math.fround(x)));

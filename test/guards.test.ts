@@ -8,8 +8,8 @@ const files = (dir: string): string[] => readdirSync(dir).flatMap((n) => { const
 const all = files(SRC).map((p) => [p.slice(SRC.length + 1), readFileSync(p, 'utf8')] as const);
 
 describe('source guards', () => {
-  it('no TODO(sp5) or TODO(sp6) markers remain', () => {
-    expect(all.filter(([, t]) => /TODO\(sp[56]\)/.test(t)).map(([n]) => n)).toEqual([]);
+  it('no TODO(...) task markers remain', () => {
+    expect(all.filter(([, t]) => /TODO\(/.test(t)).map(([n]) => n)).toEqual([]);
   });
   it('the only remaining "unported:" throws are the documented ones', () => {
     // Each entry is either a dead script command (no shipped script uses it) or a place where the C reads or writes outside an

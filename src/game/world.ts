@@ -95,7 +95,7 @@ export const MAP3_ROWS = 600, MAP3_COLS = 15;
 export const SHAPE_BYTES = 24 * 28;
 
 // ---------------------------------------------------------------------------------------------
-// Static const tables (varz.c, sndmast.c, lvlmast.c) -- generated from the C initialisers.
+// Static const tables (varz.c, sndmast.c, lvlmast.c); generated from the C initialisers.
 // ---------------------------------------------------------------------------------------------
 export const SANextShip: readonly number[] = [3, 8, 6, 2, 5, 1, 4, 10, 9, 7, 3]; // varz.c u8
 export const SASpecialWeapon: readonly number[] = [7, 8, 9, 10, 11, 12, 13, 48, 47]; // varz.c u16
@@ -714,13 +714,13 @@ export interface VarzGroup {
   button: boolean[];                   // bool[4]
   constantLastX: number;               // JE_shortint
   // JE_word. These are the mouse.c globals (shared with game_menu.c: the shop writes them via JE_mousePosition,
-  // and the stale shop values reach in-level shots fired during endLevel). sp4's shop must write these same fields.
+  // and the stale shop values reach in-level shots fired during endLevel). The shop must write these same fields.
   mouseX: number; mouseY: number; mouseXB: number; mouseYB: number;
   textErase: number;                   // JE_word
   upgradeCost: number; downgradeCost: number; // JE_word
   performSave: boolean; jumpSection: boolean; useLastBank: boolean;
   pauseGamePressed: boolean; ingamemenuPressed: boolean; // pause_pressed, ingamemenu_pressed
-  // globals JE_main initialises that the earlier world pass did not list (fonthand.h, musmast.h, network.h)
+  // further globals that JE_main initialises (fonthand.h, musmast.h, network.h)
   warningCol: number;                  // JE_byte
   warningColChange: number;            // JE_shortint
   warningSoundDelay: number;           // JE_byte
@@ -739,7 +739,7 @@ export interface ScratchGroup {
   tempDat: number; tempDat2: number; tempDat3: number; // JE_integer
 }
 
-/** varz.h megaData1/2/3: map pointer layers (flat slots, -1 = NULL) + the shape tile bytes (spec §2.5). */
+/** varz.h megaData1/2/3: map pointer layers (flat slots, -1 = NULL) + the shape tile bytes. */
 export interface MegaData {
   /** mainmap as pointer slots in C order; value = shape index (tile at `shapes` + base), -1 = NULL */
   mainmap: Int32Array;

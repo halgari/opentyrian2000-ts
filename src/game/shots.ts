@@ -23,7 +23,7 @@ export function getShipInfo(ctx: Ctx): void {
   const { ships, powerSys } = g.items;
   const sh = ctx.assets.shapes;
 
-  // TODO(sp4): varz.c:341-344,354-357 JE_SGr/extraShips (editship.c, needs newsh$.shp; demos never use ship > 90).
+  // Not ported: varz.c:341-344,354-357 JE_SGr/extraShips (editship.c, needs newsh$.shp); the demos never use ship > 90.
   // C reads ships[ship] (out of bounds for ship > 90) before this; checked first here so it cannot crash on undefined.
   if (p0.items.ship > 90) throw new Error('unported: varz.c:341 extraShips');
   if (p1.items.ship > 90) throw new Error('unported: varz.c:354 extraShips');
@@ -96,7 +96,7 @@ export class ShotOut {
   shotDamage = 0;       // JE_integer
   blastFilter = 0;      // JE_byte
   chain = 0;            // JE_byte
-  playerNum = 1;        // JE_byte (survey 5.13: initialise to 1)
+  playerNum = 1;        // JE_byte (initialised to 1)
   specialRadiusW = 0; specialRadiusH = 0; // JE_word
 }
 

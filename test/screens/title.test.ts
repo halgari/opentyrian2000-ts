@@ -38,7 +38,7 @@ describeData('titleScreen', () => {
     expect(frames).toBe(142);
     expect(ctx.state.moveTyrianLogoUp).toBe(false);
   });
-  it('the idle demo stub dismisses itself and returns to the title without input', async () => {
+  it('the idle demo dismisses itself and returns to the title without input', async () => {
     const ctx = testCtx()!;
     let frames = 0, demoFrames = 0, sawDemo = false;
     const stop = new Error('stop');

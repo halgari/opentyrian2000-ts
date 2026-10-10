@@ -19,7 +19,7 @@ import { showVGA } from './video';
 /** The per-game text globals live in `ctx.game.text` (world.ts TextGroup); this is the accessor the screens use. */
 export const textState = (ctx: { game: GameWorld }): TextGroup => ctx.game.text;
 
-// port of JE_anyButton (nortvars.c:33): clears newkey/newmouse as a side effect (survey 7.3)
+// port of JE_anyButton (nortvars.c:33): clears newkey/newmouse as a side effect
 export function anyButton(ctx: Ctx): boolean {
   ctx.input.pollJoysticks();
   ctx.input.serviceEvents(true);

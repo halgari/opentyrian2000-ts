@@ -52,7 +52,7 @@ describeData('episode end', () => {
     expect(g.config.t2kHighScores[10]!.map((e) => e.score)).toEqual([before[0], before[0], before[1]]);
   });
 
-  it('nextEpisode is no longer a stub', () => {
+  it('nextEpisode is exported', () => {
     expect(typeof nextEpisode).toBe('function');
   });
 });

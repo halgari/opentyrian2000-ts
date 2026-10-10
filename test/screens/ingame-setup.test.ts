@@ -165,7 +165,7 @@ describeData('inGameSetup (mainint.c:1518)', () => {
     expect(ctx.game.varz.reallyEndLevel).toBe(false);
   });
 
-  // input-esc-menu (Task 6 scenario): Esc in level 1 opens the menu, Right raises the music volume, Esc leaves; every frame (the
+  // input-esc-menu (oracle scenario): Esc in level 1 opens the menu, Right raises the music volume, Esc leaves; every frame (the
   // frozen level, the menu and the return) must hash like the C's
   it.skipIf(!hasOracle('input-esc-menu'))('HASH golden: the Esc menu frames of input-esc-menu match the C (frame by frame, with STATE2)', async () => {
     menu.entered = 0;

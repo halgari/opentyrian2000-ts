@@ -43,7 +43,7 @@ describe('input device cycling (game_menu.c:1451-1470)', () => {
   });
 });
 
-describe('normalizeInputDevices (Review Focus 2)', () => {
+describe('normalizeInputDevices', () => {
   it('repairs equal, zero and out-of-range pairs', () => {
     for (const bad of [[1, 1], [0, 0], [9, 9], [2, 2], [5, 1]]) {
       const d = Uint8Array.from(bad);
@@ -107,7 +107,7 @@ describeData('two-player screens and saves', () => {
     expect(ctx.game.players[0].items.ship).toBe(11);
     expect(c.difficultyLevel).toBe(c.initialDifficulty + 1);
     expect([...c.inputDevice]).toEqual([1, 2]);
-    // Review Focus 4
+    // a following full game clears twoPlayerMode
     expect(await drive(ctx, gameplaySelect, (t) => t.tap(R))).toBe(true);
     expect(c.twoPlayerMode).toBe(false);
   });

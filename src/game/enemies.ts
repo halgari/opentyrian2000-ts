@@ -25,7 +25,7 @@ import {
 
 /**
  * `&enemySpriteSheets[i]`. The C stores a pointer to the slot, so an enemy keeps seeing whatever is later loaded into
- * the slot (survey 5.16). The slot object is therefore created once and (re)loaded / freed by mutating `data`.
+ * the slot. The slot object is therefore created once and (re)loaded / freed by mutating `data`.
  */
 export function enemySheetSlot(g: GameWorld, i: number): Sprite2Sheet {
   let s = g.sprites.enemySpriteSheets[i];
@@ -61,7 +61,7 @@ export function setEnemySpriteSheets(ctx: Ctx, tables: readonly number[]): void 
 // blit_enemy / JE_drawEnemy
 // ---------------------------------------------------------------------------------------------
 
-/** `enemy[i].egr[idx]`; idx -1 reads the struct bytes before egr, i.e. `ani` with a zero pad byte (C UB, see survey 5.4). */
+/** `enemy[i].egr[idx]`; idx -1 reads the struct bytes before egr, i.e. `ani` with a zero pad byte (C UB). */
 function egrAt(e: Enemy, idx: number): number {
   if (idx === -1) return e.ani;
   const v = e.egr[idx];

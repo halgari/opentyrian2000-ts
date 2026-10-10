@@ -11,10 +11,10 @@ import { MAP1_COLS, MAP2_COLS, MAP3_COLS, STARFIELD_HUE, type MegaData } from '.
 
 // port of initialize_starfield (backgrnd.c:481)
 //
-// 4 draws per star (x, y, speed, color) = 400 per call; the oracle state confirms it: mtCalls goes 175 -> 575
-// across level start. (The survey and plan say 300; that undercounts, position takes two draws.)
+// 4 draws per star (x, y, speed, color) = 400 per call; the oracle state confirms it: mtCalls goes from 175 to 575
+// across level start (position takes two draws).
 //
-// Evaluation order of `mt_rand() % 320 + mt_rand() % 200 * VGAScreen->pitch` (survey 4.1): C leaves the two
+// Evaluation order of `mt_rand() % 320 + mt_rand() % 200 * VGAScreen->pitch`: C leaves the two
 // calls unsequenced. The oracle is built with gcc -O2 (reference/oracle/Makefile); a probe compiled with
 // gcc -O2 and with -O0 evaluates the LEFT operand first, so the order is %320 (x), then %200 (y).
 // Confirmed against oracle pixels (demo-4, frames 218 and 240; demo-1/2/3/5 hide the stars behind opaque ground):
@@ -33,7 +33,6 @@ export function initializeStarfield(ctx: Ctx): void {
 }
 
 // Scroll block of JE_main (tyrian2.c:1286-1303): background 1 advances once per map1YDelay ticks.
-// Implemented in task 4 because curLoc drives event timing; task 5 owns this file now.
 export function advanceBackgrounds(ctx: Ctx): void {
   const b = ctx.game.backgrounds;
   const e = ctx.game.events;
@@ -52,14 +51,14 @@ export function advanceBackgrounds(ctx: Ctx): void {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Map memory model (spec 2.5)
+// Map memory model
 //
 // `mapYPos` & co. are flat slot indexes into megaDataN.mainmap (C: JE_byte **). A row pointer is
 // `row * cols - 1`; blit_background_row reads 12 consecutive slots from `mapYPos + mapXbpPos - 12 + 14*i`,
 // so a negative mapXbpPos or a row near the edge spills into the neighbouring row's slots, exactly as the
 // C does (a flat array is the same memory).
 //
-// Out-of-range slots (conclusion of the final review, Important 3). In the C, megaData1/2/3 are separate
+// Out-of-range slots. In the C, megaData1/2/3 are separate
 // globals (varz.c:211-213) and the slots outside mainmap are other memory, read as `JE_byte *` and then
 // dereferenced if non-NULL. In the oracle binary (nm -n -S) the layout is, ascending:
 //   <small varz globals: skipStarShowVGA ... demo_file, play_demo, displayTime, flashChange, flash>
@@ -74,7 +73,7 @@ export function advanceBackgrounds(ctx: Ctx): void {
 // That memory is layout/toolchain dependent (not part of the game's contract) and holds values that vary by
 // run state, so it cannot be reproduced deterministically. The demo goldens (all five levels, frame-exact)
 // never trigger it. We therefore read NULL and count the reads in MegaData.oobReads, warning once.
-// sp4 RISK: if a full-game playthrough logs this warning, that level's C output is undefined behaviour.
+// If a full-game playthrough logs this warning, that level's C output is undefined behaviour.
 // ---------------------------------------------------------------------------------------------
 
 /** Pixel offset of a slot value's tile inside megaData.shapes (megaData1: stride 672; 2/3: 4 + 672, sh at +4). */
@@ -98,7 +97,7 @@ function blitRow(surface: Surface, md: MegaData, layer: number, x: number, y: nu
     for (let tile = 0; tile < 12; tile++) {
       const slot = map + tile;
       // Outside the layer's mainmap the C reads other memory as a `JE_byte *` (see the memory-model note
-      // above); we read NULL (nothing drawn) and count it so sp4 can see whether any level depends on it.
+      // above); we read NULL (nothing drawn) and count it to show whether any level depends on it.
       let t = -1;
       if (slot >= 0 && slot < mm.length) t = mm[slot]!;
       else if (md.oobReads++ === 0) {

@@ -38,7 +38,7 @@ describeData('timed battle', () => {
     expect([c.timedBattleMode, c.onePlayerAction, p.cash, p.items.ship]).toEqual([true, true, 0, 8]);
   });
 
-  it('a following Full Game does not inherit the mode (Review Focus 4)', async () => {
+  it('a following Full Game does not inherit the mode', async () => {
     const ctx = menuCtx();
     await drive(ctx, newGame, (t) => t.tap(D, D, R).wait(40).tap(R).wait(40).tap(R), 400);
     initPlayerData(ctx); // the main loop's JE_initPlayerData (opentyr.c:851) between sessions

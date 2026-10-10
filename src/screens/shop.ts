@@ -6,7 +6,7 @@
 // Ported from: src/game_menu.c (JE_itemScreen, JE_menuFunction, JE_quitRequest)
 //
 // The skeleton of JE_itemScreen: the outer draw step, the per-menu Enter handler (`menuFunction`, the C's
-// JE_menuFunction switch), the mouse and key handlers, and the inner animation loop. Every C menu is ported;
+// JE_menuFunction switch), the mouse and key handlers, and the inner animation loop. Every C menu is covered;
 // `PORTED_MENUS` guards against a corrupt curMenu.
 import { S_CLICK, S_CURSOR, S_SPRING } from '../audio/ids';
 import { idiv, u16, u8 } from '../core/int';
@@ -48,7 +48,7 @@ export { ShopState } from './shop-draw';
 
 const SC_SLASH = 56; // SDL_SCANCODE_SLASH
 
-/** Menus 0..14 are all of the C's menus (MENU_MAX is 15); anything else is an internal error, never reachable. */
+/** Menus 0..14 are all of the C's menus (MENU_MAX is 15); any other value is an internal error. */
 const PORTED_MENUS: ReadonlySet<number> = new Set([MENU_FULL_GAME, MENU_UPGRADES, MENU_PLAY_NEXT_LEVEL, MENU_UPGRADE_SUB, MENU_1_PLAYER_ARCADE,
   MENU_OPTIONS, 5 /* KEYBOARD_CONFIG */, MENU_LOAD_SAVE, MENU_DATA_CUBES, MENU_DATA_CUBE_SUB, MENU_LIMITED_OPTIONS,
   12 /* JOYSTICK_CONFIG */, 14 /* MOUSE_CONFIG */, MENU_SUPER_TYRIAN, MENU_2_PLAYER_ARCADE]);
@@ -154,7 +154,7 @@ export async function quitRequest(ctx: Ctx): Promise<boolean> {
   return quitSelected;
 }
 
-// port of JE_menuFunction (game_menu.c:2669), for the ported menus
+// port of JE_menuFunction (game_menu.c:2669)
 async function menuFunction(ctx: Ctx, s: ShopState, select: number): Promise<void> {
   const g = ctx.game;
   const v = g.varz;
@@ -281,7 +281,7 @@ async function menuFunction(ctx: Ctx, s: ShopState, select: number): Promise<voi
   s.oldItems[0].copyFrom(g.players[0].items);
 }
 
-// the mouse branch of the C's input handler (game_menu.c:1088-1250), for the ported menus
+// the mouse branch of the C's input handler (game_menu.c:1088-1250)
 async function handleMouse(ctx: Ctx, s: ShopState): Promise<void> {
   const { audio } = ctx;
   const g = ctx.game;
@@ -334,7 +334,7 @@ async function handleMouse(ctx: Ctx, s: ShopState): Promise<void> {
   await upgradeSubPowerButtons(ctx, s); // UPGRADE_SUB power -/+ buttons (x 23..36 / 119..131, y 149..168)
 }
 
-// the key branch of the C's input handler (game_menu.c:1253-1612), for the ported menus
+// the key branch of the C's input handler (game_menu.c:1253-1612)
 async function handleKey(ctx: Ctx, s: ShopState): Promise<void> {
   const { audio, input } = ctx;
   const g = ctx.game;
@@ -379,7 +379,7 @@ async function handleKey(ctx: Ctx, s: ShopState): Promise<void> {
       if (s.curMenu !== MENU_DATA_CUBE_SUB) audio.playSample(S_CURSOR);
       s.curSel[s.curMenu] = u8(s.curSel[s.curMenu]! - 1);
       if (s.curSel[s.curMenu]! < 2) s.curSel[s.curMenu] = s.menuChoices[s.curMenu]!;
-      upgradeSubCursorMoved(ctx, s); // UPGRADE_SUB front/rear weapon power + weapon_mode; TASK 11: joystick config skips disabled rows
+      upgradeSubCursorMoved(ctx, s); // UPGRADE_SUB front/rear weapon power + weapon_mode
       break;
 
     case Scancode.Down:

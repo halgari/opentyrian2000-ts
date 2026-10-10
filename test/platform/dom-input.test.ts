@@ -104,7 +104,7 @@ describe('dom-input', () => {
   });
 });
 
-/** Review Focus 1 (browser keys vs game keys) and the pointer-lock / focus plumbing. */
+/** Input plus a fake pointer-lock target, for the pointer-lock and focus tests. */
 function lockSetup() {
   const target = new EventTarget();
   const input = new Input();
@@ -130,7 +130,7 @@ const drain = (i: Input): number[] => {
   return out;
 };
 
-describe('dom-input: browser keys vs game keys (Review Focus 1)', () => {
+describe('dom-input: browser keys vs game keys', () => {
   it('lets Alt+S and Alt+L (shop quick save/load) reach the game with the Alt key held', () => {
     const { target, input } = setup();
     target.dispatchEvent(keyEvent('keydown', { code: 'AltLeft', altKey: true }));
@@ -252,7 +252,7 @@ describe('dom-input: pointer lock', () => {
   });
 });
 
-describe('dom-input: window focus (Review Focus 3)', () => {
+describe('dom-input: window focus', () => {
   it('blur releases held keys, then reports FOCUS_LOST; focus reports FOCUS_GAINED', () => {
     const { target, input } = setup();
     target.dispatchEvent(keyEvent('keydown', { code: 'ArrowRight' }));
@@ -276,7 +276,7 @@ describe('dom-input: window focus (Review Focus 3)', () => {
   });
 });
 
-describe('dom-input: pointer lock ordering (M2)', () => {
+describe('dom-input: pointer lock ordering', () => {
   it('lock lost BEFORE blur (Alt-Tab): no synthetic Esc, because the document no longer has focus', () => {
     const { input, target, lose, setFocused } = lockSetup();
     input.mouseSetRelative(true);

@@ -43,7 +43,7 @@ describeData('shared keyboard (web extension, not in the C)', () => {
     readPlayerInput(ctx, p, 1);
     expect([p.x, p.y]).toEqual([100, 100]);
   });
-  it('the extension is off by default and the id is normalised away when it is off (Review Focus 2)', () => {
+  it('the extension is off by default and the id is normalised away when it is off', () => {
     const ctx = testCtx()!;
     loadConfigurationDefaults(ctx);
     expect(ctx.game.config.sharedKeyboard).toBe(false);

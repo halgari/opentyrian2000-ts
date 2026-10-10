@@ -78,7 +78,7 @@ describe('Joysticks', () => {
     expect(sent).toEqual([[40, true], [40, false], [41, true], [41, false]]);
   });
 
-  describe('Plan Review Focus 3: nothing throws, the ship holds still, a missing pad is never "any button down"', () => {
+  describe('degenerate pads: nothing throws, the ship holds still, a missing pad is never "any button down"', () => {
     const cases: Array<[string, (PadLike | null)[]]> = [
       ['no pads', []],
       ['a null slot', [null]],

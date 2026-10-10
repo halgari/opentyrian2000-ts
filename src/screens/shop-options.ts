@@ -240,7 +240,7 @@ async function captureKey(ctx: Ctx, s: ShopState, curSelect: number): Promise<vo
 }
 
 /**
- * The Task 11 cases of JE_menuFunction (game_menu.c:2708-2985). Returns false when `curMenu` is not one of them.
+ * The options, data cube, keyboard, joystick and mouse cases of JE_menuFunction (game_menu.c:2708-2985). Returns false when `curMenu` is not one of them.
  * `curSelect` is the C's local copy of curSel[curMenu] taken at entry.
  */
 export async function menuFunctionC(ctx: Ctx, s: ShopState, select: number, curSelect: number): Promise<boolean> {

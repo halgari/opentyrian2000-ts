@@ -97,7 +97,7 @@ export function blitSpriteBlend(s: Surface, x: number, y: number, t: SpriteTable
   blitWith(s, x, y, t, i, (d, v) => (v & 0xf0) | (((d & 0x0f) + (v & 0x0f)) >> 1));
 }
 
-// port of blit_sprite_hv_unsafe (JE_newDrawCShapeBright) — value may overflow into hue
+// port of blit_sprite_hv_unsafe (JE_newDrawCShapeBright): value may overflow into hue
 export function blitSpriteHvUnsafe(s: Surface, x: number, y: number, t: SpriteTable, i: number, hue: number, value: number): void {
   value = s8(value); // C parameter is Sint8
   const h = u8(hue << 4);

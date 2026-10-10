@@ -14,10 +14,10 @@ import { runDemoScenario } from './demo-harness';
 /**
  * Synthetic demos for every level record of episodes 1-5 (tools/oracle/demo-levels.ts): per presented frame the CRC of
  * palette+pixels and the whole state record equal the C oracle. The TS archive's demo.1 is replaced by the same bytes the
- * oracle's alternate data dir holds. EXPECTED_FAIL levels (none now) must still differ, so
+ * oracle's alternate data dir holds. EXPECTED_FAIL levels (none now) must still differ
  * (it.fails turns an unexpected pass into a failure).
  *
- * KNOWN_DIVERGENT: levels that diverge for a reason not fixed yet, with the diagnosis (same it.fails semantics).
+ * KNOWN_DIVERGENT: levels that diverge for a known reason, with the diagnosis (same it.fails semantics).
  */
 export const KNOWN_DIVERGENT: ReadonlyMap<string, string> = new Map<string, string>([]);
 

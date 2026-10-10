@@ -760,7 +760,7 @@ export class Opl {
             vibval1 = vibvalVar1;
             this.fillVib(vibval1, endsamples, op[c].freqHigh);
           } else vibval1 = vibvalConst;
-          // note: C tests `op_state == OF_TYPE_OFF` here (not !=); preserved verbatim
+          // note: C tests `op_state == OF_TYPE_OFF` here (not !=); kept as is
           if (op[c + 9].vibrato && op[c + 9].opState === OF_TYPE_OFF) {
             vibval2 = vibvalVar2;
             this.fillVib(vibval2, endsamples, op[c + 9].freqHigh);

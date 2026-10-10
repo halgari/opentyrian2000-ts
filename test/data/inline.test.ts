@@ -27,7 +27,7 @@ describe('inline data', () => {
   it('damaged base64 is a readable error', async () => {
     await expect(archiveFromInline(docWith('!!!not base64!!!').doc)).rejects.toThrow(/embedded game data/i);
   });
-  it('a browser without DecompressionStream says so (Review Focus 5)', async () => {
+  it('a browser without DecompressionStream says so', async () => {
     const g = globalThis as { DecompressionStream?: unknown };
     const saved = g.DecompressionStream;
     g.DecompressionStream = undefined;

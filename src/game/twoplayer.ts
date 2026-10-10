@@ -121,7 +121,7 @@ export function inputDeviceOf(ctx: Ctx, playerNum: 1 | 2): number {
 }
 
 /**
- * The device pair the game uses (Review Focus 2): the stored `inputDevice` made legal for the current joystick count.
+ * The device pair the game uses: the stored `inputDevice` made legal for the current joystick count.
  * The stored bytes are never rewritten (a 0/0 pair or a pad id must survive a save, as in the C), so every use goes through here.
  */
 export function effectiveInputDevices(ctx: Ctx): Uint8Array {
@@ -162,7 +162,7 @@ export function nextInputDevice(devices: Uint8Array, which: 0 | 1, dir: 1 | -1, 
 }
 
 /**
- * Forces a legal pair of input devices (Review Focus 2; not in the C, whose menu clamps only when drawn, game_menu.c:765):
+ * Forces a legal pair of input devices (not in the C, whose menu clamps only when drawn, game_menu.c:765):
  * both in 1..2 + joysticks and different, defaulting to {1, 2}. A save or tyrian.cfg may hold anything.
  */
 export function normalizeInputDevices(devices: Uint8Array, joysticks: number, sharedKeyboard = false): void {

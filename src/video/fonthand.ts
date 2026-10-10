@@ -17,7 +17,7 @@ export const FULL_SHADE = 1;
 export const DARKEN = 2;
 export const TRICK = 3;
 
-// port of font_ascii — copy the 256 values verbatim from fonthand.c
+// port of font_ascii
 export const FONT_ASCII = new Int16Array([
   -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
   -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
@@ -96,7 +96,7 @@ export function outTextModify(s: Surface, tables: Tables, x: number, y: number, 
   }
 }
 
-// port of JE_outTextAdjust (note: the C checks spriteExists against TINY_FONT, not `font` — keep it)
+// port of JE_outTextAdjust (note: the C checks spriteExists against TINY_FONT, not `font`; kept)
 export function outTextAdjust(s: Surface, tables: Tables, x: number, y: number, text: string, filter: number, brightness: number, font: number, shadow: boolean): void {
   let bright = 0;
   for (const ch of text) {

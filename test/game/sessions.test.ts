@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Review Focus 4: starting a new game after a game over, or after quitting to the title, without a reload: no world state may leak.
+// Starting a new game after a game over, or after quitting to the title, without a reload: no world state may leak.
 // Two sessions run back to back in one ctx must present the same frames, and reach the same STATE2, as a session run from a fresh ctx.
 import { describe, expect, it, vi } from 'vitest';
 import { gameLoop } from '../../src/game';
@@ -80,7 +80,7 @@ function expectSame(a: Seg, b: Seg, label: string): void {
   for (let i = 0; i < a.states.length; i++) expect(comparable(a.states[i]!), `${label}: state ${i}`).toEqual(comparable(b.states[i]!));
 }
 
-describeData('sessions back to back in one ctx (Review Focus 4)', () => {
+describeData('sessions back to back in one ctx', () => {
   it('quit to the title from the shop, then a second new game: identical to a fresh ctx', async () => {
     const session = (): ScriptStep[] => [...TO_SHOP(), { sc: ESC, after: 12 }, { sc: RET, after: 8 }];
     const { segs } = await run(2, session);

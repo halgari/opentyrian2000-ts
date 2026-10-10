@@ -45,7 +45,7 @@ const MENU_HELP: readonly (readonly number[])[] = [
   [4, 30, 30, 3, 5], [4, 37, 12], [16, 17, 15, 15, 12], [31, 31, 31, 31, 32, 12], [4, 34, 3, 5], [35, 35, 35, 36, 12],
 ];
 
-/** One loaded data cube (game_menu.c struct cube_struct); filled by Task 11's load_cubes. */
+/** One loaded data cube (game_menu.c struct cube_struct); filled by load_cubes (shop-cubes.ts). */
 export interface Cube { title: string; header: string; faceSprite: number; text: string[]; lastLine: number }
 
 /**
@@ -68,15 +68,15 @@ export class ShopState {
   /** Web extension: the keyboard config screen shows keyboard map B (only while config.sharedKeyboard). */
   keyPageB = false;
   leftPower = false; rightPower = false; rightPowerAfford = false;
-  /** Task 10 temp_weapon_power[7]: stays an local of JE_itemScreen in the C; kept here so Task 10 can reach it. */
+  /** temp_weapon_power[7]: a local of JE_itemScreen in the C, kept here so the weapon upgrade code can reach it. */
   readonly tempWeaponPower = new Int32Array(7);
   /** old_items[2] (game_menu.c:96), the shop's "owned" snapshot. */
   readonly oldItems: [PlayerItems, PlayerItems] = [new PlayerItems(), new PlayerItems()];
-  /** The mouse.c globals the shop uses besides varz.mouseX/Y; JE_operation (Task 11) reads the stale mouseButton. */
+  /** The mouse.c globals the shop uses besides varz.mouseX/Y; JE_operation reads the stale mouseButton. */
   mouseButton = 0;                         // JE_word
   /** Per-game copy of helpText.menuInt: JE_menuFunction / JE_genItemMenu strcpy into rows 4 and 5. */
   menuInt: string[][] = [];
-  cubes: Cube[] = [];                      // Task 11
+  cubes: Cube[] = [];
   currentCube = 0;
   yLoc = 0; yChg = 0;                      // data cube reader scroll (JE_word, JE_shortint)
   joystickConfig = 0;                      // which joystick is being configured
@@ -159,7 +159,7 @@ export function drawItem(ctx: Ctx, itemType: number, itemNum: number, x: number,
     }
 
     if (itemType === 1) {
-      // TODO(task 10): itemNum > 90 (JE_SGr / extraShips, the ship editor's custom ships)
+      // itemNum > 90 is JE_SGr / extraShips, the ship editor's custom ships
       if (itemNum > 90) throw new Error('unported: shop custom ship graphic (extraShips, varz.c:354)');
       const ship = g.items.ships[itemNum]!;
       if (ship.shipgraphic > 500) blitSprite2x2(ctx.vga.screen, x, y, ctx.assets.shapes.spriteSheetT2000, ship.shipgraphic - 500);

@@ -13,7 +13,7 @@ const TMP = join(ROOT, 'dist-single-tmp');
 const OUT_DIR = join(ROOT, 'dist-single');
 const MAX_BYTES = 8_388_608;
 
-/** Never requested at run time (survey 9.2, confirmed by a get() trace over soak, goldens and screen tests). */
+/** Never requested at run time (confirmed by a get() trace over the soak, golden and screen tests). */
 export const EXCLUDE = ['estpa.shp', 'tyrianc.shp', 'voicesc.snd', 'exitmsg.bin', 'loudness.awe', 'user1.shp', 'user2.shp', 'shipedit.pcx', 'readme.txt'];
 
 export function escapeScript(js: string): string {

@@ -9,8 +9,8 @@ import { runDemoScenario } from './demo-harness';
 
 /**
  * Frames 0..212 of demo-1: boot, menu navigation to Demo, fade_black(15), the level-start frame (162) and the
- * 50-frame fade-in. Frame 213 is the first level_loop frame; it needs backgrounds/enemies/the player ship, so it
- * is not asserted until those tasks land (see task 14).
+ * 50-frame fade-in. Frame 213 is the first level_loop frame; it is
+ * covered by the region goldens (hud-region, backgrounds).
  */
 const FIRST_LEVEL_FRAME = 162;
 const LAST_FADE_FRAME = FIRST_LEVEL_FRAME + 50;

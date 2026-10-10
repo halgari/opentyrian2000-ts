@@ -15,7 +15,7 @@ import { testCtx } from '../helpers/ctx';
 import { describeData } from '../helpers/data';
 import { useScript } from '../helpers/script';
 
-// The shop is exercised separately (test/golden/script.test.ts uses the real stub); here its effects are scripted.
+// The shop is exercised separately (test/golden/script.test.ts uses the real shop); here its effects are scripted.
 const shop = vi.hoisted(() => ({ impl: (_ctx: unknown): void => {}, calls: 0 }));
 // the real JE_nextEpisode is covered by test/golden/episode-end.test.ts; here it only marks that the command reached it
 vi.mock('../../src/screens/episode-end', () => ({ nextEpisode: async (): Promise<void> => { throw new Error('JE_nextEpisode'); } }));

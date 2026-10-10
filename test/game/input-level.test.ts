@@ -389,7 +389,7 @@ describeData('level input tail (tyrian2.c:2213-2260)', () => {
   });
 });
 
-describeData('tab losing focus mid-level (Review Focus 3)', () => {
+describeData('tab losing focus mid-level', () => {
   it('blur pauses like !windowHasFocus and a key resumes (the focus event alone does not)', async () => {
     const { ctx, v, g } = setup();
     const target = new EventTarget();

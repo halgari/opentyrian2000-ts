@@ -16,10 +16,10 @@ describeData('newSuperArcadeGame', () => {
     const c = ctx.game.config, p = ctx.game.players[0];
     expect(ok).toBe(true);
     expect([c.onePlayerAction, c.superArcadeMode, c.timedBattleMode, ctx.game.varz.gameLoaded]).toEqual([true, 1, false, true]);
-    expect(c.initialDifficulty).toBe(DIFFICULTY_HARD); // initialDifficulty = ++difficultyLevel (quirk, survey 4.1)
+    expect(c.initialDifficulty).toBe(DIFFICULTY_HARD); // initialDifficulty = ++difficultyLevel (C quirk)
     expect([p.cash, p.items.ship, p.items.weapon[0].id, p.items.special]).toEqual([0, ctx.game.tables.SAShip[0], ctx.game.tables.SAWeapon[0]![0], ctx.game.tables.SASpecialWeapon[0]]);
   });
-  it('Esc in the episode select returns false and leaks nothing (Review Focus 1)', async () => {
+  it('Esc in the episode select returns false and leaks nothing', async () => {
     const ctx = menuCtx();
     expect(await drive(ctx, (c) => newSuperArcadeGame(c, 0), (t) => t.tap(E))).toBe(false);
     const c = ctx.game.config;
@@ -49,7 +49,7 @@ describeData('newSuperTyrianGame', () => {
     expect(await drive(ctx, (c) => { c.input.keysactive[71] = 1; /* ScrollLock held when the code is typed */ return newSuperTyrianGame(c); }, (t) => t.tap(R).wait(40).tap(R), 600)).toBe(true);
     expect(ctx.game.config.initialDifficulty).toBe(DIFFICULTY_SUICIDE);
   });
-  it('Esc at the episode select cancels with nothing set (Review Focus 1)', async () => {
+  it('Esc at the episode select cancels with nothing set', async () => {
     const ctx = menuCtx();
     expect(await drive(ctx, newSuperTyrianGame, (t) => t.tap(R).wait(40).tap(E), 600)).toBe(false);
     const c = ctx.game.config;

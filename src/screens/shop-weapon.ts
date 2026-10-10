@@ -6,8 +6,8 @@
 // Ported from: src/game_menu.c (the upgrade menus of JE_itemScreen / JE_menuFunction, JE_genItemMenu, JE_initWeaponView,
 //   JE_weaponSimUpdate, JE_weaponViewFrame, JE_doShipSpecs and friends), src/shots.c (simulate_player_shots)
 //
-// Shop B: UPGRADES (1) and UPGRADE_SUB (4) plus the ship specs screen. shop.ts calls the hooks exported here at its
-// `// TASK 10` markers.
+// Shop B: UPGRADES (1) and UPGRADE_SUB (4) plus the ship specs screen. shop.ts calls the hooks exported here from its
+// draw step, menu function and input handlers.
 import { S_CLINK, S_CURSOR, S_ITEM, S_SPRING } from '../audio/ids';
 import { f32, roundf32 } from '../core/cmath';
 import { s16, u16, u8 } from '../core/int';

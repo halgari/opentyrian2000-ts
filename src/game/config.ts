@@ -160,16 +160,16 @@ function applyVolumes(ctx: Ctx): void {
   ctx.audio.setVolume(c.tyrMusicVolume, c.fxVolume); // set_volume()
 }
 
-/**
- * The no-tyrian.cfg / no-opentyrian.cfg / no-tyrian.sav path of JE_loadConfiguration (config.c:777),
- * ignoring storage. Reproduces the 174 mt_rand() draws of the made-up high-score tables.
- */
 /** Web only: the stored scaling mode reaches the live display state and the page. */
 function syncDisplay(ctx: Ctx): void {
   ctx.display.scalingMode = ctx.game.config.scalingMode;
   ctx.display.onScalingChange?.(ctx.display.scalingMode);
 }
 
+/**
+ * The no-tyrian.cfg / no-opentyrian.cfg / no-tyrian.sav path of JE_loadConfiguration (config.c:777),
+ * ignoring storage. Reproduces the 174 mt_rand() draws of the made-up high-score tables.
+ */
 export function loadConfigurationDefaults(ctx: Ctx): void {
   const c = ctx.game.config;
   applyCfgDefaults(c);

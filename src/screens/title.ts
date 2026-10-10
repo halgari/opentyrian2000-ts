@@ -26,7 +26,6 @@ import { loadScreen } from './loadscreen';
 import { newGame } from './select';
 import { setupMenu } from './setup';
 import { newSuperArcadeGame, newSuperTyrianGame, whoa } from './supermodes';
-import { stubScreen } from './stub';
 
 export const SA_DESTRUCT = 10;
 export const SA_ENGAGE = 11;

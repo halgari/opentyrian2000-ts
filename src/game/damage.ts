@@ -11,7 +11,7 @@ import { setupExplosion } from './explosions';
 import { drawArmor, drawShield, wipeShieldArmorBars } from './hud';
 import type { Player } from './world';
 
-// port of JE_playerDamage (varz.c:1041), ported by task 9 (needed by the enemy shot collision). Task 12 need not port it.
+// port of JE_playerDamage (varz.c:1041)
 // `temp` is the JE_byte damage; returns the damage dealt through the shield (0 when the shield absorbed it all).
 export function playerDamage(ctx: Ctx, temp: number, thisPlayer: Player): number {
   const g = ctx.game;

@@ -79,7 +79,7 @@ export function dBar3(surface: Surface, x: number, y: number, num: number, col: 
   }
 }
 
-// port of JE_drawShield (varz.c). `surface` is the global VGAScreen at the call site (survey 5.9).
+// port of JE_drawShield (varz.c). `surface` is the global VGAScreen at the call site.
 export function drawShield(ctx: Ctx, surface: Surface): void {
   const g = ctx.game;
   const [p0, p1] = g.players;
@@ -95,7 +95,7 @@ export function drawShield(ctx: Ctx, surface: Surface): void {
   }
 }
 
-// port of JE_drawArmor (varz.c). `surface` is the global VGAScreen at the call site (survey 5.9).
+// port of JE_drawArmor (varz.c). `surface` is the global VGAScreen at the call site.
 export function drawArmor(ctx: Ctx, surface: Surface): void {
   const g = ctx.game;
   const [p0, p1] = g.players;
@@ -480,7 +480,7 @@ export function inGameDisplays(ctx: Ctx): void {
   if (g.config.youAreCheating) outText(gs, tables, 90, 170, 'Cheaters always prosper.', 3, 4);
 }
 
-// sprintf("%d", extra_lives) with the unsigned wrap: lives 0 gives 4294967295 -> printed as -1
+// Draws the extra-lives count. The caller passes `extraLives | 0`, so lives 0 (unsigned wrap to 4294967295) prints as -1, like sprintf("%d").
 function outTextShadeLives(ctx: Ctx, gs: Surface, x: number, y: number, text: string): void {
   textShade(gs, ctx.assets.shapes.tables, x, y, text, 15, 1, FULL_SHADE);
 }

@@ -96,7 +96,7 @@ export function setupExplosionLarge(ctx: Ctx, enemyGround: boolean, exploNum: nu
   }
 }
 
-/** tyrian2.c:1897-1937 -- sequenced (repeating) explosions */
+/** tyrian2.c:1897-1937: sequenced (repeating) explosions */
 export function updateRepeatingExplosions(ctx: Ctx): void {
   const g = ctx.game;
   const reps = g.explosions.repExplosions;
@@ -134,7 +134,7 @@ export function updateRepeatingExplosions(ctx: Ctx): void {
   }
 }
 
-/** tyrian2.c:1939-1965 -- explosion sprite pass (VGAScreen is game_screen in the loop) */
+/** tyrian2.c:1939-1965: explosion sprite pass (VGAScreen is game_screen in the loop) */
 export function drawExplosions(ctx: Ctx): void {
   const g = ctx.game;
   const list = g.explosions.explosions;
@@ -165,7 +165,7 @@ export function drawExplosions(ctx: Ctx): void {
   }
 }
 
-/** JE_doSP (varz.c:1148) -- superpixels. Clobbers the scratch global `temp` (a JE_byte loop counter). */
+/** JE_doSP (varz.c:1148): superpixels. Clobbers the scratch global `temp` (a JE_byte loop counter). */
 export function doSP(ctx: Ctx, x: number, y: number, num: number, explowidth: number, color: number): void {
   const g = ctx.game;
   const sp = g.explosions.superpixels;
@@ -186,7 +186,7 @@ export function doSP(ctx: Ctx, x: number, y: number, num: number, explowidth: nu
   }
 }
 
-/** JE_drawSP (varz.c:1170) -- drawn on VGAScreen (game_screen in the loop) */
+/** JE_drawSP (varz.c:1170): drawn on VGAScreen (game_screen in the loop) */
 export function drawSP(ctx: Ctx): void {
   const sp = ctx.game.explosions.superpixels;
   const scr = ctx.vga.cur;

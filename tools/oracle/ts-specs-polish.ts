@@ -110,7 +110,7 @@ export const POLISH_SPECS_CODES: Record<string, Spec> = {
   /** ENGAGE: JE_whoa cut short by a key 60 frames in, the text screen, episode 2, the first shop and level. */
   'polish-code-engage': { tail: 40, extra: { saveDump: false }, steps: () => [
     ...typedAtTitle('ENGAGE'), { sc: RET, after: 60 }, idleKey(), idleKey(), ...superTyrianShop(), ...playHolds(500, 3)] },
-  /** ENGAGE with JE_whoa left to run its 300 iterations; Esc at the episode select cancels back to the title (Review Focus 1). */
+  /** ENGAGE with JE_whoa left to run its 300 iterations; Esc at the episode select cancels back to the title. */
   'polish-code-engage-cancel': { tail: 40, extra: { saveDump: false }, steps: () => [
     ...typedAtTitle('ENGAGE'), { sc: RET, after: 320 }, idleKey(DOWN), idleKey(ESC), { sc: DOWN, after: 60 }] },
 };
