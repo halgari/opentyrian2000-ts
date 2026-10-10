@@ -9,6 +9,7 @@ import { idiv, s8, u16, u8 } from '../core/int';
 import type { Ctx } from '../ctx';
 import { waitDelayPlain, waitNoInput } from '../platform/wait';
 import { adjustDifficulty } from '../game/economy';
+import { SAVE_FILES_SIZE } from '../game/world';
 import { fadeBlack } from '../video/fade';
 import { anyButton, outTextGlow, textState } from '../video/glow-text';
 import { OPTION_SHAPES, SMALL_FONT_SHAPES, blitSpriteDark, blitSpriteHv } from '../video/sprite';
@@ -25,10 +26,10 @@ export function drawCube(ctx: Ctx, screen: Surface, x: number, y: number, filter
 
 /**
  * port of JE_endLevelAni (mainint.c:2689): the level-complete tally.
- * `grantShipEdit(offset)` stands in for `saveTemp[SAVE_FILES_SIZE + offset] = 1` (the ship-editor privilege flags;
- * owned by the save module). constantPlay is always false in the port.
+ * Grants the ship-editor privileges (`saveTemp[SAVE_FILES_SIZE + offset] = 1`, saved into tyrian.sav).
+ * constantPlay is always false in the port.
  */
-export async function endLevelAni(ctx: Ctx, grantShipEdit?: (offset: number) => void): Promise<void> {
+export async function endLevelAni(ctx: Ctx): Promise<void> {
   const g = ctx.game;
   const c = g.config;
   const sc = g.scratch;
@@ -41,13 +42,12 @@ export async function endLevelAni(ctx: Ctx, grantShipEdit?: (offset: number) => 
   if (c.twoPlayerMode) throw new Error('unported: JE_endLevelAni twoPlayerMode (mainint.c:2753)');
   if (c.timedBattleMode) throw new Error('unported: JE_endLevelAni timedBattleMode (mainint.c:2764)');
 
-  if (grantShipEdit) {
-    // grant shipedit privileges
-    if (p0.items.special < 21) grantShipEdit(81 + p0.items.special); // special
-    for (const p of g.players) {
-      for (let i = 0; i < 2; ++i) grantShipEdit(p.items.weapon[i]!.id); // front, rear
-      for (let i = 0; i < 2; ++i) grantShipEdit(51 + p.items.sidekick[i]!); // options
-    }
+  // grant shipedit privileges
+  const grantShipEdit = (offset: number): void => { c.saveTemp[SAVE_FILES_SIZE + offset] = 1; };
+  if (p0.items.special < 21) grantShipEdit(81 + p0.items.special); // special
+  for (const p of g.players) {
+    for (let i = 0; i < 2; ++i) grantShipEdit(p.items.weapon[i]!.id); // front, rear
+    for (let i = 0; i < 2; ++i) grantShipEdit(51 + p.items.sidekick[i]!); // options
   }
 
   adjustDifficulty(ctx);

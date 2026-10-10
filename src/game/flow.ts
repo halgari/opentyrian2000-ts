@@ -10,7 +10,7 @@ import { waitNoInput } from '../platform/wait';
 import { fadeBlack } from '../video/fade';
 import { levelFrame, levelSetup, allPlayersDead } from './level';
 import { loadGame } from './save';
-import { SA_NONE, SAVE_FILES_SIZE } from './world';
+import { SA_NONE } from './world';
 
 // port of JE_main (tyrian2.c:621): `start_level_first` -> level_loop -> `start_level` -> JE_loadMap ...
 // Demos run one level and return; a normal game loops until the shop is quit (mainLevel == 0).
@@ -56,7 +56,7 @@ export async function jeMain(ctx: Ctx): Promise<void> {
     if (!demo) {
       if ((!allPlayersDead(g) || v.normalBonusLevelCurrent || v.bonusLevelCurrent) && !v.playerEndLevel) {
         c.mainLevel = c.nextLevel;
-        await endLevelAni(ctx, (offset) => { c.saveTemp[SAVE_FILES_SIZE + offset] = 1; }); // shipedit privileges
+        await endLevelAni(ctx);
         ctx.audio.fadeSong();
       } else {
         ctx.audio.fadeSong();

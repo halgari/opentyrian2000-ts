@@ -144,10 +144,11 @@ describeData('inGameSetup (mainint.c:1518)', () => {
     const ctx = testCtx()!;
     init(ctx);
     const rel: boolean[] = [];
+    ctx.input.mouseSetRelative = (b: boolean) => { rel.push(b); };
     ctx.game.varz.yourInGameMenuRequest = true;
     ctx.input.keysactive[Scancode.Escape] = 1;
     script(ctx, [Scancode.Up, Scancode.Return]);
-    await doInGameSetup(ctx, { mouseSetRelative: (b) => rel.push(b) });
+    await doInGameSetup(ctx);
     expect(ctx.game.varz.reallyEndLevel).toBe(true);
     expect(ctx.game.varz.playerEndLevel).toBe(true);
     expect(ctx.game.varz.yourInGameMenuRequest).toBe(false);

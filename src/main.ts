@@ -29,6 +29,17 @@ function waitForStartGesture(): Promise<AudioContext | null> {
   });
 }
 
+/** A small, dismissable one-off notice (storage failures); the overlay is reserved for fatal errors. */
+function showNotice(text: string): void {
+  const el = document.createElement('div');
+  el.setAttribute('role', 'status');
+  el.textContent = text;
+  el.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;padding:8px 12px;background:rgba(0,0,0,.85);color:#fc6;font-size:14px;text-align:center;cursor:pointer;z-index:10';
+  el.title = 'Click to dismiss';
+  el.addEventListener('click', () => el.remove());
+  document.body.appendChild(el);
+}
+
 function exposeDebug(audio: WebAudio): void {
   (window as unknown as { __audio: unknown }).__audio = {
     get peak() { return audio.peak; },
@@ -48,8 +59,11 @@ async function boot(): Promise<void> {
   const audio = await createAudioOrNull(ac, assets.music, assets.tyrianSnd, assets.voicesSnd);
   audio.setVolume(191, 191); // C config default when no config file exists (volume = 191 / sample volume = 191)
   if (location.search.includes('debug') && audio instanceof WebAudio) exposeDebug(audio);
-  const ctx = createCtx({ assets, clock: new BrowserClock(), presenter: new CanvasPresenter(canvas), audio, storage: localStorageAdapter() });
-  attachDomInput({
+  const ctx = createCtx({
+    assets, clock: new BrowserClock(), presenter: new CanvasPresenter(canvas), audio,
+    storage: localStorageAdapter(undefined, () => showNotice('Saving is unavailable in this browser (private mode or storage full). Progress will be lost when the page closes.')),
+  });
+  const detachInput = attachDomInput({
     target: window,
     canvas,
     input: ctx.input,
@@ -58,7 +72,16 @@ async function boot(): Promise<void> {
       else void document.documentElement.requestFullscreen();
     },
   });
-  await runGame(ctx);
+  try {
+    await runGame(ctx);
+  } catch (err) {
+    // leave the page quiet behind the error overlay: no pointer lock, no sound, no queue growing with nobody to drain it
+    detachInput();
+    try { document.exitPointerLock(); } catch { /* not locked */ }
+    try { audio.stopSong(); } catch { /* ignore */ }
+    void ac?.suspend().catch(() => {});
+    throw err;
+  }
 }
 
 boot().catch((err: unknown) => {

@@ -23,6 +23,7 @@ import { showVGA } from '../video/video';
 import { displayText } from '../video/glow-text';
 import { totalScore } from './economy';
 import { saveGame } from './save';
+import { UnavailableModeError } from './unported';
 import { DIFFICULTY_HARD, DIFFICULTY_NORMAL } from './world';
 
 const SA_NORTSHIPZ = 7;  // varz.h
@@ -122,7 +123,7 @@ export async function runEpisodeScript(ctx: Ctx, s: Uint8Array): Promise<ScriptR
 
           case 'g':
             // TODO(sp5): tyrian2.c:2510 galagaMode (GALAGA mini-game)
-            throw new Error('unported: ]g galagaMode (tyrian2.c:2510)');
+            throw new UnavailableModeError(']g galagaMode (tyrian2.c:2510)');
 
           case 'x':
             c.extraGame = true;
@@ -130,7 +131,7 @@ export async function runEpisodeScript(ctx: Ctx, s: Uint8Array): Promise<ScriptR
 
           case 'e':
             // TODO(sp5): tyrian2.c:2523 ENGAGE mode / SuperTyrian
-            throw new Error('unported: ]e ENGAGE mode (tyrian2.c:2523)');
+            throw new UnavailableModeError(']e ENGAGE mode (tyrian2.c:2523)');
 
           case 'J': /* section jump */
             sc.temp = u8(atoi(3));

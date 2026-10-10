@@ -10,7 +10,8 @@ export function mapToScreen(clientX: number, clientY: number, rect: { left: numb
   return [x, y];
 }
 
-const MODIFIED_BROWSER_CODES = new Set(['KeyR', 'KeyL', 'KeyF', 'KeyP', 'KeyW', 'KeyT', 'Equal', 'Minus', 'Digit0']);
+// KeyP is deliberately absent: LCtrl is a default sidekick key and P is pause, so Ctrl+P would open the print dialog mid-level.
+const MODIFIED_BROWSER_CODES = new Set(['KeyR', 'KeyL', 'KeyF', 'KeyW', 'KeyT', 'Equal', 'Minus', 'Digit0']);
 
 /** Keys the browser keeps for itself (reload, devtools, zoom, ...); still delivered to the game. */
 function isBrowserShortcut(e: KeyboardEvent): boolean {
@@ -62,6 +63,7 @@ export function attachDomInput(opts: {
   let hasFocus = true;
   let pendingUnlocks = 0; // exitPointerLock() calls whose pointerlockchange has not arrived yet
   let lastEscDown = -Infinity;
+  const heldButtons = new Map<number, [number, number]>(); // SDL button -> last position, for the release on blur
 
   const tryLock = (): void => {
     if (!doc || !wantRelative || !hasFocus || doc.pointerLockElement || !canvas.requestPointerLock) return;
@@ -132,12 +134,14 @@ export function attachDomInput(opts: {
     if (button === undefined) return;
     tryLock();
     const [x, y] = mapToScreen(e.clientX, e.clientY, updateOutputRect());
+    heldButtons.set(button, [x, y]);
     input.push({ type: 'mousedown', button, x, y });
   });
   on<MouseEvent>(target, 'mouseup', (e) => {
     const button = DOM_TO_SDL_BUTTON[e.button];
     if (button === undefined) return;
     const [x, y] = mapToScreen(e.clientX, e.clientY, updateOutputRect());
+    heldButtons.delete(button);
     input.push({ type: 'mouseup', button, x, y });
   });
   on(target, 'contextmenu', (e) => e.preventDefault());
@@ -145,6 +149,8 @@ export function attachDomInput(opts: {
   on(target, 'blur', () => {
     hasFocus = false;
     input.releaseAll();
+    for (const [button, [x, y]] of heldButtons) input.push({ type: 'mouseup', button, x, y });
+    heldButtons.clear();
     input.push({ type: 'focus', gained: false });
   });
   on(target, 'focus', () => {

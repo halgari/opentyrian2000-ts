@@ -47,8 +47,8 @@ const MENU_HELP: readonly (readonly number[])[] = [
 export interface Cube { title: string; header: string; faceSprite: number; text: string[]; lastLine: number }
 
 /**
- * The file-scope statics of game_menu.c, per shop visit (the C re-initialises the ones that matter in JE_itemScreen's
- * prologue; `oldItems` is the one that survives between visits, so tests may pass a state back in).
+ * The file-scope statics of game_menu.c, per shop visit. `itemScreen` allocates a fresh one on every visit; the C statics
+ * that survive between visits are all reassigned on entry to the menu that reads them, so nothing needs to carry over.
  * Field names are the C names.
  */
 export class ShopState {

@@ -89,8 +89,14 @@ export async function mainKeyboardInput(ctx: Ctx): Promise<void> {
   if (c.superTyrian) c.youAreCheating = false;
 
   /* {DEBUG} */
-  // TODO(sp5): mainint.c:3262 F10+Backspace debug toggle
-  if (ks[SC.F10] && ks[Scancode.Backspace]) throw new Error('unported: mainint.c:3262 debug key');
+  // The FPS overlay that `debug` enables is not ported (TODO(sp5)); the toggle and its counters are, so the key combination is harmless.
+  if (ks[SC.F10] && ks[Scancode.Backspace]) {
+    ks[SC.F10] = 0;
+    v.debug = !v.debug;
+    v.debugHist = 1;
+    v.debugHistCount = 1;
+    // lastDebugTime = SDL_GetTicks(): only the unported overlay reads it
+  }
 
   /* {CHEAT-SKIP LEVEL} */
   if (ks[SC.F2] && ks[SC.F6] && (ks[SC.F7] || ks[SC.F8]) && !ks[SC.F9] && !c.superTyrian && c.superArcadeMode === SA_NONE) {
@@ -201,7 +207,7 @@ export async function levelInputTail(ctx: Ctx): Promise<KeyResult> {
   if (v.ingamemenuPressed) {
     v.ingamemenuPressed = false;
     v.yourInGameMenuRequest = true;
-    await doInGameSetup(ctx, { mouseSetRelative: (b) => input.mouseSetRelative(b) });
+    await doInGameSetup(ctx);
     v.skipStarShowVGA = true;
   }
   return 'continue';

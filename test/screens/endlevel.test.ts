@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { SCENARIOS } from '../../tools/oracle/scenarios';
+import { SAVE_FILES_SIZE } from '../../src/game/world';
 import { drawCube, endLevelAni } from '../../src/screens/endlevel';
 import { textState } from '../../src/video/glow-text';
 import { createSurface } from '../../src/video/surface';
@@ -54,8 +55,7 @@ describeData('endLevelAni (mainint.c:2689)', () => {
 
   it('runs the tally, applies side effects and ends on fade_black + clear', async () => {
     const { ctx, frames } = setup();
-    const granted: number[] = [];
-    await endLevelAni(ctx, (o) => granted.push(o));
+    await endLevelAni(ctx);
     const g = ctx.game;
     expect(g.config.lastLevelName).toBe('TESTLVL');
     expect(g.players[0].lastItems.weapon[0]!.id).toBe(11);
@@ -64,10 +64,7 @@ describeData('endLevelAni (mainint.c:2689)', () => {
     expect(g.scratch.temp2).toBe(160);
     expect(textState(ctx).textGlowFont).toBe(1);
     expect(frames.pal254).toEqual([255, 255, 255]); // set_colors(white, 254, 254), faded out at the end
-    expect(granted.slice(0, 3)).toEqual([81 + 3, 11, 0]);
-    expect(granted).toContain(51 + 5);
-    expect(granted).toContain(51 + 6);
-    expect(granted.length).toBe(1 + 2 * 4);
+    for (const o of [81 + 3, 11, 0, 51 + 5, 51 + 6]) expect(g.config.saveTemp[SAVE_FILES_SIZE + o], `shipedit offset ${o}`).toBe(1);
     expect(ctx.vga.screen.pixels.every((v) => v === 0)).toBe(true);
     // Frames: first glow line 12 rising + 1 falling (frameCountMax 4 on entry), then every later glow line 1 frame:
     // Completed(13) + cash(1) + percent(1) + "Cubes"(1) + 2 cubes * (1 + 26 + 11) + "press a key"(1) + fade_black(15)

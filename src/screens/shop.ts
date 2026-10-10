@@ -62,9 +62,7 @@ function unported(what: string): never {
 
 function unportedMenu(menu: number): never {
   // TODO(sp5): MENU_2_PLAYER_ARCADE (9) and MENU_SUPER_TYRIAN (13) are the two-player / SuperTyrian menus (game_menu.c:245-254).
-  // TASK 10: UPGRADES 1, UPGRADE_SUB 4.  TASK 11: OPTIONS 2, KEYBOARD_CONFIG 5, LOAD_SAVE 6, DATA_CUBES 7, DATA_CUBE_SUB 8,
-  // LIMITED_OPTIONS 11, JOYSTICK_CONFIG 12, MOUSE_CONFIG 14.
-  return unported(`shop menu ${menu} (task 10/11)`);
+  return unported(`shop menu ${menu}`);
 }
 
 // JE_mousePosition(&mouseX, &mouseY) into the mouse.c globals (varz.mouseX/Y, JE_word) and the shop's mouseButton
@@ -404,6 +402,7 @@ export async function itemScreen(ctx: Ctx, state: ShopState = new ShopState()): 
   const c = g.config;
   const sc = g.scratch;
   const { input, audio, vga, palette, assets } = ctx;
+  vga.cur = vga.screen; // VGAScreen = VGAScreenSeg (game_menu.c:166)
   const screen = vga.screen;
   const tables = assets.shapes.tables;
   const s = state;

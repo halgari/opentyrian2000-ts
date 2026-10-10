@@ -53,6 +53,23 @@ describe('dom-input', () => {
     input.serviceEvents(false);
     expect(input.newkey).toBe(true);
   });
+  it('prevents Ctrl+P (print) because Ctrl is a default fire key and P pauses', () => {
+    const { target } = setup();
+    const e = keyEvent('keydown', { code: 'KeyP', key: 'p', ctrlKey: true });
+    target.dispatchEvent(e);
+    expect(e.defaultPrevented).toBe(true);
+  });
+  it('releases a held mouse button on blur', () => {
+    const { target, input } = setup();
+    const down = new Event('mousedown') as Event & Record<string, number>;
+    Object.assign(down, { button: 0, clientX: 10, clientY: 10 });
+    target.dispatchEvent(down);
+    input.serviceEvents(false);
+    expect(input.mousePressed[0]).toBe(true);
+    target.dispatchEvent(new Event('blur'));
+    input.serviceEvents(false);
+    expect(input.mousePressed[0]).toBe(false);
+  });
   it('delivers auto-repeat keydowns (SDL2 does too)', () => {
     const { target, input } = setup();
     target.dispatchEvent(keyEvent('keydown', { code: 'ArrowDown' }));

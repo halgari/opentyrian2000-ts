@@ -80,9 +80,16 @@ function oobReads(g: GameWorld): number {
 
 interface Finding { where: string; what: string }
 const knownUb: string[] = [];
-const noteTo = (findings: Finding[], unported: Finding[]) => (where: string, e: unknown): void => {
+/** `unported:` errors the script walk may reach: secret modes behind ordinary planet menus; gameLoop shows a notice for them. */
+const SCRIPT_UNPORTED_ALLOW: readonly RegExp[] = [
+  /unported: \]e ENGAGE mode/, // TODO(sp5): ENGAGE / SuperTyrian (tyrian2.c:2523)
+  /unported: \]g galagaMode/, // TODO(sp5): GALAGA (tyrian2.c:2510)
+];
+/** With `allow`, an `unported:` error not matching it is a finding (the script walk); without, every one is only reported. */
+const noteTo = (findings: Finding[], unported: Finding[], allow?: readonly RegExp[]) => (where: string, e: unknown): void => {
   const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
-  (msg.includes('unported') ? unported : findings).push({ where, what: msg + (e instanceof Error && !msg.includes('unported') ? `\n${e.stack}` : '') });
+  const isUnported = msg.includes('unported') && !(allow && !allow.some((re) => re.test(msg)));
+  (isUnported ? unported : findings).push({ where, what: msg + (e instanceof Error && !isUnported ? `\n${e.stack}` : '') });
 };
 
 function randomLoadout(r: () => number, k: number): DemoLoadout {
@@ -195,6 +202,7 @@ async function walkScript(episode: number, seed: number, frames: number): Promis
   const warns: string[] = [];
   const findings: Finding[] = [], unported: Finding[] = [];
   const note = noteTo(findings, unported);
+  const noteScript = noteTo(findings, unported, SCRIPT_UNPORTED_ALLOW);
   it('plays every level of every episode with random held keys', async () => {
     findings.length = 0; unported.length = 0;
     const spy = vi.spyOn(console, 'warn').mockImplementation((...a: unknown[]) => { warns.push(a.join(' ')); });
@@ -227,7 +235,7 @@ async function walkScript(episode: number, seed: number, frames: number): Promis
         try {
           const res = await walkScript(ep, SEED + round * 100 + ep, SCRIPT_FRAMES);
           out.push(`${where}: ${res.frames} frames, ${res.visits} level starts, max cash ${res.cashMax}`);
-        } catch (e) { note(where, e); }
+        } catch (e) { noteScript(where, e); }
       }
     }
     console.log(out.join('\n'));

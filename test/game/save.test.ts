@@ -127,7 +127,8 @@ describe('storage adapters (Review Focus 5)', () => {
       setItem: (k, v) => { if (full) throw new Error('QuotaExceededError'); store.set(k, v); },
       removeItem: (k) => { store.delete(k); },
     };
-    const a = localStorageAdapter(ls);
+    const notices: string[] = [];
+    const a = localStorageAdapter(ls, (why) => notices.push(why));
     expect(a.persistent).toBe(true);
     expect(a.set('a', '1')).toBe(true);
     expect(store.get('a')).toBe('1');
@@ -137,6 +138,11 @@ describe('storage adapters (Review Focus 5)', () => {
     expect(a.get('a')).toBe('2');
     expect(a.get('b')).toBe('3');
     expect(warn).toHaveBeenCalledTimes(1);
+    expect(notices).toHaveLength(1); // the player is told once
+    expect(a.persistent).toBe(false);
+    full = false;
+    expect(a.set('c', '4')).toBe(true);
+    expect(a.persistent).toBe(true);
   });
 });
 

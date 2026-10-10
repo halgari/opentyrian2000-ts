@@ -24,15 +24,10 @@ import { hBox } from './help-box';
 
 const SC_W = 26; // SDL_SCANCODE_W
 
-export interface InGameSetupHooks {
-  /** mouseSetRelative(): pointer lock is a platform concern (Task 6). */
-  mouseSetRelative?(relative: boolean): void;
-}
-
 // port of JE_doInGameSetup (mainint.c:1389). The network branches are dead (isNetworkGame is always false).
-export async function doInGameSetup(ctx: Ctx, hooks: InGameSetupHooks = {}): Promise<void> {
+export async function doInGameSetup(ctx: Ctx): Promise<void> {
   const v = ctx.game.varz;
-  hooks.mouseSetRelative?.(false);
+  ctx.input.mouseSetRelative(false);
 
   textState(ctx).haltGame = false;
 
@@ -50,7 +45,7 @@ export async function doInGameSetup(ctx: Ctx, hooks: InGameSetupHooks = {}): Pro
 
   // skipStarShowVGA = true is commented out in the C; the caller (JE_main) sets it (tyrian2.c:2250)
 
-  hooks.mouseSetRelative?.(true);
+  ctx.input.mouseSetRelative(true);
 }
 
 const MENU_MUSIC_VOLUME = 0, MENU_EFFECTS_VOLUME = 1, MENU_DETAIL_LEVEL = 2, MENU_GAME_SPEED = 3,

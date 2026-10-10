@@ -92,9 +92,11 @@ export function firstHashMismatch(crcs: number[], hashes: Uint32Array): number {
  * The user-directory files after a run versus the oracle's OT_SAVEDUMP: tyrian.sav (record by record, decrypted: an early difference
  * would smear over the rest of the encrypted image; the timed-battle tail raw) and tyrian.cfg. Returns the differences.
  */
-export function diffSaves(ctx: Ctx, dir: string): string[] {
+export function diffSaves(ctx: Ctx, dir: string, required = false): string[] {
   const out: string[] = [];
   const cSavPath = resolve(dir, 'tyrian.sav'), cCfgPath = resolve(dir, 'tyrian.cfg');
+  // a regeneration that failed to dump must not turn the BYTES assertion into a no-op
+  if (required && !existsSync(cSavPath)) out.push(`oracle save dump missing: ${cSavPath}`);
   if (existsSync(cSavPath)) {
     const cSav = new Uint8Array(readFileSync(cSavPath));
     const tsSav = readStoredSav(ctx);
@@ -134,13 +136,25 @@ export async function expectSessionMatches(
   opts.setup?.(ctx);
   const r = await runSession(sc, ctx);
   expect(r.crcs).toHaveLength(sc.maxFrames);
+  expect(states.length, 'oracle .state2 is truncated or from another run').toBe(r.states.length);
   expect(diffStates(r.states, states)).toEqual([]);
   expect(firstHashMismatch(r.crcs, hashes)).toBe(-1);
-  if (sc.saveDump) expect(diffSaves(r.ctx, resolve(ORACLE_DIR, `${name}.save`))).toEqual([]);
+  if (sc.saveDump) expect(diffSaves(r.ctx, resolve(ORACLE_DIR, `${name}.save`), true)).toEqual([]);
   opts.inspect?.(r);
 }
 
-/** True when the oracle files of `name` exist (golden tests skip otherwise). */
-export function hasOracle(name: string): boolean {
-  return existsSync(resolve(ORACLE_DIR, `${name}.hash`)) && existsSync(resolve(ORACLE_DIR, `${name}.state2`));
+/**
+ * Whether the golden tests run: true when the oracle directory exists at all. A scenario whose files are missing from an existing
+ * directory is then a failure (expectSessionMatches), not a skip, so a lost golden cannot hide as one more "skipped".
+ * `name` is only documentation here.
+ */
+export function hasOracle(_name: string): boolean {
+  return existsSync(ORACLE_DIR);
+}
+
+/** The oracle files `name` must have (HASH, STATE2 and, when the scenario dumps the saves, tyrian.sav; tyrian.cfg is not written by every scenario). */
+export function missingOracleFiles(name: string, sc: Scenario): string[] {
+  const files = [`${name}.hash`, `${name}.state2`];
+  if (sc.saveDump) files.push(`${name}.save/tyrian.sav`);
+  return files.filter((f) => !existsSync(resolve(ORACLE_DIR, f)));
 }

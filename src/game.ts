@@ -9,6 +9,7 @@ import { initPlayerData, loadConfiguration, sortHighScores } from './game/config
 import { scanForEpisodes } from './game/episodes';
 import { jeMain } from './game/flow';
 import { saveConfiguration } from './game/save';
+import { UnavailableModeError } from './game/unported';
 import { introLogos } from './screens/intro';
 import { quitScreen, stubScreen } from './screens/stub';
 import { titleScreen } from './screens/title';
@@ -38,6 +39,17 @@ export async function gameLoop(ctx: Ctx): Promise<never> {
       continue;
     }
     if (ctx.state.loadDestruct) await stubScreen(ctx, 'Destruct');
-    else await jeMain(ctx); // JE_main()
+    else {
+      try {
+        await jeMain(ctx); // JE_main()
+      } catch (e) {
+        // ]e / ]g (secret modes, sub-project 5): not an error page, just back to the title like a finished session
+        if (!(e instanceof UnavailableModeError)) throw e;
+        ctx.input.mouseSetRelative(false);
+        ctx.vga.cur = ctx.vga.screen;
+        ctx.audio.stopSong();
+        await stubScreen(ctx, 'This mode is not yet available', 'Returning to the title screen');
+      }
+    }
   }
 }

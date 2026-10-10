@@ -49,14 +49,16 @@ export interface StorageLike {
  * a single console warning is logged. Reads always prefer the mirror so a failed write is not lost
  * within the session.
  */
-export function localStorageAdapter(storage?: StorageLike | null | (() => StorageLike | null)): StorageAdapter {
+export function localStorageAdapter(storage?: StorageLike | null | (() => StorageLike | null), onUnavailable?: (why: string) => void): StorageAdapter {
   const mem = memoryAdapter();
   let backing: StorageLike | null = null;
   let warned = false;
+  let writeFailed = false; // the last write did not reach the backing store
   const warn = (why: string, e?: unknown): void => {
     if (warned) return;
     warned = true;
     console.warn(`opentyrian: browser storage unavailable (${why}); saves are kept in memory for this session only`, e ?? '');
+    try { onUnavailable?.(why); } catch { /* a notice must never break saving */ }
   };
 
   try {
@@ -83,8 +85,10 @@ export function localStorageAdapter(storage?: StorageLike | null | (() => Storag
       try {
         backing.setItem(k, v);
         mem.remove(k); // persisted: the backing store is the source of truth again
+        writeFailed = false;
         return true;
       } catch (e) {
+        writeFailed = true;
         warn('write failed (quota?)', e);
         mem.set(k, v);
         return false;
@@ -95,7 +99,7 @@ export function localStorageAdapter(storage?: StorageLike | null | (() => Storag
       if (!backing) return;
       try { backing.removeItem(k); } catch (e) { warn('remove failed', e); }
     },
-    get persistent() { return backing !== null; },
+    get persistent() { return backing !== null && !writeFailed; },
   };
   return a;
 }

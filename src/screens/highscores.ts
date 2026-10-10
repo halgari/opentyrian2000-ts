@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Ported from: src/mainint.c (JE_highScoreScreen)
 import { S_CURSOR, S_SPRING } from '../audio/ids';
-import { u16, u8 } from '../core/int';
+import { s32, u16, u8 } from '../core/int';
 import type { Ctx } from '../ctx';
 import { sortHighScores } from '../game/config';
 import { totalScore } from '../game/economy';
@@ -175,7 +175,7 @@ export async function highScoreCheck(ctx: Ctx): Promise<void> {
 
   const table = 10 + (g.items.initialEpisodeNum - 1) * 2;
   // single player highscore includes cost of upgrades
-  const tempScore = totalScore(ctx, g.players[0]);
+  const tempScore = s32(totalScore(ctx, g.players[0])); // Sint32 temp_score
 
   let slot: number;
   for (slot = 0; slot < 3; ++slot) {
