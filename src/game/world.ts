@@ -198,6 +198,8 @@ export const defaultDosKeySettings: readonly number[] = [72, 80, 75, 77, 57, 28,
 export const defaultMouseSettings: readonly number[] = [1, 4, 5];
 /** config.c:60 defaultKeySettings: SDL scancodes UP DOWN LEFT RIGHT SPACE RETURN LCTRL LALT */
 export const defaultKeySettings: readonly number[] = [82, 81, 80, 79, 44, 40, 224, 226];
+/** Web extension (not in the C): keyboard map B for the shared-keyboard 2P mode. SDL scancodes W S A D, F (fire), R (change fire), G, H (sidekicks). */
+export const defaultKeySettings2: readonly number[] = [26, 22, 4, 7, 9, 21, 10, 11];
 /** config.c:106 initialItemAvail (JE_byte[100]) */
 export const initialItemAvail: readonly number[] = [
   1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -606,6 +608,10 @@ export interface ConfigGroup {
   mainLevel: number; nextLevel: number; saveLevel: number; // JE_byte
   dosKeySettings: Uint8Array;          // JE_byte[8]
   keySettings: Int32Array;             // SDL_Scancode[8]
+  /** Web extension: keyboard map B (device 0x80), same order as keySettings. */
+  keySettings2: Int32Array;
+  /** Web extension: shared-keyboard 2P enabled (off by default; stored in opentyrian.cfg). */
+  sharedKeyboard: boolean;
   mouseSettings: Uint8Array;           // JE_byte[3]
   levelFilter: number; levelFilterNew: number; levelBrightness: number; levelBrightnessChg: number; // JE_shortint
   filtrationAvail: boolean; filterActive: boolean; filterFade: boolean; filterFadeStart: boolean;
@@ -936,7 +942,7 @@ export function createGameWorld(): GameWorld {
       portConfigChange: false, portConfigDone: false,
       lastLevelName: '', levelName: '',
       mainLevel: 0, nextLevel: 0, saveLevel: 0,
-      dosKeySettings: new Uint8Array(8), keySettings: new Int32Array(8), mouseSettings: new Uint8Array(3),
+      dosKeySettings: new Uint8Array(8), keySettings: new Int32Array(8), keySettings2: Int32Array.from(defaultKeySettings2), sharedKeyboard: false, mouseSettings: new Uint8Array(3),
       levelFilter: 0, levelFilterNew: 0, levelBrightness: 0, levelBrightnessChg: 0,
       filtrationAvail: false, filterActive: false, filterFade: false, filterFadeStart: false,
       gameJustLoaded: false,

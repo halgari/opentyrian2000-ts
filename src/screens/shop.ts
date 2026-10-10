@@ -43,7 +43,7 @@ import { shopHelp } from './help-system';
 import { drawTwoPlayerMenu, drawTwoPlayerScores, twoPlayerEnter, twoPlayerLeftRight } from './shop-twoplayer';
 import { quickSaveLoad } from './save-ui';
 import { cubeReaderFrame, cubeScrollInput, cubesHomeEnd, cubesMouse, drawCubePanel, drawCubeTitle, drawFlashyCube, loadCubes } from './shop-cubes';
-import { drawConfigLists, drawVolumeBars, menuFunctionC, optionsLeftRight, optionsMouse } from './shop-options';
+import { drawConfigLists, drawVolumeBars, keyboardConfigLeftRight, menuFunctionC, optionsLeftRight, optionsMouse } from './shop-options';
 export { ShopState } from './shop-draw';
 
 const SC_SLASH = 56; // SDL_SCANCODE_SLASH
@@ -405,6 +405,7 @@ async function handleKey(ctx: Ctx, s: ShopState): Promise<void> {
       // For FULL_GAME, PLAY_NEXT_LEVEL and 1_PLAYER_ARCADE the C does nothing.
       twoPlayerLeftRight(ctx, s, input.lastkeyScan === Scancode.Left ? -1 : 1); // MENU_2_PLAYER_ARCADE rows 3/4
       if (s.curMenu === MENU_UPGRADE_SUB) upgradeSubLeftRight(ctx, s, input.lastkeyScan === Scancode.Left ? -1 : 1);
+      keyboardConfigLeftRight(ctx, s); // web extension: keyboard map B page
       optionsLeftRight(ctx, s, input.lastkeyScan === Scancode.Left ? -1 : 1); // OPTIONS / LIMITED_OPTIONS volume
       break;
 

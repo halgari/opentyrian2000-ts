@@ -13,6 +13,7 @@ import { changeVolume } from '../audio/volume';
 import type { Ctx } from '../ctx';
 import { loadPic } from '../data/pic';
 import { loadCompShapes } from '../data/shapes';
+import { joystickCount, normalizeInputDevices } from '../game/twoplayer';
 import { SDL_BUTTON_LEFT, SDL_BUTTON_RIGHT } from '../platform/input';
 import { Scancode } from '../platform/scancodes';
 import { fadeBlack, fadePalette } from '../video/fade';
@@ -24,8 +25,8 @@ import { copySurface, fillRect } from '../video/surface';
 import { rectangle } from '../video/vga256d';
 import { showVGA } from '../video/video';
 
-const enum Item { Done, Sound, MusicVolume, SoundVolume }
-const enum MenuId { None, Setup, Sound }
+const enum Item { Done, Sound, MusicVolume, SoundVolume, Controls, SharedKeyboard }
+const enum MenuId { None, Setup, Sound, Controls }
 
 interface MenuItem { id: Item; name: string; description: string }
 interface Menu { header: string; items: MenuItem[] }
@@ -35,6 +36,7 @@ const MENUS: Record<number, Menu> = {
     header: 'Setup',
     items: [
       { id: Item.Sound, name: 'Sound...', description: 'Change the sound settings.' },
+      { id: Item.Controls, name: 'Controls...', description: 'Change the control settings.' },
       { id: Item.Done, name: 'Done', description: 'Return to the main menu.' },
     ],
   },
@@ -43,6 +45,14 @@ const MENUS: Record<number, Menu> = {
     items: [
       { id: Item.MusicVolume, name: 'Music Volume', description: 'Change volume with the left/right arrow keys.' },
       { id: Item.SoundVolume, name: 'Sound Volume', description: 'Change volume with the left/right arrow keys.' },
+      { id: Item.Done, name: 'Done', description: 'Return to the previous menu.' },
+    ],
+  },
+  [MenuId.Controls]: {
+    header: 'Controls',
+    items: [
+      // web extension, not in the original game
+      { id: Item.SharedKeyboard, name: 'Shared keyboard 2P', description: 'Two players on one keyboard. Web only; not in the original game.' },
       { id: Item.Done, name: 'Done', description: 'Return to the previous menu.' },
     ],
   },
@@ -57,8 +67,8 @@ export async function setupMenu(ctx: Ctx): Promise<void> {
   if (!ctx.shopSpriteSheet) ctx.shopSpriteSheet = loadCompShapes(assets.archive, '1'); // need mouse pointer sprites
 
   let restart = true;
-  const menuParents: number[] = [MenuId.None, MenuId.None, MenuId.None];
-  const selectedIndexes: number[] = [0, 0, 0];
+  const menuParents: number[] = [MenuId.None, MenuId.None, MenuId.None, MenuId.None];
+  const selectedIndexes: number[] = [0, 0, 0, 0];
   let currentMenu: number = MenuId.Setup;
 
   const xCenter = 160, yMenuHeader = 4, xMenuItem = 45, xMenuItemName = xMenuItem, wMenuItemName = 135;
@@ -94,6 +104,9 @@ export async function setupMenu(ctx: Ctx): Promise<void> {
         case Item.SoundVolume:
           barDrawShadow(screen, xMenuItemValue, y, 1, audio.samplesDisabled ? 170 : 174, idiv(c.fxVolume + 4, 8), 2, 10);
           rectangle(screen, xMenuItemValue - 2, y - 2, xMenuItemValue + 96, y + 11, 242);
+          break;
+        case Item.SharedKeyboard:
+          drawFontHvShadow(screen, tables, xMenuItemValue, y, c.sharedKeyboard ? 'On' : 'Off', Font.Normal, Align.Left, 15, -3 + (selected ? 2 : 0), false, 2);
           break;
       }
     }
@@ -191,6 +204,8 @@ export async function setupMenu(ctx: Ctx): Promise<void> {
           } else if (selectedId === Item.SoundVolume) {
             nudge(0, dir);
             audio.playSample(S_CURSOR);
+          } else if (selectedId === Item.SharedKeyboard) {
+            action = true;
           }
           break;
         }
@@ -216,6 +231,18 @@ export async function setupMenu(ctx: Ctx): Promise<void> {
           menuParents[MenuId.Sound] = currentMenu;
           currentMenu = MenuId.Sound;
           selectedIndexes[currentMenu] = 0;
+          break;
+        case Item.Controls:
+          audio.playSample(S_SELECT);
+          menuParents[MenuId.Controls] = currentMenu;
+          currentMenu = MenuId.Controls;
+          selectedIndexes[currentMenu] = 0;
+          break;
+        case Item.SharedKeyboard:
+          audio.playSample(S_CLICK);
+          c.sharedKeyboard = !c.sharedKeyboard;
+          // Switched off: a stored keyboard-B device is made legal again (the pair a 2P game would use).
+          if (!c.sharedKeyboard) normalizeInputDevices(c.inputDevice, joystickCount(ctx), false);
           break;
         case Item.MusicVolume:
           audio.playSample(S_CLICK);

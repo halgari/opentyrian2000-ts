@@ -7,6 +7,7 @@
 import { cosf, f32, roundf32, sinf } from '../core/cmath';
 import { idiv, s16 } from '../core/int';
 import type { Ctx } from '../ctx';
+import { DEVICE_KEYBOARD_B } from '../platform/input';
 import { playerShotCreate, playerShotSetDirection } from './shots';
 import { linkGunWeapons, REAR_WEAPON, SHOT_MISC, SHOT_REAR, type GameWorld, type Player } from './world';
 
@@ -125,7 +126,7 @@ export function inputDeviceOf(ctx: Ctx, playerNum: 1 | 2): number {
  */
 export function effectiveInputDevices(ctx: Ctx): Uint8Array {
   const d = Uint8Array.from(ctx.game.config.inputDevice);
-  normalizeInputDevices(d, joystickCount(ctx));
+  normalizeInputDevices(d, joystickCount(ctx), ctx.game.config.sharedKeyboard);
   return d;
 }
 
@@ -143,12 +144,17 @@ export function joystickCount(ctx: Ctx): number {
  * player's. Mutates `devices` like the C, which, without joysticks, first copies the old device to the other player
  * (a swap). Returns the new device of `which`.
  */
-export function nextInputDevice(devices: Uint8Array, which: 0 | 1, dir: 1 | -1, joysticks: number): number {
+export function nextInputDevice(devices: Uint8Array, which: 0 | 1, dir: 1 | -1, joysticks: number, extended = false): number {
   const other = which === 0 ? 1 : 0;
   const max = 2 + joysticks;
+  // The ring of devices: 1..max, then (web extension) keyboard map B.
+  const ring = extended ? [...Array.from({ length: max }, (_, i) => i + 1), DEVICE_KEYBOARD_B] : null;
   do {
     if (joysticks === 0) devices[other] = devices[which]!; // swap controllers
-    if (dir === 1) {
+    if (ring) {
+      const at = ring.indexOf(devices[which]!);
+      devices[which] = at < 0 ? ring[0]! : ring[(at + dir + ring.length) % ring.length]!;
+    } else if (dir === 1) {
       if (devices[which]! >= max) devices[which] = 1; else devices[which]!++;
     } else if (devices[which]! <= 1) devices[which] = max; else devices[which]!--;
   } while (devices[which] === devices[other]);
@@ -159,9 +165,10 @@ export function nextInputDevice(devices: Uint8Array, which: 0 | 1, dir: 1 | -1, 
  * Forces a legal pair of input devices (Review Focus 2; not in the C, whose menu clamps only when drawn, game_menu.c:765):
  * both in 1..2 + joysticks and different, defaulting to {1, 2}. A save or tyrian.cfg may hold anything.
  */
-export function normalizeInputDevices(devices: Uint8Array, joysticks: number): void {
+export function normalizeInputDevices(devices: Uint8Array, joysticks: number, sharedKeyboard = false): void {
   const max = 2 + joysticks;
-  const ok = (d: number): boolean => d >= 1 && d <= max;
+  // keyboard map B (0x80) is a web extension: legal only while the shared keyboard is enabled
+  const ok = (d: number): boolean => (d >= 1 && d <= max) || (sharedKeyboard && d === DEVICE_KEYBOARD_B);
   const a = devices[0]!, b = devices[1]!;
   if (ok(a) && ok(b) && a !== b) return;
   if (ok(a) && !ok(b)) devices[1] = a === 1 ? 2 : 1;

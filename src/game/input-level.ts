@@ -11,6 +11,7 @@ import type { Ctx } from '../ctx';
 import { analogAngle, axisReduce } from '../platform/gamepad';
 import type { LinkGunAnalog } from './twoplayer';
 import { PCX_PAL } from '../data/pcxmast';
+import { DEVICE_KEYBOARD_B } from '../platform/input';
 import { Scancode } from '../platform/scancodes';
 import { waitDelayPlain, waitNoInput } from '../platform/wait';
 import { doInGameSetup, inGameHelp } from '../screens/ingame-setup';
@@ -238,14 +239,13 @@ export function readPlayerInput(ctx: Ctx, p: Player, inputDevice: number): { mou
   const button = g.varz.button;
   const input = ctx.input;
   let mouseXC = 0, mouseYC = 0;
-  // link_gun_analog / link_gun_angle (mainint.c:3535): the C leaves the angle uninitialised before joystick_analog_angle adds
-  // into it; the port starts it at 0.
+  // link_gun_analog / link_gun_angle (mainint.c:3535-3536): both initialised to false / 0 before joystick_analog_angle adds into the angle.
   const linkGun: LinkGunAnalog = { on: false, angle: 0 };
 
   /* joystick input */
   const js = input.joysticks;
   const joysticks = js ? js.count : 0;
-  if (js && (inputDevice === 0 || inputDevice >= 3) && joysticks > 0) {
+  if (js && (inputDevice === 0 || (inputDevice >= 3 && inputDevice < DEVICE_KEYBOARD_B)) && joysticks > 0) {
     let j = inputDevice === 0 ? 0 : inputDevice - 3;
     const jMax = Math.min(inputDevice === 0 ? joysticks : inputDevice - 3 + 1, joysticks); // a pad unplugged since the device was chosen: no input
     for (; j < jMax; j++) {
@@ -303,6 +303,21 @@ export function readPlayerInput(ctx: Ctx, p: Player, inputDevice: number): { mou
     button[1] = button[1] || ks[k[6]!] !== 0;
     button[2] = button[2] || ks[k[7]!] !== 0;
     // constantPlay / record_demo: never set outside the command line
+  }
+
+  /* keyboard map B (web extension, not in the C): the keyboard block above on keySettings2 */
+  if (inputDevice === DEVICE_KEYBOARD_B) {
+    const ks = input.keysactive;
+    const k = c.keySettings2;
+    if (ks[k[0]!]) p.y -= 1;
+    if (ks[k[1]!]) p.y += 1;
+    if (ks[k[2]!]) p.x -= 1;
+    if (ks[k[3]!]) p.x += 1;
+
+    button[0] = button[0] || ks[k[4]!] !== 0;
+    button[3] = button[3] || ks[k[5]!] !== 0;
+    button[1] = button[1] || ks[k[6]!] !== 0;
+    button[2] = button[2] || ks[k[7]!] !== 0;
   }
   return { mouseXC, mouseYC, linkGun };
 }

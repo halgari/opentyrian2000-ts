@@ -12,7 +12,7 @@ import { initEpisode } from './episodes';
 import { mergeStoredSav, noteWritten } from './save-sync';
 import {
   SA_LASTSHIP, SA_ARCADE, SA_NONE, SA_SUPERTYRIAN, SAVE_FILE_SIZE, SAVE_FILES_NUM, SIZEOF_SAVEGAMETEMP,
-  defaultKeySettings, defaultMouseSettings,
+  defaultKeySettings, defaultKeySettings2, defaultMouseSettings,
   type ConfigGroup, type PlayerItems, type SaveFile,
 } from './world';
 
@@ -285,22 +285,34 @@ export function parseCfg(c: ConfigGroup, b: Uint8Array): boolean {
 // ---------------------------------------------------------------------------------------------
 
 export function serializeOpentyrianConfig(c: ConfigGroup): string {
-  return JSON.stringify({ version: 1, keySettings: Array.from(c.keySettings), mouseSettings: Array.from(c.mouseSettings) });
+  return JSON.stringify({
+    version: 1, keySettings: Array.from(c.keySettings), mouseSettings: Array.from(c.mouseSettings),
+    keySettings2: Array.from(c.keySettings2), sharedKeyboard: c.sharedKeyboard, // web extension
+  });
 }
 
 /** load_opentyrian_config: defaults first, then any valid stored values override them. */
 export function parseOpentyrianConfig(c: ConfigGroup, json: string | null): void {
   c.keySettings.set(defaultKeySettings);
   c.mouseSettings.set(defaultMouseSettings);
+  c.keySettings2.set(defaultKeySettings2);
+  c.sharedKeyboard = false;
   if (json === null) return;
   try {
-    const o = JSON.parse(json) as { keySettings?: unknown; mouseSettings?: unknown };
+    const o = JSON.parse(json) as { keySettings?: unknown; mouseSettings?: unknown; keySettings2?: unknown; sharedKeyboard?: unknown };
     if (Array.isArray(o.keySettings)) {
       for (let i = 0; i < 8; i++) {
         const v = o.keySettings[i];
         if (Number.isInteger(v) && v > 0 && v < 512) c.keySettings[i] = v; // SDL_SCANCODE_UNKNOWN (0) is ignored
       }
     }
+    if (Array.isArray(o.keySettings2)) {
+      for (let i = 0; i < 8; i++) {
+        const v = o.keySettings2[i];
+        if (Number.isInteger(v) && v > 0 && v < 512) c.keySettings2[i] = v;
+      }
+    }
+    if (o.sharedKeyboard === true) c.sharedKeyboard = true;
     if (Array.isArray(o.mouseSettings)) {
       for (let i = 0; i < 3; i++) {
         const v = o.mouseSettings[i];

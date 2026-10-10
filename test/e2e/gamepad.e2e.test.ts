@@ -1,5 +1,6 @@
 // Smoke test, not a golden: drives the built game in Chromium with a synthetic gamepad (navigator.getGamepads override).
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { connect } from 'node:net';
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -21,20 +22,23 @@ function newestMtime(dir: string): number {
 
 let browser: Browser | null = null;
 let server: ChildProcess | null = null;
-let skipReason = '';
 
-try {
-  browser = await chromium.launch({
-    executablePath: process.env.PW_CHROMIUM || (existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined),
-    args: ['--autoplay-policy=no-user-gesture-required'],
+// Decide the skip without launching anything: a launched Chromium would outlive a skipped suite.
+const chromiumPath = process.env.PW_CHROMIUM || (existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : chromium.executablePath());
+const skipReason = !existsSync(chromiumPath) ? `no Chromium at ${chromiumPath}` : !existsSync(join(ROOT, 'public', 'data')) ? 'public/data missing' : '';
+const available = skipReason === '';
+
+function portInUse(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const sock = connect({ port: PORT, host: '127.0.0.1' });
+    sock.once('connect', () => { sock.destroy(); resolve(true); });
+    sock.once('error', () => resolve(false));
   });
-} catch (e) {
-  skipReason = String(e);
 }
-const available = browser !== null && existsSync(join(ROOT, 'public', 'data'));
 
 async function waitForServer(): Promise<void> {
   for (let i = 0; i < 100; i++) {
+    if (server?.exitCode != null) throw new Error(`vite preview exited with code ${server.exitCode}`);
     try { if ((await fetch(URL)).ok) return; } catch { /* not up yet */ }
     await new Promise((r) => setTimeout(r, 100));
   }
@@ -59,12 +63,21 @@ describe.skipIf(!available)('gamepad smoke test (Chromium, synthetic pad)', () =
       const r = spawnSync('pnpm', ['build'], { cwd: ROOT, stdio: 'inherit' });
       if (r.status !== 0) throw new Error('pnpm build failed');
     }
-    server = spawn('pnpm', ['exec', 'vite', 'preview', '--port', String(PORT), '--strictPort', '--host', '127.0.0.1'], { cwd: ROOT, stdio: 'ignore' });
+    if (await portInUse()) throw new Error(`port ${PORT} is already in use; stop whatever is listening there (a stale vite preview?) and rerun`);
+    // node + vite's own entry point, so the ChildProcess is the server itself (no pnpm/sh wrapper to leave a child behind)
+    server = spawn(process.execPath, [join(ROOT, 'node_modules', 'vite', 'bin', 'vite.js'), 'preview', '--port', String(PORT), '--strictPort', '--host', '127.0.0.1'],
+      { cwd: ROOT, stdio: 'ignore' });
     await waitForServer();
+    browser = await chromium.launch({ executablePath: chromiumPath, args: ['--autoplay-policy=no-user-gesture-required'] });
   });
   afterAll(async () => {
     await browser?.close();
-    server?.kill('SIGTERM');
+    if (server && server.exitCode === null) {
+      const gone = new Promise<void>((r) => server!.once('exit', () => r()));
+      server.kill('SIGTERM');
+      await Promise.race([gone, sleep(3000)]);
+      if (server.exitCode === null) server.kill('SIGKILL');
+    }
   });
 
   it('the pad confirms menus and flies the ship', async () => {
@@ -135,6 +148,76 @@ describe.skipIf(!available)('gamepad smoke test (Chromium, synthetic pad)', () =
     expect(errors).toEqual([]);
     await page.close();
   });
+
+  it('shared keyboard 2P: KeyD moves ship 2, ArrowRight moves ship 1', async () => {
+    const page = await browser!.newPage({ viewport: { width: 640, height: 480 } });
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    // opentyrian.cfg with the extension on (the Setup toggle writes the same field)
+    await page.addInitScript(() => {
+      if (!localStorage.getItem('opentyrian.opentyrian.cfg.json')) localStorage.setItem('opentyrian.opentyrian.cfg.json', JSON.stringify({ version: 1, sharedKeyboard: true }));
+    });
+    await page.goto(`${URL}?debug`);
+    await page.waitForFunction(() => document.getElementById('overlay')!.textContent!.includes('Click or press'), null, { timeout: 60_000 });
+    await page.keyboard.press('Space');
+    await page.waitForFunction(() => (document.getElementById('overlay') as HTMLElement).hidden, null, { timeout: 60_000 });
+    await page.waitForFunction(() => (window as any).__ot?.game, null, { timeout: 60_000 });
+    const key = async (code: string, ms = 150) => { await page.keyboard.press(code); await sleep(ms); };
+    const shot = async (name: string) => { if (process.env.E2E_SHOTS) await page.screenshot({ path: `${process.env.E2E_SHOTS}/${name}.png` }); };
+    expect(await page.evaluate(() => (window as any).__ot.game.config.sharedKeyboard), 'extension loaded from opentyrian.cfg').toBe(true);
+
+    for (let i = 0; i < 8; i++) await key('Enter', 150); // intro logos
+    await sleep(1500);
+    await key('Enter', 1000); // New Game
+    for (let i = 0; i < 3; i++) await key('ArrowDown', 250); // 2 Player Arcade
+    await key('Enter', 1000);
+    await shot('p1-after-gameplay');
+    await key('Enter', 1000); // episode
+    await key('Enter', 1000); // difficulty
+    await sleep(1500);
+    await shot('p2-shop');
+    // Shop 2P menu: row 3 / row 4 are the two input devices. Cycle player 2 onto Keyboard 2 (the cycle swaps without pads).
+    await key('ArrowDown', 250); await key('ArrowDown', 250);
+    await key('ArrowRight', 250);
+    await key('ArrowUp', 250);
+    await key('ArrowRight', 250); await key('ArrowRight', 250);
+    await shot('p3-devices');
+    expect(await page.evaluate(() => Array.from((window as any).__ot.game.config.inputDevice)), 'player 1 keyboard 1, player 2 keyboard 2').toEqual([1, 0x80]);
+    await key('ArrowUp', 250); // row 2: Start Level
+    await key('Enter', 1500);
+    await shot('p3b-start');
+    await sleep(2500);
+    await shot('p3c-start');
+    await sleep(3000);
+    await shot('p4-level');
+
+    const ships = () => page.evaluate(() => (window as any).__ot.game.players.map((p: any) => [p.x, p.y]) as number[][]);
+    const hold = async (codes: string[], ms: number) => {
+      for (const c of codes) await page.keyboard.down(c);
+      await sleep(ms);
+      for (const c of codes) await page.keyboard.up(c);
+      await sleep(200);
+    };
+    // wait for the level to settle (ships stop at their start positions)
+    for (let i = 0; i < 20; i++) {
+      const a = JSON.stringify(await ships()); await sleep(500);
+      if (a === JSON.stringify(await ships())) break;
+    }
+    const before = await ships();
+    // The ships start linked (two-player.c): player 1's sidekick key (map A, left Ctrl) unlinks them for as long as it is held.
+    await hold(['ControlLeft', 'KeyD'], 600);
+    const afterD = await ships();
+    expect(afterD[1]![0], 'KeyD moved ship 2 right').toBeGreaterThan(before[1]![0]!);
+    expect(afterD[0]![0], 'KeyD left ship 1 alone').toBe(before[0]![0]);
+    const h1 = await hashCanvas(page);
+    await hold(['ArrowRight'], 600);
+    const afterR = await ships();
+    expect(afterR[0]![0], 'ArrowRight moved ship 1 right').toBeGreaterThan(afterD[0]![0]!);
+    expect(afterR[1]![0], 'ArrowRight left ship 2 alone').toBe(afterD[1]![0]);
+    expect(await hashCanvas(page), 'the canvas changed').not.toBe(h1);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
 });
 
-if (!available) console.warn(`gamepad e2e skipped: ${skipReason || 'public/data missing'}`);
+if (!available) console.warn(`gamepad e2e skipped: ${skipReason}`);

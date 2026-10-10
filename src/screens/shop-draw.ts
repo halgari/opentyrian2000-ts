@@ -65,6 +65,8 @@ export class ShopState {
   lastCurSel = 0;
   weaponSimTime = 0;                       // game_menu.c static, JE_weaponSimUpdate's 150-frame cycle
   keyboardUsed = false;
+  /** Web extension: the keyboard config screen shows keyboard map B (only while config.sharedKeyboard). */
+  keyPageB = false;
   leftPower = false; rightPower = false; rightPowerAfford = false;
   /** Task 10 temp_weapon_power[7]: stays an local of JE_itemScreen in the C; kept here so Task 10 can reach it. */
   readonly tempWeaponPower = new Int32Array(7);

@@ -7,6 +7,7 @@
 import { S_CURSOR } from '../audio/ids';
 import type { Ctx } from '../ctx';
 import { effectiveInputDevices, joystickCount, nextInputDevice } from '../game/twoplayer';
+import { DEVICE_KEYBOARD_B } from '../platform/input';
 import { FULL_SHADE, dString, textShade } from '../video/fonthand';
 import { SMALL_FONT_SHAPES } from '../video/sprite';
 import { MENU_2_PLAYER_ARCADE, MENU_OPTIONS, type ShopState } from './shop-draw';
@@ -32,6 +33,11 @@ export function drawTwoPlayerMenu(ctx: Ctx, s: ShopState): void {
   const names = ctx.assets.helpText.inputDevices;
   const joysticks = joystickCount(ctx);
   for (let i = 0; i < 2; i++) {
+    if (devices[i]! === DEVICE_KEYBOARD_B) {
+      // too wide for the panel in the large font: the small font, like the "(web only)" marker the name carries
+      textShade(ctx.vga.screen, ctx.assets.shapes.tables, 186, 38 + 2 * (i + 1) * 16 + 3, 'Keyboard 2 (web only)', 15, 0, FULL_SHADE);
+      continue;
+    }
     if (devices[i]! > 2 + joysticks) devices[i] = devices[i === 0 ? 1 : 0] === 1 ? 2 : 1;
     const text = joysticks > 1 && devices[i]! > 2 ? `${names[2]!} ${devices[i]! - 2}` : names[devices[i]! - 1]!;
     dString(ctx.vga.screen, ctx.assets.shapes.tables, 186, 38 + 2 * (i + 1) * 16, text, SMALL_FONT_SHAPES);
@@ -44,7 +50,7 @@ export function twoPlayerLeftRight(ctx: Ctx, s: ShopState, dir: 1 | -1): void {
   const sel = s.curSel[MENU_2_PLAYER_ARCADE]!;
   if (sel !== 3 && sel !== 4) return;
   ctx.audio.playSample(S_CURSOR);
-  nextInputDevice(ctx.game.config.inputDevice, (sel - 3) as 0 | 1, dir, joystickCount(ctx));
+  nextInputDevice(ctx.game.config.inputDevice, (sel - 3) as 0 | 1, dir, joystickCount(ctx), ctx.game.config.sharedKeyboard);
 }
 
 /** The Enter handler of MENU_2_PLAYER_ARCADE (game_menu.c:2925-2958); Returns true when row 6 (quit) was chosen. The mouse remap of the rows (game_menu.c:1154-1165) lives in handleMouse (shop.ts). */
@@ -59,7 +65,7 @@ export function twoPlayerEnter(ctx: Ctx, s: ShopState): boolean {
     case 3:
     case 4:
       ctx.audio.playSample(S_CURSOR);
-      nextInputDevice(ctx.game.config.inputDevice, (s.curSel[MENU_2_PLAYER_ARCADE]! - 3) as 0 | 1, 1, joystickCount(ctx));
+      nextInputDevice(ctx.game.config.inputDevice, (s.curSel[MENU_2_PLAYER_ARCADE]! - 3) as 0 | 1, 1, joystickCount(ctx), ctx.game.config.sharedKeyboard);
       break;
     case 5:
       s.curMenu = MENU_OPTIONS;

@@ -6,6 +6,9 @@
 // Ported from: src/keyboard.c
 import type { Joysticks } from './gamepad';
 
+/** Web extension (not in the C): input device id of keyboard map B (shared-keyboard 2P); valid only while config.sharedKeyboard. */
+export const DEVICE_KEYBOARD_B = 0x80;
+
 export const SDL_BUTTON_LEFT = 1;
 export const SDL_BUTTON_MIDDLE = 2;
 export const SDL_BUTTON_RIGHT = 3;
