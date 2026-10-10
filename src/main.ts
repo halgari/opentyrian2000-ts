@@ -5,6 +5,7 @@ import { createCtx } from './ctx';
 import { DATA_URL, fetchArchive } from './data/archive';
 import { runGame } from './game';
 import { BrowserClock } from './platform/clock';
+import { Joysticks } from './platform/gamepad';
 import { attachDomInput } from './platform/dom-input';
 import { attachPageLifecycle, attachSaveSync } from './game/save-sync';
 import { localStorageAdapter } from './platform/storage';
@@ -64,6 +65,11 @@ async function boot(): Promise<void> {
     assets, clock: new BrowserClock(), presenter: new CanvasPresenter(canvas), audio,
     storage: localStorageAdapter(undefined, () => showNotice('Saving is unavailable in this browser (private mode or storage full). Progress will be lost when the page closes.')),
   });
+  if (location.search.includes('debug')) (window as unknown as { __ot?: unknown }).__ot = ctx; // the e2e smoke test reads the ship position
+  ctx.input.joysticks = new Joysticks(navigator, () => ctx.clock.now());
+  // The poll reads navigator.getGamepads() on every pass; the events are only logged (joystick.c prints on init).
+  window.addEventListener('gamepadconnected', (e) => console.info(`gamepad connected: ${e.gamepad.id}`));
+  window.addEventListener('gamepaddisconnected', (e) => console.info(`gamepad disconnected: ${e.gamepad.id}`));
   attachPageLifecycle(window, document, ctx);
   attachSaveSync(window, ctx);
   document.addEventListener('visibilitychange', () => {

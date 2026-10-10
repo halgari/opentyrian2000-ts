@@ -31,3 +31,4 @@ export function rngMod(r: number, m: number): number {
 export const sinf = (x: number): number => Math.fround(Math.sin(Math.fround(x)));
 /** C cosf(): float32 of Math.cos. */
 export const cosf = (x: number): number => Math.fround(Math.cos(Math.fround(x)));
+export const atanf = (x: number): number => Math.fround(Math.atan(Math.fround(x)));

@@ -129,9 +129,12 @@ export function effectiveInputDevices(ctx: Ctx): Uint8Array {
   return d;
 }
 
-/** Number of joysticks (the C's `joysticks`); the gamepad layer arrives in Task 8, until then there are none. */
-export function joystickCount(_ctx: Ctx): number {
-  return 0;
+/**
+ * Number of joysticks (the C's `joysticks`): the connected gamepads, read live because a browser exposes a pad only after a
+ * button press and a pad can vanish at any time. 0 without a gamepad layer (tests, the oracle).
+ */
+export function joystickCount(ctx: Ctx): number {
+  return ctx.input.joysticks?.count ?? 0;
 }
 
 /**

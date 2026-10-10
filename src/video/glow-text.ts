@@ -21,8 +21,9 @@ export const textState = (ctx: { game: GameWorld }): TextGroup => ctx.game.text;
 
 // port of JE_anyButton (nortvars.c:33): clears newkey/newmouse as a side effect (survey 7.3)
 export function anyButton(ctx: Ctx): boolean {
+  ctx.input.pollJoysticks();
   ctx.input.serviceEvents(true);
-  return ctx.input.newkey || ctx.input.mousedown; // joydown is always false
+  return ctx.input.newkey || ctx.input.mousedown || ctx.input.joydown;
 }
 
 // port of JE_updateWarning (fonthand.c:259)

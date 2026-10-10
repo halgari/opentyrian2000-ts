@@ -765,6 +765,7 @@ export async function levelFrame(ctx: Ctx, loc: LevelLocals): Promise<'next' | '
   drawTimers(ctx);
 
   if (ctx.state.playDemo) { // input kills demo
+    ctx.input.pushJoysticksAsKeyboard();
     ctx.input.serviceEvents(false);
     if (ctx.input.newkey || ctx.input.newmouse) {
       v.reallyEndLevel = true;

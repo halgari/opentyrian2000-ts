@@ -115,7 +115,7 @@ export async function helpSystem(ctx: Ctx, startTopic: number): Promise<void> {
       const oldMouseX = u16(input.mouseX);
       const oldMouseY = u16(input.mouseY);
 
-      // push_joysticks_as_keyboard(): no joysticks
+      ctx.input.pushJoysticksAsKeyboard();
       input.serviceEvents(false);
 
       mouseMoved = input.mouseX !== oldMouseX || input.mouseY !== oldMouseY;
@@ -263,7 +263,7 @@ async function helpSystemPage(ctx: Ctx, st: { topic: number; restart: boolean })
 
       await ctx.clock.sleep(16);
 
-      // push_joysticks_as_keyboard(): no joysticks
+      ctx.input.pushJoysticksAsKeyboard();
       input.serviceEvents(false);
     } while (!(input.newkey || input.newmouse));
 

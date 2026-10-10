@@ -24,11 +24,12 @@ export async function waitDelayPlain(ctx: Ctx): Promise<void> {
   if (delay > 0) await ctx.clock.sleep(delay);
 }
 
-// port of wait_delayorinput (joysticks arrive in a later sub-project: joydown is always false)
+// port of wait_delayorinput (nortsong.c:95)
 export async function waitDelayOrInput(ctx: Ctx): Promise<void> {
   for (;;) {
     ctx.input.serviceEvents(false);
-    if (ctx.input.newkey || ctx.input.mousedown) {
+    ctx.input.pollJoysticks();
+    if (ctx.input.newkey || ctx.input.mousedown || ctx.input.joydown) {
       ctx.input.newkey = false;
       return;
     }
@@ -39,21 +40,23 @@ export async function waitDelayOrInput(ctx: Ctx): Promise<void> {
 }
 
 // port of wait_input
-export async function waitInput(ctx: Ctx, keyboard: boolean, mouse: boolean, _joystick: boolean): Promise<void> {
+export async function waitInput(ctx: Ctx, keyboard: boolean, mouse: boolean, joystick: boolean): Promise<void> {
   const i = ctx.input;
   i.serviceEvents(false);
-  while (!((keyboard && i.keydown) || (mouse && i.mousedown))) {
+  while (!((keyboard && i.keydown) || (mouse && i.mousedown) || (joystick && i.joydown))) {
     await ctx.clock.sleep(SDL_POLL_INTERVAL);
+    i.pushJoysticksAsKeyboard();
     i.serviceEvents(false);
   }
 }
 
 // port of wait_noinput
-export async function waitNoInput(ctx: Ctx, keyboard: boolean, mouse: boolean, _joystick: boolean): Promise<void> {
+export async function waitNoInput(ctx: Ctx, keyboard: boolean, mouse: boolean, joystick: boolean): Promise<void> {
   const i = ctx.input;
   i.serviceEvents(false);
-  while ((keyboard && i.keydown) || (mouse && i.mousedown)) {
+  while ((keyboard && i.keydown) || (mouse && i.mousedown) || (joystick && i.joydown)) {
     await ctx.clock.sleep(SDL_POLL_INTERVAL);
+    i.pollJoysticks();
     i.serviceEvents(false);
   }
 }

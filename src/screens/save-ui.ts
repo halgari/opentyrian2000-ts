@@ -120,7 +120,7 @@ export async function saveRequest(ctx: Ctx, slot: number, savename: string): Pro
 
       await waitDelayPlain(ctx);
 
-      // push_joysticks_as_keyboard(): no joysticks
+      ctx.input.pushJoysticksAsKeyboard();
       input.serviceEvents(false);
     } while (!input.newkey && !input.mousedown);
 
@@ -224,7 +224,7 @@ export async function operation(ctx: Ctx, s: ShopState, slot: number): Promise<v
         for (let i = 0; i < 14; i++) {
           ctx.delay.setDelay(1);
 
-          // push_joysticks_as_keyboard(): no joysticks
+          ctx.input.pushJoysticksAsKeyboard();
           await waitDelay(ctx); // service_wait_delay()
 
           mouseStart(ctx);

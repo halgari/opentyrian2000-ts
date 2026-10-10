@@ -3,7 +3,8 @@ import type { Ctx } from '../../src/ctx';
 import { initPlayerData, loadConfigurationDefaults } from '../../src/game/config';
 import { initEpisode } from '../../src/game/episodes';
 import { readPlayerInput } from '../../src/game/input-level';
-import { inputDeviceOf, playerLinking, scrollAnchorX } from '../../src/game/twoplayer';
+import { effectiveInputDevices, inputDeviceOf, joystickCount, playerLinking, scrollAnchorX } from '../../src/game/twoplayer';
+import { Joysticks, type PadLike } from '../../src/platform/gamepad';
 import { describeData } from '../helpers/data';
 import { testCtx } from '../helpers/ctx';
 
@@ -99,9 +100,28 @@ describeData('two-player linking', () => {
     ctx.game.config.twoPlayerMode = false;
     expect(inputDeviceOf(ctx, 1)).toBe(0);
   });
-  it('a joystick device with no pad is unported until Task 8', () => {
+  it('a stored pad id survives until a pad connects, then is used without rewriting the stored bytes', () => {
+    const ctx = twoShips();
+    ctx.game.config.inputDevice[1] = 3;
+    let pads: (PadLike | null)[] = [];
+    ctx.input.joysticks = new Joysticks({ getGamepads: () => pads }, () => 0);
+    expect(joystickCount(ctx)).toBe(0);
+    expect(Array.from(effectiveInputDevices(ctx))).toEqual([1, 2]);
+    expect(ctx.game.config.inputDevice[1]).toBe(3);
+    pads = [{ index: 0, connected: true, mapping: 'standard', axes: [0, 0], buttons: [] }];
+    expect(joystickCount(ctx)).toBe(1);
+    expect(Array.from(effectiveInputDevices(ctx))).toEqual([1, 3]);
+    expect(inputDeviceOf(ctx, 2)).toBe(3);
+    pads = [];
+    expect(Array.from(effectiveInputDevices(ctx))).toEqual([1, 2]);
+    expect(ctx.game.config.inputDevice[1]).toBe(3);
+  });
+  it('a joystick device with no pad does nothing and does not throw', () => {
     const ctx = twoShips();
     ctx.game.config.inputDevice[1] = 4;
-    expect(() => readPlayerInput(ctx, ctx.game.players[1], 4)).toThrow(/unported/);
+    const p = ctx.game.players[1];
+    const x = p.x, y = p.y;
+    expect(() => readPlayerInput(ctx, p, 4)).not.toThrow();
+    expect([p.x, p.y]).toEqual([x, y]);
   });
 });

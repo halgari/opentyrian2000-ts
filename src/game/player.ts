@@ -23,7 +23,7 @@ import { readPlayerInput } from './input-level';
 import { drawArmor, drawOptions, drawPortConfigButtons, drawTextWindow, drawShield, HUD_SIDEKICK_Y, wipeShieldArmorBars } from './hud';
 import { playerShotCreate, portConfigs } from './shots';
 import { doSpecialShot, sfCodes } from './specials';
-import { inputDeviceOf, linkedShip, playerLinking, scrollAnchorX } from './twoplayer';
+import { inputDeviceOf, linkedShip, type LinkGunAnalog, playerLinking, scrollAnchorX } from './twoplayer';
 import {
   FRONT_WEAPON, REAR_WEAPON, SA_LASTSHIP, SHOT_FRONT, SHOT_LEFT_SIDEKICK, SHOT_MISC, SHOT_NORTSPARKS, SHOT_P1_SUPERBOMB,
   SHOT_P2_CHARGE, SHOT_REAR, SHOT_RIGHT_SIDEKICK, SHOT_SPECIAL, SHOT_SPECIAL2, type Player,
@@ -59,7 +59,7 @@ export function handleGotPurpleBall(ctx: Ctx, p: Player): void {
 type MouseKeys = readonly ['mouseX', 'mouseY'] | readonly ['mouseXB', 'mouseYB'];
 
 // port of JE_playerMovement (mainint.c:3497). playerNum is 1-based like the C.
-// The keyboard and mouse input paths are ported (input-level.ts); only the joystick path (inputDevice >= 3) throws, until Task 8.
+// The keyboard and mouse input paths are ported (input-level.ts); the joystick path is in readPlayerInput too.
 /**
  * The scattered spawn point of the Nort ship's banking sparks (mainint.c:4250):
  * `tempW + (mt_rand() % 8) - 4, this_player->y + (mt_rand() % 8) - 4` as call arguments. GCC (x86-64) evaluates
@@ -152,6 +152,7 @@ export function playerMovement(
 
   let accelXC = 0, accelYC = 0;
   let mouseXC = 0, mouseYC = 0;
+  let linkGun: LinkGunAnalog = { on: false, angle: 0 };
 
   if (!v.endLevel) {
     v[mx] = u16(p.x);
@@ -169,7 +170,7 @@ export function playerMovement(
       }
     } else {
       // single player: inputDevice 0 = joystick + mouse + keyboard merged (mainint.c:4688)
-      ({ mouseXC, mouseYC } = readPlayerInput(ctx, p, inputDevice));
+      ({ mouseXC, mouseYC, linkGun } = readPlayerInput(ctx, p, inputDevice));
     }
 
     if (c.smoothies[9 - 1]) {
@@ -201,7 +202,7 @@ export function playerMovement(
     sfCodes(ctx, playerNum, p.x, p.y, v[mx], v[my]);
 
     /*Linking Routines*/
-    playerLinking(ctx, p, playerNum, button);
+    playerLinking(ctx, p, playerNum, button, linkGun);
     if (playerNum === 1 && (button[3 - 1] || button[2 - 1]) && !c.galagaMode) c.twoPlayerLinked = false;
   }
 

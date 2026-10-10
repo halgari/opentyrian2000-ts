@@ -116,6 +116,7 @@ export async function titleScreen(ctx: Ctx): Promise<boolean> {
       // always count as "moved". Keep that quirk.
       const oldMouseX = u16(input.mouseX);
       const oldMouseY = u16(input.mouseY);
+      ctx.input.pushJoysticksAsKeyboard();
       input.serviceEvents(false);
       mouseMoved = input.mouseX !== oldMouseX || input.mouseY !== oldMouseY;
     } while (!(input.newkey || input.newText || input.newmouse || mouseMoved));

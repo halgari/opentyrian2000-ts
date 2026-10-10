@@ -107,6 +107,7 @@ export async function highScoreScreen(ctx: Ctx): Promise<void> {
       showVGA(ctx);
       mouseReplace(ctx);
       await ctx.clock.sleep(16);
+      ctx.input.pushJoysticksAsKeyboard();
       input.serviceEvents(false);
     } while (!(input.newkey || input.newmouse));
 
@@ -264,6 +265,7 @@ async function highScoreCheckPlayer(ctx: Ctx, tempP: number): Promise<void> {
         }
         mouseReplace(ctx);
 
+        ctx.input.pushJoysticksAsKeyboard();
         await waitDelay(ctx);
 
         if (input.newkey || input.newmouse) break;

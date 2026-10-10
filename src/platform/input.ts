@@ -4,6 +4,8 @@
 // Copyright (C) 2026 OpenTyrian2000-TS contributors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Ported from: src/keyboard.c
+import type { Joysticks } from './gamepad';
+
 export const SDL_BUTTON_LEFT = 1;
 export const SDL_BUTTON_MIDDLE = 2;
 export const SDL_BUTTON_RIGHT = 3;
@@ -48,6 +50,8 @@ export class Input {
   outputRect = { w: 320, h: 200 };
   /** Platform hook: SDL_SetRelativeMouseMode(enable && windowHasFocus) == pointer lock on/off. */
   onRelativeMode: ((enable: boolean) => void) | null = null;
+  /** The gamepad layer (joystick.c); created by main.ts, null in tests and the oracle (no joysticks, as under SDL's dummy drivers). */
+  joysticks: Joysticks | null = null;
   private mouseRelativeEnabled = false;
   private mouseWindowXRelative = 0;
   private mouseWindowYRelative = 0;
@@ -74,6 +78,25 @@ export class Input {
     const ev = this.visible.shift() ?? null;
     this.lastPollEmpty = ev === null;
     return ev;
+  }
+
+  /** joystick.c `joydown`: any pad button down as of the last poll; false without pads. */
+  get joydown(): boolean { return this.joysticks?.joydown ?? false; }
+
+  /** poll_joysticks (joystick.c:211) */
+  pollJoysticks(): void { this.joysticks?.poll(); }
+
+  /**
+   * port of push_joysticks_as_keyboard (joystick.c:234): polls, then queues keydown + keyup for Return (confirm), Escape (cancel)
+   * and the arrows, like push_key. A no-op without pads.
+   */
+  pushJoysticksAsKeyboard(): void {
+    const js = this.joysticks;
+    if (!js) return;
+    js.poll();
+    js.pushAsKeyboard((scancode, down) => {
+      this.push(down ? { type: 'keydown', scancode, mod: 0 } : { type: 'keyup', scancode });
+    });
   }
 
   /** SDL releases held keys when the window loses focus; the DOM does not. */

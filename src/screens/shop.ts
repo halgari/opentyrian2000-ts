@@ -117,7 +117,7 @@ export async function quitRequest(ctx: Ctx): Promise<boolean> {
 
       await waitDelayPlain(ctx);
 
-      // push_joysticks_as_keyboard(): no joysticks
+      ctx.input.pushJoysticksAsKeyboard();
       input.serviceEvents(false);
     } while (!input.newkey && !input.mousedown);
 
@@ -673,7 +673,7 @@ export async function itemScreen(ctx: Ctx, state: ShopState = new ShopState()): 
 
       await waitDelayPlain(ctx);
 
-      // push_joysticks_as_keyboard(): no joysticks
+      ctx.input.pushJoysticksAsKeyboard();
       input.serviceEvents(false);
       const mouseButton = mousePosition(ctx, s);
       inputDetected = input.newkey || mouseButton > 0;

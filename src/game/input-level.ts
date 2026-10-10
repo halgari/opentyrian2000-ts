@@ -8,6 +8,8 @@
 import { MUSIC_NUM } from '../audio/ids';
 import { idiv } from '../core/int';
 import type { Ctx } from '../ctx';
+import { analogAngle, axisReduce } from '../platform/gamepad';
+import type { LinkGunAnalog } from './twoplayer';
 import { PCX_PAL } from '../data/pcxmast';
 import { Scancode } from '../platform/scancodes';
 import { waitDelayPlain, waitNoInput } from '../platform/wait';
@@ -166,6 +168,7 @@ export async function pauseGame(ctx: Ctx): Promise<void> {
   do {
     ctx.delay.setDelay(2);
 
+    input.pushJoysticksAsKeyboard();
     input.serviceEvents(true);
 
     const k = input.lastkeyScan;
@@ -217,7 +220,7 @@ export async function levelInputTail(ctx: Ctx): Promise<KeyResult> {
 export function gameOverKeyWait(ctx: Ctx): void {
   const v = ctx.game.varz;
   const input = ctx.input;
-  // push_joysticks_as_keyboard(): no joysticks
+  ctx.input.pushJoysticksAsKeyboard();
   input.serviceEvents(true);
   // `button[]` is stale here: JE_playerMovement returns before resetting it once the player is dead, so
   // keys held when the ship died (e.g. fire) end the level at once.
@@ -226,20 +229,50 @@ export function gameOverKeyWait(ctx: Ctx): void {
 
 /**
  * The non-demo input block of JE_playerMovement (mainint.c:3679-3790): keyboard (device 0 or 1) and mouse (0 or 2).
- * The joystick path (device 0 or >= 3) is not ported yet and throws for devices >= 3, which is unreachable until
- * gamepads exist (effectiveInputDevices never yields one without a joystick). Moves the ship by the keyboard, fills `button[]` and
- * returns the mouse delta (mouseXC, mouseYC) that the caller clamps and applies.
+ * Also the joystick block (device 0 or >= 3, mainint.c:3679). Moves the ship by the keyboard and pad, fills `button[]` and
+ * returns the mouse delta (mouseXC, mouseYC) that the caller clamps and applies, and the analog link-gun angle.
  */
-export function readPlayerInput(ctx: Ctx, p: Player, inputDevice: number): { mouseXC: number; mouseYC: number } {
+export function readPlayerInput(ctx: Ctx, p: Player, inputDevice: number): { mouseXC: number; mouseYC: number; linkGun: LinkGunAnalog } {
   const g = ctx.game;
   const c = g.config;
   const button = g.varz.button;
   const input = ctx.input;
   let mouseXC = 0, mouseYC = 0;
+  // link_gun_analog / link_gun_angle (mainint.c:3535): the C leaves the angle uninitialised before joystick_analog_angle adds
+  // into it; the port starts it at 0.
+  const linkGun: LinkGunAnalog = { on: false, angle: 0 };
 
-  if (inputDevice !== 0 && inputDevice !== 1 && inputDevice !== 2) {
-    // TODO(sp5): joystick input (inputDevice >= 3), mainint.c:3679; unreachable until Task 8 (no joysticks)
-    throw new Error('unported: mainint.c:3679 joystick input');
+  /* joystick input */
+  const js = input.joysticks;
+  const joysticks = js ? js.count : 0;
+  if (js && (inputDevice === 0 || inputDevice >= 3) && joysticks > 0) {
+    let j = inputDevice === 0 ? 0 : inputDevice - 3;
+    const jMax = Math.min(inputDevice === 0 ? joysticks : inputDevice - 3 + 1, joysticks); // a pad unplugged since the device was chosen: no input
+    for (; j < jMax; j++) {
+      js.pollOne(j);
+      const s = js.state[j];
+      if (!s) continue;
+
+      if (s.analog) {
+        mouseXC += axisReduce(s, s.x);
+        mouseYC += axisReduce(s, s.y);
+
+        const a = { v: linkGun.angle };
+        linkGun.on = analogAngle(s, a);
+        linkGun.angle = a.v;
+      } else {
+        p.x += (s.direction[3] ? -1 : 0) + (s.direction[1] ? 1 : 0); // CURRENT_KEY_SPEED
+        p.y += (s.direction[0] ? -1 : 0) + (s.direction[2] ? 1 : 0);
+      }
+
+      button[0] = button[0] || s.action[0]!;
+      button[1] = button[1] || s.action[2]!;
+      button[2] = button[2] || s.action[3]!;
+      button[3] = button[3] || s.actionPressed[1]!;
+
+      g.varz.ingamemenuPressed = g.varz.ingamemenuPressed || s.actionPressed[4]!;
+      g.varz.pauseGamePressed = g.varz.pauseGamePressed || s.actionPressed[5]!;
+    }
   }
 
   input.serviceEvents(false);
@@ -271,5 +304,5 @@ export function readPlayerInput(ctx: Ctx, p: Player, inputDevice: number): { mou
     button[2] = button[2] || ks[k[7]!] !== 0;
     // constantPlay / record_demo: never set outside the command line
   }
-  return { mouseXC, mouseYC };
+  return { mouseXC, mouseYC, linkGun };
 }

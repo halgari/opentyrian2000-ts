@@ -100,6 +100,7 @@ export async function loadScreen(ctx: Ctx): Promise<boolean> {
       await ctx.clock.sleep(16);
       const oldMouseX = input.mouseX & 0xffff;
       const oldMouseY = input.mouseY & 0xffff;
+      ctx.input.pushJoysticksAsKeyboard();
       input.serviceEvents(false);
       mouseMoved = input.mouseX !== oldMouseX || input.mouseY !== oldMouseY;
     } while (!(input.newkey || input.newmouse || mouseMoved));

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { expect, it } from 'vitest';
+import { Joysticks } from '../../src/platform/gamepad';
 import { waitDelayOrInput, waitInput, waitNoInput } from '../../src/platform/wait';
 import { describeData } from '../helpers/data';
 import { testCtx } from '../helpers/ctx';
@@ -27,5 +28,27 @@ describeData('waits', () => {
     ctx.input.push({ type: 'keyup', scancode: 44 });
     await waitNoInput(ctx, true, true, true);
     expect(ctx.input.keydown).toBe(false);
+  });
+  it('waitInput(joystick) returns on a pad button; waitNoInput(joystick) waits for it to be released', async () => {
+    const ctx = testCtx()!;
+    let held = false;
+    ctx.input.joysticks = new Joysticks({ getGamepads: () => [{ index: 0, connected: true, mapping: 'standard', axes: [0, 0], buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: held && i === 0, value: 0 })) }] }, () => ctx.clock.now());
+    const orig = ctx.clock.sleep.bind(ctx.clock);
+    let n = 0;
+    ctx.clock.sleep = async (ms: number) => { await orig(ms); if (++n === 2) held = !held; };
+    await waitInput(ctx, false, false, true);
+    expect(held).toBe(true);
+    n = 0;
+    await waitNoInput(ctx, false, false, true);
+    expect(held).toBe(false);
+  });
+  it('waitInput(joystick) with a missing pad does not return early', async () => {
+    const ctx = testCtx()!;
+    ctx.input.joysticks = new Joysticks({ getGamepads: () => [null] }, () => 0);
+    let n = 0;
+    const orig = ctx.clock.sleep.bind(ctx.clock);
+    ctx.clock.sleep = async (ms: number) => { await orig(ms); if (++n === 5) ctx.input.push({ type: 'keydown', scancode: 44, mod: 0 }); };
+    await waitInput(ctx, true, false, true);
+    expect(n).toBeGreaterThanOrEqual(5);
   });
 });

@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { Ctx } from '../../src/ctx';
 import { loadItemDatIntoWorld } from '../../src/game/episodes';
-import { gameOverKeyWait, gammaCheck, levelInputTail, mainKeyboardInput, pauseGame } from '../../src/game/input-level';
+import { gameOverKeyWait, gammaCheck, levelInputTail, mainKeyboardInput, pauseGame, readPlayerInput } from '../../src/game/input-level';
 import { mainGamePlayerFunctions } from '../../src/game/player';
 import { getShipInfo } from '../../src/game/shots';
 import { defaultKeySettings, defaultMouseSettings } from '../../src/game/world';
 import { attachDomInput } from '../../src/platform/dom-input';
+import { Joysticks, axisReduce, type PadLike } from '../../src/platform/gamepad';
 import { Scancode } from '../../src/platform/scancodes';
 import { describeData } from '../helpers/data';
 import { testCtx } from '../helpers/ctx';
@@ -417,5 +418,123 @@ describeData('tab losing focus mid-level (Review Focus 3)', () => {
     expect(ctx.input.keysactive[Scancode.Right]).toBe(0);
     expect(vols).toEqual([100, 200]);
     expect(v.pauseGamePressed).toBe(false);
+  });
+});
+
+describeData('JE_playerMovement joystick input (mainint.c:3679-3712)', () => {
+  const btns = () => Array.from({ length: 17 }, () => ({ pressed: false, value: 0 }));
+  const withPads = (ctx: Ctx, pads: PadLike[]): { pads: PadLike[] } => {
+    const h = { pads };
+    ctx.input.joysticks = new Joysticks({ getGamepads: () => h.pads }, () => ctx.clock.now());
+    return h;
+  };
+  const pad = (over: Partial<PadLike> = {}, pressed: number[] = []): PadLike => {
+    const buttons = btns();
+    for (const i of pressed) buttons[i] = { pressed: true, value: 1 };
+    return { index: 0, connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons, ...over };
+  };
+
+  it('device 0: pad fire ORs with keyboard fire and positions add (key right + pad right = +2)', () => {
+    const { ctx, p, v } = setup();
+    withPads(ctx, [pad({}, [15, 0])]);
+    down(ctx, Scancode.Right);
+    readPlayerInput(ctx, p, 0);
+    expect(p.x).toBe(102);
+    expect(v.button[0]).toBe(true);
+    const k = setup();
+    withPads(k.ctx, [pad()]);
+    down(k.ctx, SC.Space);
+    readPlayerInput(k.ctx, k.p, 0);
+    expect(k.v.button[0]).toBe(true);
+  });
+  it('device 3 selects pad 0 only; device 4 with one pad does nothing and does not throw', () => {
+    const a = setup();
+    withPads(a.ctx, [pad({}, [14])]);
+    readPlayerInput(a.ctx, a.p, 3);
+    expect(a.p.x).toBe(99);
+    const b = setup();
+    withPads(b.ctx, [pad({}, [14, 0])]);
+    expect(() => readPlayerInput(b.ctx, b.p, 4)).not.toThrow();
+    expect([b.p.x, b.v.button[0]]).toEqual([100, false]);
+  });
+  it('device 0 merges every pad', () => {
+    const { ctx, p } = setup();
+    withPads(ctx, [pad({}, [14]), pad({ index: 1 }, [14])]);
+    readPlayerInput(ctx, p, 0);
+    expect(p.x).toBe(98);
+  });
+  it('analog mode adds axisReduce to the mouse delta instead of moving the ship', () => {
+    const { ctx, p } = setup();
+    const h = withPads(ctx, [pad({ axes: [0.9, -0.9, 0, 0] })]);
+    ctx.input.joysticks!.poll();
+    ctx.input.joysticks!.state[0]!.analog = true;
+    const r = readPlayerInput(ctx, p, 3);
+    const s = ctx.input.joysticks!.state[0]!;
+    expect([r.mouseXC, r.mouseYC]).toEqual([axisReduce(s, Math.trunc(0.9 * 32767)), axisReduce(s, -Math.trunc(0.9 * 32767))]);
+    expect(r.mouseXC).toBeGreaterThan(0);
+    expect(r.mouseYC).toBeLessThan(0);
+    expect(r.linkGun.on).toBe(true);
+    expect(p.x).toBe(100);
+    h.pads = [];
+  });
+  it('link_gun_angle starts at 0 (the C leaves it uninitialised; the port zeroes it) and analog off reports no angle', () => {
+    const { ctx, p } = setup();
+    withPads(ctx, [pad({ axes: [0.9, 0, 0, 0] })]);
+    ctx.input.joysticks!.poll();
+    ctx.input.joysticks!.state[0]!.analog = true;
+    const r = readPlayerInput(ctx, p, 3);
+    expect(r.linkGun.angle).toBeCloseTo(Math.PI / 2, 5); // 0 + atanf(-0 / x) + pi/2
+    const q = setup();
+    expect(readPlayerInput(q.ctx, q.p, 0).linkGun).toEqual({ on: false, angle: 0 });
+  });
+  it('change fire (button[3]) is edge-only', () => {
+    const { ctx, p, v } = setup();
+    withPads(ctx, [pad({}, [1])]);
+    readPlayerInput(ctx, p, 3);
+    expect(v.button[3]).toBe(true);
+    v.button[3] = false;
+    readPlayerInput(ctx, p, 3);
+    expect(v.button[3]).toBe(false);
+  });
+  it('sidekicks are levels (button[1] = left, button[2] = right)', () => {
+    const { ctx, p, v } = setup();
+    withPads(ctx, [pad({}, [2, 3])]);
+    readPlayerInput(ctx, p, 3);
+    readPlayerInput(ctx, p, 3);
+    expect([v.button[1], v.button[2]]).toEqual([true, true]);
+  });
+  it('menu and pause are edge-only ORs into ingamemenuPressed / pauseGamePressed', () => {
+    const { ctx, p, v } = setup();
+    withPads(ctx, [pad({}, [9, 8])]);
+    readPlayerInput(ctx, p, 3);
+    expect([v.ingamemenuPressed, v.pauseGamePressed]).toEqual([true, true]);
+    v.ingamemenuPressed = v.pauseGamePressed = false;
+    readPlayerInput(ctx, p, 3);
+    expect([v.ingamemenuPressed, v.pauseGamePressed]).toEqual([false, false]);
+  });
+  it('hot-unplug mid-level: the ship holds still, nothing throws', () => {
+    const { ctx, p, v } = setup();
+    const h = withPads(ctx, [pad({}, [14, 0])]);
+    readPlayerInput(ctx, p, 3);
+    expect(p.x).toBe(99);
+    h.pads = [];
+    v.button.fill(false);
+    expect(() => readPlayerInput(ctx, p, 3)).not.toThrow();
+    expect(() => readPlayerInput(ctx, p, 0)).not.toThrow();
+    expect([p.x, v.button[0]]).toEqual([99, false]);
+  });
+  it('NaN axes, a pad with no buttons and a non-standard mapping hold the ship still', () => {
+    for (const bad of [pad({ axes: [NaN, NaN, NaN, NaN] }), pad({ buttons: [], axes: [] }), pad({ mapping: 'weird', axes: [NaN], buttons: [] })]) {
+      const { ctx, p, v } = setup();
+      withPads(ctx, [bad]);
+      expect(() => readPlayerInput(ctx, p, 0)).not.toThrow();
+      expect([p.x, p.y, ...v.button]).toEqual([100, 100, false, false, false, false]);
+    }
+  });
+  it('a full frame with a pad moves the ship like the keyboard does', () => {
+    const { ctx, p } = setup();
+    withPads(ctx, [pad({}, [15])]);
+    mainGamePlayerFunctions(ctx);
+    expect([p.xVelocity, p.x]).toEqual([1, 102]);
   });
 });
