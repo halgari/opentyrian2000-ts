@@ -91,8 +91,6 @@ describe.skipIf(!available)('gamepad smoke test (Chromium, synthetic pad)', () =
       navigator.getGamepads = () => [pad as unknown as Gamepad, null, null, null];
     });
     await page.goto(`${URL}?debug`);
-    await page.waitForFunction(() => document.getElementById('overlay')!.textContent!.includes('Click or press'), null, { timeout: 60_000 });
-    await page.keyboard.press('Space'); // the start gesture (audio context); everything after is the pad
     await page.waitForFunction(() => (document.getElementById('overlay') as HTMLElement).hidden, null, { timeout: 60_000 });
 
     // The intro logos end on any pad button (wait_delayorinput's joydown); then the title menu is up.
@@ -158,8 +156,6 @@ describe.skipIf(!available)('gamepad smoke test (Chromium, synthetic pad)', () =
       if (!localStorage.getItem('opentyrian.opentyrian.cfg.json')) localStorage.setItem('opentyrian.opentyrian.cfg.json', JSON.stringify({ version: 1, sharedKeyboard: true }));
     });
     await page.goto(`${URL}?debug`);
-    await page.waitForFunction(() => document.getElementById('overlay')!.textContent!.includes('Click or press'), null, { timeout: 60_000 });
-    await page.keyboard.press('Space');
     await page.waitForFunction(() => (document.getElementById('overlay') as HTMLElement).hidden, null, { timeout: 60_000 });
     await page.waitForFunction(() => (window as any).__ot?.game, null, { timeout: 60_000 });
     const key = async (code: string, ms = 150) => { await page.keyboard.press(code); await sleep(ms); };

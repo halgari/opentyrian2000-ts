@@ -19,21 +19,29 @@ import { CanvasPresenter } from './video/presenter';
 const canvas = document.getElementById('screen') as HTMLCanvasElement;
 const overlay = document.getElementById('overlay') as HTMLDivElement;
 
-function waitForStartGesture(): Promise<AudioContext | null> {
-  // Both builds carry the licence notice here (shown before play, not over the game).
-  overlay.textContent = `OpenTyrian2000\n\nClick or press any key to start\n\n${licenceNotice(__SOURCE_URL__)}`;
-  return new Promise((resolve) => {
-    const go = (e: Event) => {
-      e.preventDefault();
-      // Created synchronously inside the gesture so the browser lets it start.
-      const ac = createAudioContext();
-      window.removeEventListener('keydown', go);
-      window.removeEventListener('pointerdown', go);
-      resolve(ac);
-    };
-    window.addEventListener('keydown', go);
-    window.addEventListener('pointerdown', go);
-  });
+/** Browsers keep a new AudioContext suspended until the page gets a gesture: resume it on the first key or click. */
+function resumeOnGesture(ac: AudioContext): void {
+  const go = (): void => {
+    void ac.resume().catch(() => {});
+    window.removeEventListener('keydown', go, true);
+    window.removeEventListener('pointerdown', go, true);
+  };
+  window.addEventListener('keydown', go, true);
+  window.addEventListener('pointerdown', go, true);
+}
+
+/** The licence notice goes in a hidden element and the console, never over the game. */
+function publishLicence(): void {
+  const text = licenceNotice(__SOURCE_URL__);
+  let el = document.getElementById('licence');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'licence';
+    el.hidden = true;
+    document.body.appendChild(el);
+  }
+  el.textContent = text;
+  console.info(text);
 }
 
 /** A small, dismissable one-off notice (storage failures); the overlay is reserved for fatal errors. */
@@ -62,7 +70,9 @@ async function boot(): Promise<void> {
       overlay.textContent = total ? `Loading game data… ${Math.round((loaded / total) * 100)}%` : 'Loading game data…';
     });
   const assets = loadAssets(archive);
-  let ac = await waitForStartGesture();
+  publishLicence();
+  let ac = createAudioContext();
+  if (ac) resumeOnGesture(ac);
   overlay.hidden = true;
   canvas.focus();
   let deps: AudioDeps = {};

@@ -40,11 +40,9 @@ afterAll(async () => { await browser?.close(); });
 const URL_ = `file://${FILE}?debug`;
 const key = async (page: Page, code: string, ms = 150) => { await page.keyboard.press(code); await sleep(ms); };
 
-/** Opens the page, passes the start gesture and the intro logos; resolves on the title menu. */
+/** Opens the page and passes the intro logos; resolves on the title menu. */
 async function start(page: Page): Promise<void> {
   await page.goto(URL_);
-  await page.waitForFunction(() => document.getElementById('overlay')!.textContent!.includes('Click or press'), null, { timeout: 60_000 });
-  await page.keyboard.press('Space');
   await page.waitForFunction(() => (document.getElementById('overlay') as HTMLElement).hidden, null, { timeout: 60_000 });
   await page.waitForFunction(() => (window as any).__ot?.game, null, { timeout: 60_000 });
   for (let i = 0; i < 8; i++) await key(page, 'Enter', 150); // intro logos
@@ -89,7 +87,7 @@ async function withPage(init: ((page: Page) => Promise<void>) | null, body: (pag
 describe.skipIf(!available)('single-file smoke test (file://)', () => {
   it('boots, loads the Blob worklet, plays, saves, reloads and loads', () => withPage(null, async (page) => {
     await start(page);
-    expect(await page.evaluate(() => (document.getElementById('overlay') as HTMLElement).hidden), 'overlay (with the licence) hidden once play starts').toBe(true);
+    expect(await page.evaluate(() => (document.getElementById('overlay') as HTMLElement).hidden), 'overlay hidden once play starts').toBe(true);
     // __audio is only exposed when the audio is a real WebAudio, i.e. the worklet module (Blob URL, or the data: URL fallback Chromium needs on file://) loaded
     expect(await page.evaluate(() => typeof (window as any).__audio), 'worklet loaded (audio not the silent fallback)').toBe('object');
     const title = await hashCanvas(page);
@@ -114,10 +112,10 @@ describe.skipIf(!available)('single-file smoke test (file://)', () => {
     expect(await page.evaluate(() => (window as any).__ot.game.items.episodeNum), 'episode loaded from the save').toBeGreaterThan(0);
   }));
 
-  it('the start overlay carries the licence notice with the source link', () => withPage(null, async (page) => {
+  it('the page carries the licence notice with the source link and boots without a start gesture', () => withPage(null, async (page) => {
     await page.goto(URL_);
-    await page.waitForFunction(() => document.getElementById('overlay')!.textContent!.includes('Click or press'), null, { timeout: 60_000 });
-    const text = await overlayText(page);
+    await page.waitForFunction(() => (document.getElementById('overlay') as HTMLElement).hidden, null, { timeout: 60_000 });
+    const text = await page.evaluate(() => document.getElementById('licence')!.textContent ?? '');
     expect(text).toContain('GPL-2.0');
     expect(text).toContain('All Rights Reserved');
     expect(text).toContain('https://github.com/KScl/opentyrian2000');
