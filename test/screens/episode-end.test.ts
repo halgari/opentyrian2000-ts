@@ -29,12 +29,6 @@ describeData('episode end', () => {
     expect(g.config.t2kHighScores[10]!.map((e) => e.score)).toEqual(g.config.t2kHighScores[10]!.map(() => totalScore(ctx, g.players[0]) + 1000));
   });
 
-  it('highScoreCheck refuses the unported two-player and timed battle tables', async () => {
-    const ctx = freshCtx();
-    ctx.game.config.twoPlayerMode = true;
-    await expect(highScoreCheck(ctx)).rejects.toThrow(/unported/);
-  });
-
   it('escape cancels the entry: no new score is stored', async () => {
     const ctx = freshCtx();
     const g = ctx.game;

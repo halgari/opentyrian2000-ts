@@ -157,8 +157,14 @@ export async function highScoreScreen(ctx: Ctx): Promise<void> {
   }
 }
 
-// port of JE_highScoreCheck (mainint.c:2022): the name entry after an episode
+// port of JE_highScoreCheck (mainint.c:2022): the name entry after an episode, once per player in two-player mode
 export async function highScoreCheck(ctx: Ctx): Promise<void> {
+  if (!ctx.shopSpriteSheet) ctx.shopSpriteSheet = loadCompShapes(ctx.assets.archive, '1'); // need mouse pointer sprite
+  for (let tempP = 0; tempP < (ctx.game.config.twoPlayerMode ? 2 : 1); ++tempP) await highScoreCheckPlayer(ctx, tempP);
+}
+
+/** The body of the C's `for (temp_p ...)` loop. */
+async function highScoreCheckPlayer(ctx: Ctx, tempP: number): Promise<void> {
   const { vga, palette, assets, audio, input } = ctx;
   const g = ctx.game;
   const c = g.config;
@@ -166,20 +172,23 @@ export async function highScoreCheck(ctx: Ctx): Promise<void> {
   const tables = assets.shapes.tables;
   const { miscText, episodeName, timedBattleName } = assets.helpText;
   const screen = vga.screen;
-  if (!ctx.shopSpriteSheet) ctx.shopSpriteSheet = loadCompShapes(assets.archive, '1'); // need mouse pointer sprite
 
-  // TODO(sp5): two-player high scores (mainint.c:2035-2062, 2090-2092, 2113-2118), Task 6
-  if (c.twoPlayerMode) throw new Error('unported: JE_highScoreCheck two-player (mainint.c:2022)');
   const timed = c.timedBattleMode;
 
   sortHighScores(ctx);
 
   let table = 10 + (g.items.initialEpisodeNum - 1) * 2;
   let tempScore: number; // Sint32 temp_score
+  let p = tempP;
   if (timed) {
     // timed battle score is just money
     tempScore = s32(g.players[0].cash);
     table = c.timeBattleSelection - 1;
+  } else if (c.twoPlayerMode) {
+    // ask for the highest scorer first
+    if (g.players[0].cash < g.players[1].cash) p = tempP === 0 ? 1 : 0;
+    tempScore = s32(g.players[p]!.cash);
+    ++table;
   } else {
     // single player highscore includes cost of upgrades
     tempScore = s32(totalScore(ctx, g.players[0]));
@@ -225,13 +234,13 @@ export async function highScoreCheck(ctx: Ctx): Promise<void> {
 
     dString(screen, tables, fontCenter(miscText[51]!, tables, FONT_SHAPES), 3, miscText[51]!, FONT_SHAPES);
 
-    sc.temp3 = 53;
+    sc.temp3 = c.twoPlayerMode ? 58 + p : 53;
 
     dString(screen, tables, fontCenter(miscText[sc.temp3 - 1]!, tables, SMALL_FONT_SHAPES), 30, miscText[sc.temp3 - 1]!, SMALL_FONT_SHAPES);
 
     blitSprite(screen, 50, 50, tables[OPTION_SHAPES]!, 35); // message box
 
-    textShade(screen, tables, 60, 55, miscText[53]!, 11, 4, FULL_SHADE);
+    textShade(screen, tables, 60, 55, c.twoPlayerMode ? `${miscText[48 + p]} ${miscText[53]}` : miscText[53]!, 11, 4, FULL_SHADE);
     textShade(screen, tables, 70, 70, `${miscText[37]} ${tempScore}`, 11, 4, FULL_SHADE);
 
     do {

@@ -38,8 +38,6 @@ export async function endLevelAni(ctx: Ctx): Promise<void> {
   const miscText = ctx.assets.helpText.miscText;
   const [p0] = g.players;
 
-  // TODO(sp5): twoPlayerMode branches (mainint.c:2753-2763, 2824), Task 6
-  if (c.twoPlayerMode) throw new Error('unported: JE_endLevelAni twoPlayerMode (mainint.c:2753)');
   const miscTextB = ctx.assets.helpText.miscTextB;
 
   // grant shipedit privileges
@@ -66,13 +64,17 @@ export async function endLevelAni(ctx: Ctx): Promise<void> {
 
   if (g.items.bonusLevel) {
     await outTextGlow(ctx, screen, 20, 20, miscText[17 - 1]!);
-  } else if (p0.isAlive) { // all_players_alive() with !twoPlayerMode
+  } else if (p0.isAlive && (!c.twoPlayerMode || g.players[1].isAlive)) { // all_players_alive() (player.h:124)
     await outTextGlow(ctx, screen, 20, 20, `${miscText[27 - 1]} ${c.levelName}`); // "Completed"
   } else {
     await outTextGlow(ctx, screen, 20, 20, `${miscText[62 - 1]} ${c.levelName}`); // "Exiting"
   }
 
-  await outTextGlow(ctx, screen, 30, 50, `${miscText[28 - 1]} ${p0.cash}`);
+  if (c.twoPlayerMode) {
+    for (let i = 0; i < 2; ++i) await outTextGlow(ctx, screen, 30, 50 + 20 * i, `${miscText[40 + i]} ${g.players[i]!.cash}`);
+  } else {
+    await outTextGlow(ctx, screen, 30, 50, `${miscText[28 - 1]} ${p0.cash}`);
+  }
 
   if (c.timedBattleMode) {
     const x = u16(idiv(g.varz.levelTimerCountdown, 10) * 100); // JE_word x (mainint.c:2691)
@@ -105,7 +107,7 @@ export async function endLevelAni(ctx: Ctx): Promise<void> {
     const x = p0.lives * 1000;
     await outTextGlow(ctx, screen, 120, 120, `${miscTextB[7]} ${x}`);
     p0.cash = u32(p0.cash + x);
-  } else if (!c.onePlayerAction) { // && !twoPlayerMode
+  } else if (!c.onePlayerAction && !c.twoPlayerMode) {
     await outTextGlow(ctx, screen, 30, 120, miscText[4 - 1]!); // Cubes
 
     if (c.cubeMax > 0) {
@@ -141,7 +143,7 @@ export async function endLevelAni(ctx: Ctx): Promise<void> {
   } else {
     temp = 0;
   }
-  sc.temp2 = 160; // twoPlayerMode ? 150 : 160
+  sc.temp2 = c.twoPlayerMode ? 150 : 160;
   await outTextGlow(ctx, screen, 90, sc.temp2, miscText[5 - 1]!);
 
   do {

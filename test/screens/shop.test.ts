@@ -4,7 +4,7 @@ import type { Ctx } from '../../src/ctx';
 import type { InputEvent } from '../../src/platform/input';
 import { Scancode } from '../../src/platform/scancodes';
 import { ShopState, itemScreen, quitRequest } from '../../src/screens/shop';
-import { MENU_1_PLAYER_ARCADE, MENU_FULL_GAME, MENU_PLAY_NEXT_LEVEL } from '../../src/screens/shop-draw';
+import { MENU_1_PLAYER_ARCADE, MENU_2_PLAYER_ARCADE, MENU_FULL_GAME, MENU_PLAY_NEXT_LEVEL } from '../../src/screens/shop-draw';
 import { PLANET_X, PLANET_Y, computeDots, NavState, partWay } from '../../src/screens/shop-nav';
 import { describeData, testArchive } from '../helpers/data';
 import { newGameWorld } from '../helpers/shop';
@@ -125,10 +125,16 @@ describeData('shop (Shop A)', () => {
     expect(q.ctx.game.config.mainLevel).toBe(0);
   });
 
-  it('the two-player shop is unported (Task 6)', async () => {
-    const a = shopCtx({});
+  it('the two-player shop: Right on a device row swaps keyboard and mouse, Play jumps to the last planet section', async () => {
+    const a = shopCtx({ 3: tap(Scancode.Down), 5: tap(Scancode.Right), 7: tap(Scancode.Up), 9: tap(Scancode.Return) });
     a.ctx.game.config.twoPlayerMode = true;
-    await expect(itemScreen(a.ctx)).rejects.toThrow('unported: shop menu 9');
+    a.ctx.game.config.inputDevice.set([1, 2]);
+    const state = new ShopState();
+    await itemScreen(a.ctx, state);
+    expect(state.curMenu).toBe(MENU_2_PLAYER_ARCADE);
+    expect([...a.ctx.game.config.inputDevice]).toEqual([2, 1]);
+    expect(a.ctx.game.config.mainLevel).toBe(8);
+    expect(a.ctx.game.varz.jumpSection).toBe(true);
   });
 
   it('the SuperTyrian shop: Next Level jumps to the planet section, Quit leaves through the title', async () => {

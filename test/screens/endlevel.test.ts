@@ -92,12 +92,6 @@ describeData('endLevelAni (mainint.c:2689)', () => {
     expect(frames.n).toBe(13 + 1 + 1 + 1 + 15);
   });
 
-  it('throws on the unported two-player and timed-battle branches', async () => {
-    const { ctx } = setup();
-    ctx.game.config.twoPlayerMode = true;
-    await expect(endLevelAni(ctx)).rejects.toThrow(/unported/);
-  });
-
   // session-skip-levels: the F2+F6+F7 cheat ends levels 1 and 2 (the tally with "Completed", cash, kill ratio, cubes, any key), each followed
   // by the next shop; every presented frame hashes like the C's
   it.skipIf(!hasOracle('session-skip-levels'))('HASH golden: the end-level tally frames of session-skip-levels match the C', async () => {

@@ -9,6 +9,7 @@ import type { Ctx } from '../ctx';
 import { u8 } from '../core/int';
 import { base64ToBytes, bytesToBase64, STORAGE_KEYS } from '../platform/storage';
 import { initEpisode } from './episodes';
+import { joystickCount, normalizeInputDevices } from './twoplayer';
 import { mergeStoredSav, noteWritten } from './save-sync';
 import {
   SA_LASTSHIP, SA_ARCADE, SA_NONE, SA_SUPERTYRIAN, SAVE_FILE_SIZE, SAVE_FILES_NUM, SIZEOF_SAVEGAMETEMP,
@@ -498,6 +499,7 @@ export function loadGame(ctx: Ctx, slot: number): void {
   c.secretHint = sf.secretHint;
   c.inputDevice[0] = sf.input1;
   c.inputDevice[1] = sf.input2;
+  normalizeInputDevices(c.inputDevice, joystickCount(ctx));
 
   for (let port = 0; port < 2; port++) {
     // if two-player, use first player's front and second player's rear weapon

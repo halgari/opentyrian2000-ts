@@ -304,31 +304,47 @@ export async function inGameHelp(ctx: Ctx): Promise<void> {
   barShade(screen, 7, 7, 256, 176);
   fillRectangleXY(screen, 9, 9, 254, 174, 0);
 
-  // TODO(sp5): twoPlayerMode help page (mainint.c:1938-1969)
-  if (ctx.game.config.twoPlayerMode) throw new Error('unported: JE_inGameHelp twoPlayerMode (mainint.c:1938)');
-
-  const box = (x: number, y: number, n: number, w: number): void => {
-    ts.helpBoxColor = 5;
+  const box = (x: number, y: number, n: number, w: number, color = 5): void => {
+    ts.helpBoxColor = color;
     ts.helpBoxBrightness = 3;
     hBox(ctx, screen, x, y, n, w);
   };
 
-  // power bar help
-  blitSprite(screen, 15, 5, opt, 40);
-  box(40, 10, 31, 45);
+  if (ctx.game.config.twoPlayerMode) { // Two-Player Help
+    box(20, 4, 36, 50, 3);
 
-  // weapon help
-  blitSprite(screen, 5, 37, opt, 39);
-  box(40, 40, 32, 44);
-  box(40, 60, 33, 44);
+    // weapon help
+    blitSprite(screen, 2, 21, opt, 43);
+    box(55, 20, 37, 40);
 
-  // sidekick help
-  blitSprite(screen, 5, 98, opt, 41);
-  box(40, 103, 34, 44);
+    // sidekick help
+    blitSprite(screen, 5, 36, opt, 41);
+    box(40, 43, 34, 44);
 
-  // shield/armor help
-  blitSprite(screen, 2, 138, opt, 42);
-  box(54, 143, 35, 40);
+    // shield/armor help
+    blitSprite(screen, 2, 79, opt, 42);
+    box(54, 84, 35, 40);
+
+    box(5, 126, 38, 55);
+    box(5, 160, 39, 55);
+  } else {
+    // power bar help
+    blitSprite(screen, 15, 5, opt, 40);
+    box(40, 10, 31, 45);
+
+    // weapon help
+    blitSprite(screen, 5, 37, opt, 39);
+    box(40, 40, 32, 44);
+    box(40, 60, 33, 44);
+
+    // sidekick help
+    blitSprite(screen, 5, 98, opt, 41);
+    box(40, 103, 34, 44);
+
+    // shield/armor help
+    blitSprite(screen, 2, 138, opt, 42);
+    box(54, 143, 35, 40);
+  }
 
   // "press a key"
   const pressAKey = assets.helpText.miscText[5 - 1]!;

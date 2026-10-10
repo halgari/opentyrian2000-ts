@@ -58,7 +58,7 @@ export function handleGotPurpleBall(ctx: Ctx, p: Player): void {
 type MouseKeys = readonly ['mouseX', 'mouseY'] | readonly ['mouseXB', 'mouseYB'];
 
 // port of JE_playerMovement (mainint.c:3497). playerNum is 1-based like the C.
-// TODO(sp4): the non-demo input paths (keyboard/mouse/joystick, mainint.c:3601-3830) throw when reached.
+// The keyboard and mouse input paths are ported (input-level.ts); only the joystick path (inputDevice >= 3) throws, until Task 8.
 /**
  * The scattered spawn point of the Nort ship's banking sparks (mainint.c:4250):
  * `tempW + (mt_rand() % 8) - 4, this_player->y + (mt_rand() % 8) - 4` as call arguments. GCC (x86-64) evaluates

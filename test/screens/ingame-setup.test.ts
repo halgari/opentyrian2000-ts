@@ -191,9 +191,17 @@ describeData('inGameHelp (mainint.c:1920)', () => {
     // the dark inner panel: (9..254, 9..174) is cleared to 0 before the text is drawn
     expect(ctx.vga.screen.pixels[100 * 320 + 250]).toBe(0);
   });
-  it('two-player help is unported', async () => {
+  it('draws the two-player page (8 boxes, mainint.c:1938)', async () => {
     const ctx = testCtx()!;
     ctx.game.config.twoPlayerMode = true;
-    await expect(inGameHelp(ctx)).rejects.toThrow(/unported/);
+    let frames = 0;
+    let lit = 0;
+    ctx.frameSink = (screen) => {
+      frames++;
+      if (frames === 1) lit = screen.pixels.reduce((a, v) => a + (v !== 0 ? 1 : 0), 0);
+      if (frames === 3) key(ctx, Scancode.Space);
+    };
+    await inGameHelp(ctx);
+    expect(lit).toBeGreaterThan(500);
   });
 });

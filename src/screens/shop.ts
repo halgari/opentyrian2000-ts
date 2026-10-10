@@ -44,6 +44,7 @@ import {
 } from './shop-weapon';
 
 import { shopHelp } from './help-system';
+import { drawTwoPlayerMenu, drawTwoPlayerScores, twoPlayerEnter, twoPlayerLeftRight } from './shop-twoplayer';
 import { quickSaveLoad } from './save-ui';
 import { cubeReaderFrame, cubeScrollInput, cubesHomeEnd, cubesMouse, drawCubePanel, drawCubeTitle, drawFlashyCube, loadCubes } from './shop-cubes';
 import { drawConfigLists, drawVolumeBars, menuFunctionC, optionsLeftRight, optionsMouse } from './shop-options';
@@ -54,14 +55,13 @@ const SC_SLASH = 56; // SDL_SCANCODE_SLASH
 /** Menus whose draw step, input handling and Enter handler exist. Everything else is Task 10/11 (or sp5). */
 const PORTED_MENUS: ReadonlySet<number> = new Set([MENU_FULL_GAME, MENU_UPGRADES, MENU_PLAY_NEXT_LEVEL, MENU_UPGRADE_SUB, MENU_1_PLAYER_ARCADE,
   MENU_OPTIONS, 5 /* KEYBOARD_CONFIG */, MENU_LOAD_SAVE, MENU_DATA_CUBES, MENU_DATA_CUBE_SUB, MENU_LIMITED_OPTIONS,
-  12 /* JOYSTICK_CONFIG */, 14 /* MOUSE_CONFIG */, MENU_SUPER_TYRIAN]);
+  12 /* JOYSTICK_CONFIG */, 14 /* MOUSE_CONFIG */, MENU_SUPER_TYRIAN, MENU_2_PLAYER_ARCADE]);
 
 function unported(what: string): never {
   throw new Error(`unported: ${what}`);
 }
 
 function unportedMenu(menu: number): never {
-  // TODO(sp5): MENU_2_PLAYER_ARCADE (9) is the two-player menu (game_menu.c:245-254), Task 6.
   return unported(`shop menu ${menu}`);
 }
 
@@ -277,8 +277,8 @@ async function menuFunction(ctx: Ctx, s: ShopState, select: number): Promise<voi
 
     default:
       // OPTIONS, KEYBOARD_CONFIG, LOAD_SAVE, DATA_CUBES, DATA_CUBE_SUB, LIMITED_OPTIONS, JOYSTICK_CONFIG, MOUSE_CONFIG: shop-options.ts
-      // TODO(sp5): 2_PLAYER_ARCADE
-      if (!(await menuFunctionC(ctx, s, select, curSelect))) unportedMenu(s.curMenu);
+      if (s.curMenu === MENU_2_PLAYER_ARCADE) await twoPlayerEnter(ctx, s, select);
+      else if (!(await menuFunctionC(ctx, s, select, curSelect))) unportedMenu(s.curMenu);
   }
 
   s.oldItems[0].copyFrom(g.players[0].items);
@@ -401,8 +401,8 @@ async function handleKey(ctx: Ctx, s: ShopState): Promise<void> {
 
     case Scancode.Left:
     case Scancode.Right:
-      // TASK 11: joystick config, 2-player input devices, OPTIONS volume (4/5) (they share the S_CURSOR sample of UPGRADE_SUB).
       // For FULL_GAME, PLAY_NEXT_LEVEL and 1_PLAYER_ARCADE the C does nothing.
+      twoPlayerLeftRight(ctx, s, input.lastkeyScan === Scancode.Left ? -1 : 1); // MENU_2_PLAYER_ARCADE rows 3/4
       if (s.curMenu === MENU_UPGRADE_SUB) upgradeSubLeftRight(ctx, s, input.lastkeyScan === Scancode.Left ? -1 : 1);
       optionsLeftRight(ctx, s, input.lastkeyScan === Scancode.Left ? -1 : 1); // OPTIONS / LIMITED_OPTIONS volume
       break;
@@ -559,7 +559,7 @@ export async function itemScreen(ctx: Ctx, state: ShopState = new ShopState()): 
         s.curMenu >= MENU_2_PLAYER_ARCADE ||
         (s.curMenu === MENU_UPGRADE_SUB && (s.curSel[MENU_UPGRADES] === 2 || s.curSel[MENU_UPGRADES] === 5))) {
       if (c.twoPlayerMode) {
-        unported('shop two-player scores (game_menu.c:726)'); // TODO(sp5)
+        drawTwoPlayerScores(ctx);
       } else if (c.superArcadeMode !== SA_NONE || c.superTyrian) {
         drawSuperArcadePanel(ctx, s);
       } else {
@@ -568,7 +568,8 @@ export async function itemScreen(ctx: Ctx, state: ShopState = new ShopState()): 
     }
 
     drawVolumeBars(ctx, s);
-    drawCubePanel(ctx, s); // DATA_CUBES / DATA_CUBE_SUB panel; TODO(sp5): 2-player input devices
+    drawCubePanel(ctx, s); // DATA_CUBES / DATA_CUBE_SUB panel
+    drawTwoPlayerMenu(ctx, s); // MENU_2_PLAYER_ARCADE input devices (game_menu.c:763)
 
     /* JE: { - Step VI - Help text for current cursor location } */
     v.flash = 0;

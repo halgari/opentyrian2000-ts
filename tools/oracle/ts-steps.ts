@@ -9,6 +9,8 @@ export const RET = 40, RIGHT = 79, LEFT = 80, LCTRL = 224, LALT = 226, BKSP = 42
 /** A mouse event step (relative motion 'm' (a, b), button 'd'/'u' a); fires like a key step, `sc` is unused. */
 export const mouse = (type: 'm' | 'd' | 'u', a: number, b?: number, after?: number): ScriptStep =>
   ({ sc: 0, mouse: { type, a, ...(b !== undefined ? { b } : {}) }, ...(after !== undefined ? { after } : {}) });
+/** A mouse event meant for the oracle's idle rule (the screen blocks, e.g. the shop's wait_noinput on a pressed button). */
+export const mouseIdle = (type: 'm' | 'd' | 'u', a: number, b?: number): ScriptStep => ({ ...mouse(type, a, b), idle: true });
 
 export const dead = (): ((c: Ctx) => boolean) => {
   let wasAlive = false; // isAlive is also false before the level starts
@@ -30,6 +32,15 @@ export const shopNextLevel = (first: number): ScriptStep[] => [
 export const skipLevel = (wait: number): ScriptStep[] => [
   { sc: F2, hold: 4, after: wait }, { sc: F6, hold: 4, after: 0 }, { sc: F7, hold: 4, after: 0 }, { sc: RET, after: 120 }, { sc: RET, after: 8 },
 ];
+/** Two-player game over: both ships have been alive and neither is, and the "game over" text has been shown (firstGameOver is cleared). */
+export const gameOverBoth = (): ScriptStep => {
+  let wasAlive = false;
+  return { sc: RET, hold: 1, when: (c) => {
+    const [a, b] = c.game.players;
+    wasAlive = wasAlive || (a.isAlive && b.isAlive);
+    return wasAlive && !a.isAlive && !b.isAlive && !c.game.varz.firstGameOver;
+  } };
+};
 export const gameOver = (): ScriptStep => ({ sc: RET, when: dead(), hold: 1 });
 
 

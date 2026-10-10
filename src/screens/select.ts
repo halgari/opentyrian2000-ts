@@ -122,7 +122,6 @@ function ensurePointerSprites(ctx: Ctx): void {
 }
 
 // port of gameplaySelect (menus.c:42)
-// TODO(sp5): 2 Player Arcade is drawn as in the C but refused with S_SPRING like the network row until Task 6 ports it.
 export async function gameplaySelect(ctx: Ctx): Promise<boolean> {
   const MENU_ITEM_1_PLAYER_FULL_GAME = 0, MENU_ITEM_1_PLAYER_ARCADE = 1, MENU_ITEM_1_PLAYER_TIMED_BATTLE = 2,
     MENU_ITEM_2_PLAYER_ARCADE = 3, MENU_ITEM_NETWORK = 4;
@@ -176,13 +175,14 @@ export async function gameplaySelect(ctx: Ctx): Promise<boolean> {
         case MENU_ITEM_1_PLAYER_FULL_GAME:
         case MENU_ITEM_1_PLAYER_ARCADE:
         case MENU_ITEM_1_PLAYER_TIMED_BATTLE:
+        case MENU_ITEM_2_PLAYER_ARCADE:
           audio.playSample(S_SELECT);
           await fadeBlack(ctx, 10);
           c.onePlayerAction = selected === MENU_ITEM_1_PLAYER_ARCADE;
           c.timedBattleMode = selected === MENU_ITEM_1_PLAYER_TIMED_BATTLE;
-          c.twoPlayerMode = false;
+          c.twoPlayerMode = selected === MENU_ITEM_2_PLAYER_ARCADE;
           return true;
-        default: // 2-player arcade (Task 6), network
+        default: // network
           audio.playSample(S_SPRING);
           break;
       }
@@ -399,7 +399,7 @@ export async function difficultySelect(ctx: Ctx): Promise<boolean> {
   }
 }
 
-// port of newGame (tyrian2.c:3625); the two-player branch is Task 6
+// port of newGame (tyrian2.c:3625)
 export async function newGame(ctx: Ctx): Promise<boolean> {
   const g = ctx.game;
   const c = g.config;
@@ -416,6 +416,12 @@ export async function newGame(ctx: Ctx): Promise<boolean> {
     if (c.onePlayerAction) {
       p0.cash = 0;
       p0.items.ship = 8; // Stalker
+    } else if (c.twoPlayerMode) {
+      for (const pl of g.players) pl.cash = 0;
+      p0.items.ship = 11; // Silver Ship
+      c.difficultyLevel += 1;
+      c.inputDevice[0] = 1;
+      c.inputDevice[1] = 2;
     } else if (g.varz.gameLoaded) { // (richMode is a command-line option and is never set)
       // allows player to smuggle arcade/super-arcade ships into full game
       const initialCash = [10000, 15000, 20000, 30000, 20000];

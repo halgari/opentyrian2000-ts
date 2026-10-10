@@ -118,3 +118,40 @@ export function inputDeviceOf(ctx: Ctx, playerNum: 1 | 2): number {
   const c = ctx.game.config;
   return c.twoPlayerMode && !c.galagaMode ? c.inputDevice[playerNum - 1]! : 0;
 }
+
+/** Number of joysticks (the C's `joysticks`); the gamepad layer arrives in Task 8, until then there are none. */
+export function joystickCount(_ctx: Ctx): number {
+  return 0;
+}
+
+/**
+ * port of the device cycling of JE_itemScreen (game_menu.c:1451-1470, 1544-1565) and JE_menuFunction (:2933-2947):
+ * cycles `devices[which]` by `dir` (+1 = Right/Enter, -1 = Left) within 1..2 + joysticks until it differs from the other
+ * player's. Mutates `devices` like the C, which, without joysticks, first copies the old device to the other player
+ * (a swap). Returns the new device of `which`.
+ */
+export function nextInputDevice(devices: Uint8Array, which: 0 | 1, dir: 1 | -1, joysticks: number): number {
+  const other = which === 0 ? 1 : 0;
+  const max = 2 + joysticks;
+  do {
+    if (joysticks === 0) devices[other] = devices[which]!; // swap controllers
+    if (dir === 1) {
+      if (devices[which]! >= max) devices[which] = 1; else devices[which]!++;
+    } else if (devices[which]! <= 1) devices[which] = max; else devices[which]!--;
+  } while (devices[which] === devices[other]);
+  return devices[which]!;
+}
+
+/**
+ * Forces a legal pair of input devices (Review Focus 2; not in the C, whose menu clamps only when drawn, game_menu.c:765):
+ * both in 1..2 + joysticks and different, defaulting to {1, 2}. A save or tyrian.cfg may hold anything.
+ */
+export function normalizeInputDevices(devices: Uint8Array, joysticks: number): void {
+  const max = 2 + joysticks;
+  const ok = (d: number): boolean => d >= 1 && d <= max;
+  const a = devices[0]!, b = devices[1]!;
+  if (ok(a) && ok(b) && a !== b) return;
+  if (ok(a) && !ok(b)) devices[1] = a === 1 ? 2 : 1;
+  else if (ok(b) && !ok(a)) devices[0] = b === 1 ? 2 : 1;
+  else { devices[0] = 1; devices[1] = 2; }
+}

@@ -225,8 +225,8 @@ export function gameOverKeyWait(ctx: Ctx): void {
 }
 
 /**
- * The non-demo input block of JE_playerMovement (mainint.c:3679-3790) for `inputDevice == 0` (single player:
- * joystick, mouse and keyboard merged; joysticks are absent). Moves the ship by the keyboard, fills `button[]` and
+ * The non-demo input block of JE_playerMovement (mainint.c:3679-3790): keyboard (device 0 or 1) and mouse (0 or 2);
+ * the joystick path (device 0 or >= 3) is not ported yet and throws for devices >= 3 (Task 8). Moves the ship by the keyboard, fills `button[]` and
  * returns the mouse delta (mouseXC, mouseYC) that the caller clamps and applies.
  */
 export function readPlayerInput(ctx: Ctx, p: Player, inputDevice: number): { mouseXC: number; mouseYC: number } {
