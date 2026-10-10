@@ -16,10 +16,10 @@ const MAX_BYTES = 8_388_608;
 export const EXCLUDE = ['estpa.shp', 'tyrianc.shp', 'voicesc.snd', 'exitmsg.bin', 'loudness.awe', 'user1.shp', 'user2.shp', 'shipedit.pcx', 'readme.txt'];
 
 export function escapeScript(js: string): string {
-  return js.replace(/<\/script/gi, '<\\/script');
+  return js.replace(/<\/script/gi, '<\\/script').replace(/<!--/g, '<\\!--');
 }
 
-export const LICENCE_NOTICE = 'Code GPL-2.0-or-later (port of github.com/KScl/opentyrian2000). Tyrian 2000 data: freeware release; see README.';
+export const LICENCE_NOTICE = 'Code: GPL-2.0-or-later, a port of OpenTyrian2000. Source: https://github.com/KScl/opentyrian2000\nTyrian 2000 data: freeware release; see README.';
 
 function build(): void {
   rmSync(TMP, { recursive: true, force: true });
@@ -38,11 +38,13 @@ function main(): void {
   const files = readdirSync(assets);
   const jsName = files.find((f) => /^index-.*\.js$/.test(f));
   const workletName = files.find((f) => /^worklet-.*\.js$/.test(f));
+  const strayJs = files.filter((f) => f.endsWith('.js') && f !== jsName && f !== workletName);
+  if (strayJs.length) throw new Error(`vite emitted extra JS chunks that cannot be inlined: ${strayJs.join(', ')}`);
   const cssNames = files.filter((f) => f.endsWith('.css'));
   if (!jsName || !workletName) throw new Error(`build output incomplete: ${files.join(', ')}`);
   const js = readFileSync(join(assets, jsName), 'utf8');
   const worklet = readFileSync(join(assets, workletName), 'utf8');
-  if (/<\/script/i.test(worklet)) throw new Error('worklet source contains </script');
+  if (/<\/script|<!--/i.test(worklet)) throw new Error('worklet source contains </script or <!--');
   const shell = readFileSync(join(TMP, 'index.html'), 'utf8');
   const style = [...shell.matchAll(/<style>([\s\S]*?)<\/style>/g)].map((m) => m[1]).join('\n')
     + cssNames.map((f) => readFileSync(join(assets, f), 'utf8')).join('\n');
@@ -62,13 +64,12 @@ function main(): void {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OpenTyrian2000</title>
 <style>${style}
-#licence { position: fixed; left: 0; right: 0; bottom: 0; padding: 2px 8px; font-size: 9px; color: #888; text-align: center; pointer-events: none; z-index: 5; }
 </style>
 </head>
 <body>
 <div id="stage"><canvas id="screen" width="320" height="200"></canvas></div>
 <div id="overlay">Loading…</div>
-<div id="licence">${LICENCE_NOTICE}</div>
+<div id="licence" hidden>${LICENCE_NOTICE}</div>
 <script id="worklet" type="text/plain">${worklet}</script>
 <script id="data" type="text/plain">${b64}</script>
 <script type="module">${escapeScript(js)}</script>

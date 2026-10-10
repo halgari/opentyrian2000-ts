@@ -129,3 +129,16 @@ it('createAudioContext returns null when construction always fails', () => {
   class Bad { constructor() { throw new Error('no'); } }
   expect(createAudioContext(Bad as never, () => {})).toBeNull();
 });
+
+it('falls back to workletFallbackUrl when the primary module fails to load', async () => {
+  const { ctx, deps } = fakes();
+  const tried: string[] = [];
+  (ctx as { audioWorklet: { addModule: (u: string) => Promise<void> } }).audioWorklet.addModule = async (u) => {
+    tried.push(u);
+    if (u === 'blob:x') throw new Error('refused');
+  };
+  await WebAudio.create(ctx, new Uint8Array(0), new Uint8Array(0), new Uint8Array(0), {
+    ...deps, workletUrl: 'blob:x', workletFallbackUrl: 'data:y', loadSounds: () => [], warn: () => {},
+  });
+  expect(tried).toEqual(['blob:x', 'data:y']);
+});

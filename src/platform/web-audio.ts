@@ -17,6 +17,8 @@ type Command = ToWorklet extends infer T ? (T extends unknown ? Omit<T, 'seq'> :
 export interface AudioDeps {
   createNode?: (ctx: AudioContext) => NodeLike;
   workletUrl?: string;
+  /** Tried when `workletUrl` fails to load (Chromium refuses blob: worklet modules from a file:// page; data: works). */
+  workletFallbackUrl?: string;
   loadSounds?: typeof defaultLoadSounds;
   warn?: (...args: unknown[]) => void;
 }
@@ -49,7 +51,13 @@ export class WebAudio implements Audio {
   static async create(
     ctx: AudioContext, music: Uint8Array, tyrianSnd: Uint8Array, voicesSnd: Uint8Array, deps: AudioDeps = {},
   ): Promise<WebAudio> {
-    await ctx.audioWorklet.addModule(deps.workletUrl ?? workletUrl);
+    try {
+      await ctx.audioWorklet.addModule(deps.workletUrl ?? workletUrl);
+    } catch (err) {
+      if (!deps.workletFallbackUrl) throw err;
+      (deps.warn ?? console.warn)('Audio worklet module failed to load, trying the fallback URL:', err);
+      await ctx.audioWorklet.addModule(deps.workletFallbackUrl);
+    }
     const node = deps.createNode
       ? deps.createNode(ctx)
       : (new AudioWorkletNode(ctx, 'tyrian-audio', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [1] }) as unknown as NodeLike);

@@ -4,9 +4,18 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { base64ToBytes } from '../../src/platform/storage';
+import { escapeScript } from '../../tools/build-single';
 
 const FILE = join(import.meta.dirname, '..', '..', 'dist-single', 'tyrian.html');
 const built = existsSync(FILE);
+
+describe('escapeScript', () => {
+  it('escapes </script and <!-- so the text cannot end or confuse the script element', () => {
+    const out = escapeScript('a</script>b</SCRIPT>c<!--d');
+    expect(out).not.toMatch(/<\/script/i);
+    expect(out).not.toContain('<!--');
+  });
+});
 
 describe.skipIf(!built)('dist-single/tyrian.html', () => {
   const html = built ? readFileSync(FILE, 'utf8') : '';
@@ -38,5 +47,8 @@ describe.skipIf(!built)('dist-single/tyrian.html', () => {
   it('shows the licence notice', () => {
     expect(html).toContain('GPL-2.0-or-later');
     expect(html).toContain('freeware release; see README');
+    expect(html).toContain('https://github.com/KScl/opentyrian2000');
+    expect(html).toMatch(/<div id="licence" hidden>/); // shown in the start overlay, never over the canvas
+    expect(html).not.toMatch(/#licence\s*\{/);
   });
 });

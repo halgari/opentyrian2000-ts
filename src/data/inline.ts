@@ -11,10 +11,10 @@ export async function archiveFromInline(doc: DocLike): Promise<DataArchive> {
     throw new Error('This browser has no DecompressionStream, which the embedded game data needs. Use a current Chrome, Edge, Firefox or Safari 16.4 or newer.');
   }
   const el = doc.getElementById('data');
-  const text = el?.textContent?.trim();
+  const text = el?.textContent;
   if (!el || !text) throw new Error('The embedded game data is missing from this file; rebuild it with "pnpm build:single".');
   el.textContent = '';
-  const bytes = base64ToBytes(text);
+  const bytes = base64ToBytes(text); // atob ignores ASCII whitespace, so no trim copy is needed
   if (!bytes) throw new Error('The embedded game data is damaged (bad base64); rebuild it with "pnpm build:single".');
   return DataArchive.fromPakBytes(bytes);
 }
@@ -28,4 +28,12 @@ export function workletUrlFromInline(doc: DocLike): string {
     throw new Error('This browser cannot create Blob URLs, which the embedded audio worklet needs');
   }
   return URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+}
+
+/** data: URL of the same source, for pages where a blob: worklet module is refused (Chromium on file://). */
+export function workletDataUrlFromInline(doc: DocLike): string | undefined {
+  const src = doc.getElementById('worklet')?.textContent;
+  if (!src) return undefined;
+  // the worklet source is plain ASCII/UTF-8 text; percent-encode it rather than base64 the whole thing in a second string
+  return `data:text/javascript;charset=utf-8,${encodeURIComponent(src)}`;
 }

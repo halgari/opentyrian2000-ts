@@ -3,7 +3,7 @@ import { loadAssets } from './assets';
 import { formatBootError } from './boot-error';
 import { createCtx } from './ctx';
 import { DATA_URL, fetchArchive } from './data/archive';
-import { archiveFromInline, workletUrlFromInline } from './data/inline';
+import { archiveFromInline, workletDataUrlFromInline, workletUrlFromInline } from './data/inline';
 import { runGame } from './game';
 import { BrowserClock } from './platform/clock';
 import { canvasBox } from './platform/scaling';
@@ -11,14 +11,16 @@ import { Joysticks } from './platform/gamepad';
 import { attachDomInput } from './platform/dom-input';
 import { attachPageLifecycle, attachSaveSync } from './game/save-sync';
 import { localStorageAdapter } from './platform/storage';
-import { WebAudio, createAudioContext, createAudioOrNull } from './platform/web-audio';
+import { WebAudio, createAudioContext, createAudioOrNull, type AudioDeps } from './platform/web-audio';
 import { CanvasPresenter } from './video/presenter';
 
 const canvas = document.getElementById('screen') as HTMLCanvasElement;
 const overlay = document.getElementById('overlay') as HTMLDivElement;
 
 function waitForStartGesture(): Promise<AudioContext | null> {
-  overlay.textContent = 'OpenTyrian2000\n\nClick or press any key to start';
+  // The single-file build carries its licence notice here (shown before play, not over the game).
+  const licence = __SINGLE__ ? document.getElementById('licence')?.textContent : null;
+  overlay.textContent = 'OpenTyrian2000\n\nClick or press any key to start' + (licence ? `\n\n${licence}` : '');
   return new Promise((resolve) => {
     const go = (e: Event) => {
       e.preventDefault();
@@ -59,14 +61,18 @@ async function boot(): Promise<void> {
       overlay.textContent = total ? `Loading game data… ${Math.round((loaded / total) * 100)}%` : 'Loading game data…';
     });
   const assets = loadAssets(archive);
-  const ac = await waitForStartGesture();
+  let ac = await waitForStartGesture();
   overlay.hidden = true;
   canvas.focus();
-  let workletUrl: string | undefined;
+  let deps: AudioDeps = {};
   if (__SINGLE__) {
-    try { workletUrl = workletUrlFromInline(document); } catch (err) { console.warn('Audio worklet unavailable:', err); }
+    // No ?worker&url asset exists in the single file: without a Blob URL, run silent instead of loading a missing file.
+    try { deps = { workletUrl: workletUrlFromInline(document), workletFallbackUrl: workletDataUrlFromInline(document) }; } catch (err) {
+      console.warn('Audio worklet unavailable, running without sound:', err);
+      ac = null;
+    }
   }
-  const audio = await createAudioOrNull(ac, assets.music, assets.tyrianSnd, assets.voicesSnd, workletUrl ? { workletUrl } : {});
+  const audio = await createAudioOrNull(ac, assets.music, assets.tyrianSnd, assets.voicesSnd, deps);
   audio.setVolume(191, 191); // C config default when no config file exists (volume = 191 / sample volume = 191)
   if (location.search.includes('debug') && audio instanceof WebAudio) exposeDebug(audio);
   const ctx = createCtx({
