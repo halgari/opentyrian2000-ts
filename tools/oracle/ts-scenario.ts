@@ -25,7 +25,7 @@ import {
   BKSP, DOWN, ESC, F2, F6, F7, LALT, LCTRL, LEFT, RET, RIGHT, SPACE, UP, type Spec,
   buyListItem, buySidekick, buyWeapon, dead, gameOver, idleKey, loadSlot, playHolds, readCube, shopBuyNextLevel, shopNextLevel, skipLevel, toLevel, typed,
 } from './ts-steps';
-import { POLISH_SPECS_CODES, POLISH_SPECS_ENGAGE, POLISH_SPECS_TIMED, POLISH_SPECS_2P, POLISH_SPECS_2P_SCREENS, registerPolishSeeds } from './ts-specs-polish';
+import { POLISH_SPECS_CODES, POLISH_SPECS_ENGAGE, POLISH_SPECS_TIMED, POLISH_SPECS_2P, POLISH_SPECS_2P_SCREENS, POLISH_SPECS_GALAGA, registerPolishSeeds } from './ts-specs-polish';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
@@ -97,6 +97,7 @@ const SPECS: Record<string, Spec> = {
   ...POLISH_SPECS_TIMED,
   ...POLISH_SPECS_2P,
   ...POLISH_SPECS_2P_SCREENS,
+  ...POLISH_SPECS_GALAGA,
 };
 
 /** Sessions that start from episode-end.sav (a HOME-seeded save standing at the `]Q` section of an episode). */

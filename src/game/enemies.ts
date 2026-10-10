@@ -251,8 +251,8 @@ export function drawEnemy(ctx: Ctx, enemyOffset: number): void {
           if (c.difficultyLevel > DIFFICULTY_MANIACAL) e.eshotwait[j - 1] = u8(idiv(e.eshotwait[j - 1]!, 2) + 1);
         }
 
-        // TODO(sp4): tyrian2.c:376 galagaMode shot gating (mt_rand() % 400 >= galagaShotFreq)
-        if (c.galagaMode) throw new Error('unported: tyrian2.c:376 galagaMode enemy shots');
+        // tyrian2.c:376 (`||` short-circuit: the rand draw happens only when eyc != 0)
+        if (c.galagaMode && (e.eyc === 0 || (ctx.rng.rand() % 400) >= g.varz.galagaShotFreq)) { skipLaunch = true; break; } // goto draw_enemy_end
 
         switch (sc.temp3) {
           case 252: /* Savara Boss DualMissile */

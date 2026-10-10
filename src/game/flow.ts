@@ -20,8 +20,6 @@ export async function jeMain(ctx: Ctx): Promise<void> {
   const v = g.varz;
   const demo = ctx.state.playDemo;
 
-  if (c.galagaMode) throw new Error('unported: galaga level'); // TODO(sp5)
-
   for (;;) {
     // start_level_first:
     const loc = await levelSetup(ctx);
@@ -32,7 +30,7 @@ export async function jeMain(ctx: Ctx): Promise<void> {
 
     // start_level:
     ctx.input.mouseSetRelative(false);
-    // (`if (galagaMode) twoPlayerMode = false` cannot apply: galaga is rejected above)
+    if (c.galagaMode) c.twoPlayerMode = false;
     // JE_clearKeyboard() is a no-op in the C
     g.sprites.enemySpriteSheets.fill(null); // free_sprite2s(&enemySpriteSheets[0..3])
 

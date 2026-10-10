@@ -24,7 +24,6 @@ import { showVGA } from '../video/video';
 import { displayText } from '../video/glow-text';
 import { totalScore } from './economy';
 import { saveGame } from './save';
-import { UnavailableModeError } from './unported';
 import { DIFFICULTY_HARD, DIFFICULTY_NORMAL, DIFFICULTY_ZINGLON } from './world';
 
 const SA_NORTSHIPZ = 7;  // varz.h
@@ -73,6 +72,16 @@ export function engageLoadout(ctx: Ctx): void {
 
   p0.items.weapon[0].power = 3;
   p0.items.weapon[1].power = 1;
+}
+
+// port of the `]g` case of JE_loadMap (tyrian2.c:2510-2517): GALAGA mode; player 2 is the dragonwing wingman.
+export function galagaSetup(ctx: Ctx): void {
+  const g = ctx.game;
+  g.config.galagaMode = true;
+
+  g.players[1].items.copyFrom(g.players[0].items);
+  g.players[1].items.weapon[1].id = 15; // REAR_WEAPON: Vulcan Cannon
+  for (let i = 0; i < g.players[1].items.sidekick.length; ++i) g.players[1].items.sidekick[i] = 0; // None
 }
 
 // port of the episode-script loop of JE_loadMap (tyrian2.c:2429-3034). `s` is JE_loadMap's `char s[256]`; the
@@ -149,8 +158,8 @@ export async function runEpisodeScript(ctx: Ctx, s: Uint8Array): Promise<ScriptR
             break;
 
           case 'g':
-            // TODO(sp5): tyrian2.c:2510 galagaMode (GALAGA mini-game)
-            throw new UnavailableModeError(']g galagaMode (tyrian2.c:2510)');
+            galagaSetup(ctx);
+            break;
 
           case 'x':
             c.extraGame = true;

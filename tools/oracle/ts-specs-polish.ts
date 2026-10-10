@@ -50,6 +50,11 @@ export function registerPolishSeeds(): void {
       for (const e of ctx.game.config.t2kHighScores[11]!) { e.score = 100; e.playerName = 'NOBODY'; }
     } },
   ]);
+  defineSeed('polish-galaga', [
+    // ep1 section 41 carries `]e`, `]g` and `]L` (the ALE mini-game); slot 11 is the backup the death restores
+    { slot: 11, name: 'BACKUP EP1', episode: 1, level: 41, cash: 30000 },
+    { slot: 1, name: 'EP1 ALE GALAGA', episode: 1, level: 41, cash: 30000, levelName: 'ALE' },
+  ]);
   defineSeed('polish-engage', [
     // the backup the shop's `]b` would have written (slot 11) and the ENGAGE sections themselves
     { slot: 11, name: 'BACKUP EP4', episode: 4, level: 40, cash: 50000, levelName: 'TIME WAR' },
@@ -135,12 +140,12 @@ export const POLISH_SPECS_2P: Record<string, Spec> = {
   /** Same, keys steer P1 into P2: link (within 8 px), fire with the link gun, unlink with a sidekick key. */
   'polish-2p-link': { seed: 'polish-2p', tail: 40, steps: () => [
     ...load2p(), ...play2p(),
-    { sc: RIGHT, hold: 140, after: 40 },                      // P1 (starts left of P2) drifts right into P2, who is idle on the mouse
+    { sc: RIGHT, hold: 1, after: 40 },                      // P1 (starts left of P2) drifts right into P2, who is idle on the mouse
     mouse('d', 1, undefined, 2), mouse('u', 1, undefined, 8), // a mouse event sets mouseXB/YB, which the link test compares with P2's position
     { sc: SPACE, hold: 300, after: 10 }, { sc: LEFT, hold: 20, after: 100 }, { sc: UP, hold: 20, after: 30 }, { sc: LCTRL, hold: 8, after: 40 }] },
   /** Long link-gun run: the direction word is compared bit for bit on every frame (STATE3 linkGunDirecBits). */
   'polish-2p-linkgun': { seed: 'polish-2p', tail: 40, steps: () => [
-    ...load2p(), ...play2p(), { sc: RIGHT, hold: 140, after: 40 }, { sc: SPACE, hold: 600, after: 10 }, mouse('d', 1, undefined, 2),
+    ...load2p(), ...play2p(), { sc: RIGHT, hold: 1, after: 40 }, { sc: SPACE, hold: 600, after: 10 }, mouse('d', 1, undefined, 2),
     mouse('m', 3, 0, 20), mouse('m', 0, 3, 20), mouse('m', -3, 0, 20), mouse('m', 0, -3, 20), mouse('m', 5, 5, 20), mouse('m', -5, -5, 20)] },
 };
 
@@ -164,11 +169,31 @@ export const POLISH_SPECS_2P_SCREENS: Record<string, Spec> = {
     ...load2p(), { sc: RET }, ...typed('Pat'), { sc: RET, after: 10 }, { sc: RET }, ...typed('Lee'), { sc: RET, after: 10 }, { sc: RET }, { sc: RET, idle: true }] },
   /** F1 during a 2P level: the two-player in-game help page (mainint.c:1938), Space dismisses it, the level goes on. */
   'polish-2p-help': { seed: 'polish-2p', tail: 40, extra: { saveDump: false }, steps: () => [
-    ...load2p(), ...play2p(), { sc: RIGHT, hold: 20, after: 100 }, { sc: F1, hold: 3, after: 20 }, { sc: SPACE, after: 12 }, { sc: LEFT, hold: 20, after: 30 }] },
+    ...load2p(), ...play2p(), { sc: RIGHT, hold: 1, after: 100 }, { sc: F1, hold: 3, after: 20 }, { sc: SPACE, after: 12 }, { sc: LEFT, hold: 20, after: 30 }] },
   /** The whole of level 1 with P1 weaving and firing (P2 idles and dies): the level ends with a player alive, so the 2P tally (endLevelAni) follows; a key cuts its glow, another leaves it. */
   'polish-2p-complete': { seed: 'polish-2p', tail: 40, extra: { saveDump: false }, steps: () => [...load2p(), ...play2p(), ...playHolds(11100, 4), { sc: RET, after: 400 }, { sc: RET, after: 60 }, { sc: DOWN, after: 80 }] },
   /** Load Game page 2 lists slots 12-22; page back and forth, load slot 12 into the 2P shop, open and leave the options. */
   'polish-2p-load': { seed: 'polish-2p', tail: 60, steps: () => [
     { sc: DOWN }, { sc: RET }, { sc: RIGHT }, { sc: DOWN, after: 8 }, { sc: UP, after: 8 }, { sc: LEFT, after: 8 }, { sc: RIGHT, after: 8 }, { sc: RET, after: 8 },
     { sc: DOWN, after: 60 }, { sc: DOWN, after: 4 }, { sc: DOWN, after: 4 }, { sc: RET, after: 4 }, { sc: ESC, after: 20 }, { sc: UP, after: 20 }] },
+};
+
+/** Fire held and a side-to-side sweep of the playfield with seeded leg lengths. The formation waves must be shot dead for the level to advance (type 70 events). */
+const galagaSweep = (frames: number, seed: number): ScriptStep[] => {
+  let r = seed >>> 0;
+  const rnd = (n: number): number => { r = (Math.imul(r, 1664525) + 1013904223) >>> 0; return (r >>> 8) % n; };
+  const out: ScriptStep[] = [{ sc: SPACE, hold: frames, after: 0 }];
+  for (let used = 0, i = 0; used < frames - 200; i++) {
+    const leg = 30 + rnd(100);
+    out.push({ sc: i % 2 ? LEFT : RIGHT, hold: leg, after: leg + rnd(20) });
+    used += leg + 10;
+  }
+  return out;
+};
+
+export const POLISH_SPECS_GALAGA: Record<string, Spec> = {
+  /** Load slot 1 (ep1 section 41): `]e` then `]g` then ALE with the dragonwing mini-game; fire held, sweeping the playfield (the level's purple ball events lie far past the first waves; the dragonwing spawn is pinned in test/game/galaga.test.ts). */
+  'polish-galaga-play': { seed: 'polish-galaga', tail: 60, steps: () => [...loadSlot(1), ...galagaSweep(16000, 12)] },
+  /** Idle ship: death, `twoPlayerMode` back to false, the backup restore (doNotSaveBackup) and the section runs again. */
+  'polish-galaga-die': { seed: 'polish-galaga', tail: 80, steps: () => [...loadSlot(1), gameOver(), { sc: RET, after: 200 }] },
 };

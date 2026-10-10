@@ -10,7 +10,7 @@ import type { Ctx } from '../ctx';
 import { blitSprite, FONT_SHAPES, OPTION_SHAPES, SMALL_FONT_SHAPES, TINY_FONT } from '../video/sprite';
 import { blitSprite2, blitSprite2x2 } from '../video/sprite2';
 import { dString, FULL_SHADE, outText, outTextAndDarken, textShade, textWidth } from '../video/fonthand';
-import { S_CLICK, S_WARNING, SONG_GAMEOVER } from '../audio/ids';
+import { S_CLICK, S_EXPLOSION_11, S_SOUL_OF_ZINGLON, S_WARNING, SONG_GAMEOVER } from '../audio/ids';
 import { eventJump, newEnemy } from './enemies';
 import { gameOverKeyWait } from './input-level';
 import type { Surface } from '../video/surface';
@@ -190,7 +190,21 @@ export function drawLevelTopBars(ctx: Ctx, loc: LevelLocals): void {
 
   /*------------------------Shield Gen-------------------------*/
   if (c.galagaMode) {
-    throw new Error('unported: tyrian2.c:1156 galaga shield/life block'); // TODO(sp4)
+    for (const p of g.players) p.shield = 0;
+
+    // spawned dragonwing died :(
+    if (p1.lives === 0 || p1.armor === 0) c.twoPlayerMode = false;
+
+    if (p0.cash >= v.galagaLife) {
+      v.soundQueue[6] = S_EXPLOSION_11;
+      v.soundQueue[7] = S_SOUL_OF_ZINGLON;
+
+      if (p0.lives < 11) ++p0.lives;
+      else p0.cash += 1000;
+
+      if (v.galagaLife === 10000) v.galagaLife = 20000;
+      else v.galagaLife += 25000;
+    }
   } else if (c.twoPlayerMode) {
     c.shieldWait = u8(c.shieldWait - 1); // JE_byte
     if (c.shieldWait === 0) {

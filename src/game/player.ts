@@ -758,7 +758,20 @@ export function mainGamePlayerFunctions(ctx: Ctx): void {
 
 // port of JE_playerCollide (mainint.c:4732); playerNum is 1-based like the C.
 // Reads/writes the C globals temp/temp2/temp3/b through g.scratch (they stay clobbered for later readers, survey 5.1).
-// TODO(sp4): galagaMode dragonwing spawn (mainint.c:4749-4758) and the network name variants throw/are omitted.
+// The network name variants are omitted (no network).
+// port of the galaga branch of JE_playerCollide (mainint.c:4756-4764)
+export function spawnDragonwing(ctx: Ctx, thisPlayer: Player): void {
+  const g = ctx.game;
+  const c = g.config;
+  const p1 = g.players[1];
+  if (c.twoPlayerMode) thisPlayer.cash += 2400;
+  c.twoPlayerMode = true;
+  c.twoPlayerLinked = true;
+  p1.items.weapon[1].power = 1; // REAR_WEAPON
+  p1.armor = 10;
+  p1.isAlive = true;
+}
+
 export function playerCollide(ctx: Ctx, thisPlayer: Player, playerNum: number): void {
   const g = ctx.game;
   const c = g.config;
@@ -786,7 +799,7 @@ export function playerCollide(ctx: Ctx, thisPlayer: Player, playerNum: number): 
         if (!c.galagaMode) {
           handleGotPurpleBall(ctx, thisPlayer);
         } else {
-          throw new Error('unported: mainint.c:4749 galaga dragonwing spawn');
+          spawnDragonwing(ctx, thisPlayer);
         }
         enemyAvail[z] = 1;
         v.soundQueue[7] = S_POWERUP;

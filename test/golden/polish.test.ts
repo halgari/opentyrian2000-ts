@@ -20,6 +20,16 @@ const INSPECT: Record<string, (r: SessionResult) => void> = {
     const c = r.ctx.game.config;
     expect(c.t2kHighScores[0]!.some((e) => e.playerName.trim() === 'ACE' && e.score > 0)).toBe(true);
   },
+  // galaga: the mini-game ran (STATE3 flags bit 2) and the formation waves advanced the level far enough to earn an extra life (galagaLife steps up)
+  'polish-galaga-play': (r) => {
+    expect(r.states3.some((s) => (s.flags & 4) !== 0)).toBe(true);
+    expect(r.states3.some((s) => s.galagaLife > 10000)).toBe(true);
+  },
+  // the death never leaves two-player mode set at the end
+  'polish-galaga-die': (r) => {
+    expect(r.states3.some((s) => (s.flags & 4) !== 0)).toBe(true);
+    expect(r.states3[r.states3.length - 1]!.flags & 1).toBe(0);
+  },
 };
 
 const NAMES = Object.keys(SCENARIOS).filter((n) => n.startsWith('polish-'));

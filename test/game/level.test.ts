@@ -172,12 +172,6 @@ describeData('runLevel (skeleton loop)', () => {
     expect(frames).toBeGreaterThan(1702);
     expect(frames).toBeLessThan(1702 + 51 + 45 + 10 + 5);
   });
-
-  it('refuses two-player levels', async () => {
-    const ctx = testCtx();
-    ctx.game.config.galagaMode = true;
-    await expect(runLevel(ctx)).rejects.toThrow(/unported/);
-  });
 });
 
 describeData('allPlayersDead', () => {
