@@ -301,4 +301,16 @@ describe('dom-input: pointer lock ordering (M2)', () => {
     target.dispatchEvent(keyEvent('keydown', { code: 'Escape' }));
     expect(drain(input)).toEqual([41, 41]);
   });
+  it('the keyup of a dropped Esc keydown is dropped too', () => {
+    const { input, target, lose, advance } = lockSetup();
+    input.mouseSetRelative(true);
+    lose();
+    advance(5);
+    target.dispatchEvent(keyEvent('keydown', { code: 'Escape' }));
+    target.dispatchEvent(keyEvent('keyup', { code: 'Escape' }));
+    drain(input);
+    expect(input.keysactive[41]).toBe(0);
+    // exactly the synthetic down+up: no third event reaches the queue
+    expect(drain(input)).toEqual([]);
+  });
 });

@@ -66,6 +66,7 @@ export function attachDomInput(opts: {
   let pendingUnlocks = 0; // exitPointerLock() calls whose pointerlockchange has not arrived yet
   let lastEscDown = -Infinity;
   let lastSyntheticEsc = -Infinity;
+  let dropEscKeyup = false; // the keyup that belongs to a dropped Esc keydown
   const heldButtons = new Map<number, [number, number]>(); // SDL button -> last position, for the release on blur
 
   const tryLock = (): void => {
@@ -118,7 +119,7 @@ export function attachDomInput(opts: {
     if (!isBrowserShortcut(e)) e.preventDefault();
     if (sc === SC_ESCAPE) {
       // The real keydown arriving just after a synthetic Esc is the same keypress.
-      if (now() - lastSyntheticEsc < ESC_DEDUPE_MS) return;
+      if (now() - lastSyntheticEsc < ESC_DEDUPE_MS) { dropEscKeyup = true; return; }
       lastEscDown = now();
     }
     tryLock();
@@ -131,6 +132,7 @@ export function attachDomInput(opts: {
     if (sc === undefined) return;
     // A bare Alt release focuses the menu bar on Windows/Linux browsers; Alt is a default sidekick key.
     if (!isBrowserShortcut(e)) e.preventDefault();
+    if (sc === SC_ESCAPE && dropEscKeyup) { dropEscKeyup = false; return; }
     input.push({ type: 'keyup', scancode: sc });
   });
   on<MouseEvent>(target, 'mousemove', (e) => {

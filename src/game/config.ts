@@ -201,7 +201,15 @@ export function loadConfiguration(ctx: Ctx): void {
       console.warn(`opentyrian: stored tyrian.sav is invalid (${errs.join('; ')}); kept a copy as "${backup}" and using defaults`);
     }
   }
-  if (!loaded) { makeUpSaveDefaults(ctx); ctx.saveSync.baseline = snapshotPlain(c); }
+  if (!loaded) {
+    makeUpSaveDefaults(ctx);
+    // boot sorts the high scores right after loading (idempotent, no RNG); the baseline must be the sorted
+    // state or the tail would look locally edited and never take another tab's scores
+    sortHighScores(ctx);
+    const keep = c.saveTemp.slice(); // the snapshot packs saveTemp; a fresh load must not show that yet
+    ctx.saveSync.baseline = snapshotPlain(c);
+    c.saveTemp.set(keep);
+  }
 
   initProcessorType(ctx);
   c.configurationLoaded = true;

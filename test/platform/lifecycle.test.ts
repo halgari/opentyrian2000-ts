@@ -30,4 +30,12 @@ describeData('page lifecycle', () => {
     win.dispatchEvent(new Event('pagehide'));
     expect(ctx.storage.get(STORAGE_KEYS.cfg)).toBeNull();
   });
+  it('visibilitychange to visible writes nothing', () => {
+    const ctx = testCtx()!;
+    loadConfigurationDefaults(ctx);
+    const doc = Object.assign(new EventTarget(), { visibilityState: 'visible' });
+    attachPageLifecycle(new EventTarget(), doc, ctx);
+    doc.dispatchEvent(new Event('visibilitychange'));
+    expect(ctx.storage.get(STORAGE_KEYS.cfg)).toBeNull();
+  });
 });
