@@ -21,10 +21,10 @@ describe('hosting config', () => {
     expect(h.split('\n').every((l) => l.length <= 2000)).toBe(true);
     expect(h.split('\n').filter((l) => /^\S/.test(l)).length).toBeLessThanOrEqual(100);
   });
-  it('the README states that nothing is deployed and that the data licence needs a decision', () => {
+  it('the README documents the manual deploy, the hosted build and the data licence caveat', () => {
     const r = readFileSync(resolve(root, 'README.md'), 'utf8');
     expect(r).toMatch(/## Deploy/);
-    expect(r).toMatch(/not deployed|never deploys/i);
+    expect(r).toMatch(/halgari\.github\.io\/opentyrian2000-ts/);
     expect(r).toMatch(/All Rights Reserved/);
   });
 });

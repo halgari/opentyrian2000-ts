@@ -4,6 +4,8 @@ A TypeScript/browser port of [OpenTyrian2000](https://github.com/KScl/opentyrian
 itself a port of the DOS shoot-'em-up Tyrian 2000. Goal: behaviour-exact, playable in a
 browser.
 
+**Play it: https://halgari.github.io/opentyrian2000-ts/**
+
 ## Setup
 
     pnpm install
@@ -89,8 +91,8 @@ Add `--fixture` to write `<name>.raw.frames` instead; the tests read those as fi
 
 ## Deploy
 
-Nothing is deployed: this repo never deploys anything. No script in it, and no agent or CI job, ever deploys or uploads anything (a test checks that
-`package.json` has no `wrangler deploy` script). Hosting is a decision for the owner, to be taken first (see Licence below).
+No script in this repo deploys, and no CI job does either (a test checks that `package.json` has no `wrangler deploy` script).
+Deploys are manual and done by the owner (see GitHub Pages below).
 
     pnpm build            # type-check, then produce a static dist/ (multi-file)
     pnpm build:single     # dist-single/tyrian.html: code, worklet and compressed game data in one file
@@ -104,20 +106,26 @@ Outputs:
   (saves are shared with any other local copy); Firefox keeps one per file.
 - `wrangler.jsonc` - Cloudflare Workers static-assets config serving `./dist`, with no Worker code.
 
-Before publishing, set `OT_SOURCE_URL` to the public URL of this repository's source, for both `pnpm build` and
-`pnpm build:single` (for example `OT_SOURCE_URL=https://example.org/me/opentyrian2000-ts pnpm build`). It goes into the
-licence notice on the start screen. When it is unset the notice says "source URL not configured" and the build prints a warning.
+Set `OT_SOURCE_URL` to the public URL of this repository's source for both `pnpm build` and `pnpm build:single`. It goes
+into the licence notice on the start screen. When it is unset, the notice says "source URL not configured" and the build prints a warning.
 
-Deploy command, to be run by the owner only after the licence decision below:
+### GitHub Pages
 
-    pnpm build && pnpm dlx wrangler deploy
+The public build lives at https://halgari.github.io/opentyrian2000-ts/ and is served from the `gh-pages` branch. The game
+data is not in git, so CI cannot build the site. The owner builds it locally and pushes `dist/` by hand:
 
-### Licence gate
+    OT_SOURCE_URL=https://github.com/halgari/opentyrian2000-ts pnpm build
+    touch dist/.nojekyll
+    git -C dist init -b gh-pages && git -C dist add -A && git -C dist commit -m deploy
+    git -C dist push -f https://github.com/halgari/opentyrian2000-ts.git gh-pages
 
-The engine code is GPL-2.0-or-later. The Tyrian 2000 data is different: the zip has no licence file, and its `readme.txt`
-says "All Rights Reserved". Serving the data from a public host, or inlining it in a file that people copy, is
-redistribution and needs the owner's decision. Do not deploy publicly, or publish the single file, until that is settled.
-`public/data/` and `data/` are git-ignored, so the data is never committed.
+GitHub Pages ignores `_headers`. The data pak name carries a content hash, so a new build is never served a stale pak.
+
+### Data licence
+
+The engine code is GPL-2.0-or-later. The Tyrian 2000 data is different: the zip has no licence file, and its
+`readme.txt` says "All Rights Reserved", although the release itself is freeware. The owner chose to serve it from
+the hosted build. It is still never committed: `public/data/` and `data/` are git-ignored.
 
 ## Status
 
@@ -152,7 +160,7 @@ Sub-project 5 (Polish/ship) - every mode except Destruct is playable:
   2-player extension (off by default).
 - Setup: a Graphics page (fullscreen, scaling mode), integer scaling in device pixels.
 - Build: `pnpm build:single` makes one `tyrian.html` with the data inlined (works from `file://`); the Cloudflare config and
-  cache headers are in place but nothing is deployed (see Deploy).
+  cache headers are in place, and the site is hosted on GitHub Pages (see Deploy).
 
 Not ported: the shop's Joystick configuration page (it stays inert with a pad connected; pads use the default mapping), Destruct (the title code `DESTRUCT` shows a notice), network play, the ship editor, the graphics scaler options
 other than the web scaling modes, and the `]V`/`]R` script reveals (no shipped script uses them). Known gaps: sound effects are
