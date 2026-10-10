@@ -56,3 +56,30 @@ export const POLISH_SPECS_ENGAGE: Record<string, Spec> = {
   'polish-supertyrian-end-zinglon': { seed: 'polish-engage', tail: 60, steps: () => [...loadSlot(3), ...endOfEpisode5()] },
   'polish-supertyrian-end-suicide': { seed: 'polish-engage', tail: 60, steps: () => [...loadSlot(4), ...endOfEpisode5()] },
 };
+
+/** MENU_SUPER_TYRIAN, the first shop of an ENGAGE run: ship specs, options, back, then Next Level (as polish-engage-ep1-end). */
+const superTyrianShop = (): ScriptStep[] => [
+  { sc: DOWN, after: 60 }, { sc: RET, after: 20 }, { sc: ESC, after: 20 }, { sc: DOWN, after: 12 }, { sc: RET, after: 12 }, { sc: ESC, after: 12 },
+  { sc: UP, after: 12 }, { sc: UP, after: 12 }, { sc: RET, after: 12 },
+];
+
+/** A title code typed once the title menu is up (frame ~145; before that the intro logos eat the keys), one letter per 6 frames. */
+const typedAtTitle = (code: string): ScriptStep[] => typed(code, 6).map((s, i) => (i === 0 ? { ...s, after: 150 } : s));
+
+/** playHolds whose first step (fire held) waits `wait` frames, so the level's fade-in is over. */
+const playAfter = (wait: number, frames: number, seed: number): ScriptStep[] => playHolds(frames, seed).map((s, i) => (i === 0 ? { ...s, after: wait } : s));
+
+export const POLISH_SPECS_CODES: Record<string, Spec> = {
+  /** Type STEALTH, episode 1, Normal, the ship screen, level 1 (arcade has no shop): fire held and weaving (also drives the super-arcade power-up substitution). */
+  'polish-code-stealth': { tail: 40, extra: { saveDump: false }, steps: () => [
+    ...typedAtTitle('STEALTH'), idleKey(), idleKey(), idleKey(), ...playAfter(90, 900, 7)] },
+  /** The last code (Nort-Ship Z shape): sidekicks and the special weapon from the table. */
+  'polish-code-nortshipz': { tail: 40, extra: { saveDump: false }, steps: () => [
+    ...typedAtTitle('NORTSHIPZ'), idleKey(), idleKey(), idleKey(), ...playAfter(90, 600, 5)] },
+  /** ENGAGE: JE_whoa cut short by a key 60 frames in, the text screen, episode 2, the first shop and level. */
+  'polish-code-engage': { tail: 40, extra: { saveDump: false }, steps: () => [
+    ...typedAtTitle('ENGAGE'), { sc: RET, after: 60 }, idleKey(), idleKey(), ...superTyrianShop(), ...playHolds(500, 3)] },
+  /** ENGAGE with JE_whoa left to run its 300 iterations; Esc at the episode select cancels back to the title (Review Focus 1). */
+  'polish-code-engage-cancel': { tail: 40, extra: { saveDump: false }, steps: () => [
+    ...typedAtTitle('ENGAGE'), { sc: RET, after: 320 }, idleKey(DOWN), idleKey(ESC), { sc: DOWN, after: 60 }] },
+};

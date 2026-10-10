@@ -1,5 +1,10 @@
+// OpenTyrian2000-TS — TypeScript port of OpenTyrian2000
+// Copyright (C) 2007-2009 The OpenTyrian Development Team
+// Copyright (C) 2022 Kaito Sinclaire
+// Copyright (C) 2026 OpenTyrian2000-TS contributors
 // SPDX-License-Identifier: GPL-2.0-or-later
-// The C prints this to the console as JE_tyrianHalt exits the program after SuperTyrian is beaten (varz.c:487-500, opentyr.c:885).
+// Ported from: src/varz.c (JE_tyrianHalt)
+// The C prints this to the console as JE_tyrianHalt exits the program after NortShip Z is unlocked (varz.c:487-500, opentyr.c:885).
 // The page has no exit, so the same text is shown on a screen and the session goes back to the title.
 import type { Ctx } from '../ctx';
 import { waitInput, waitNoInput } from '../platform/wait';
@@ -8,7 +13,7 @@ import { Align, Font, drawFontHvShadow } from '../video/font';
 import { clearSurface } from '../video/surface';
 import { showVGA } from '../video/video';
 
-/** The lines of the C's printf (blank lines dropped), as (text, y, font) rows. */
+/** The text lines of the C's printf (varz.c:487-500), blank lines dropped; trentWinScreen sets each one at its own position and font. */
 export const TRENT_LINES: readonly string[] = [
   'Sleep well, Trent, you deserve the rest.',
   'You now have permission to borrow my ship on your next mission.',
@@ -17,6 +22,7 @@ export const TRENT_LINES: readonly string[] = [
   ' Press a Key to Quit',
 ];
 
+// port of the trentWin printf of JE_tyrianHalt (varz.c:487-500), drawn on a screen instead of the console
 export async function trentWinScreen(ctx: Ctx): Promise<void> {
   const { vga, palette, assets } = ctx;
   const tables = assets.shapes.tables;

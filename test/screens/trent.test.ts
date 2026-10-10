@@ -41,9 +41,17 @@ describeData('trentWinScreen', () => {
     ctx.frameSink = () => {
       if (++frames === 1) for (const px of ctx.vga.screen.pixels) if (px !== 0) ink++;
     };
-    tapOften(ctx);
-    await trentWinScreen(ctx);
+    let done = false;
+    const run = trentWinScreen(ctx).then(() => { done = true; });
+    // no key yet: the screen must still be waiting after a long stretch of virtual time (it would return at once if it ignored input)
+    for (let i = 0; i < 400; i++) await ctx.clock.sleep(16);
+    expect(done).toBe(false);
     expect(ink).toBeGreaterThan(100);
+    ctx.input.push({ type: 'keydown', scancode: 44, mod: 0 });
+    for (let i = 0; i < 20; i++) await ctx.clock.sleep(16);
+    ctx.input.push({ type: 'keyup', scancode: 44 });
+    await run;
+    expect(done).toBe(true);
   });
 
   it('gameLoop shows it once after jeMain, clears the flag and runs the title again', async () => {

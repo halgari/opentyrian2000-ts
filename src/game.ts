@@ -46,10 +46,11 @@ export async function gameLoop(ctx: Ctx): Promise<never> {
         if (ctx.game.config.trentWin) {
           // opentyr.c:885 leaves the loop and JE_tyrianHalt prints the text; the page shows it and returns to the title
           ctx.game.config.trentWin = false;
+          saveConfiguration(ctx); // JE_tyrianHalt saves the configuration before it prints the text
           await trentWinScreen(ctx);
         }
       } catch (e) {
-        // ]e / ]g (secret modes, sub-project 5): not an error page, just back to the title like a finished session
+        // ]g (galaga, sub-project 5) and the other modes still unported: not an error page, just back to the title like a finished session
         if (!(e instanceof UnavailableModeError)) throw e;
         ctx.input.mouseSetRelative(false);
         ctx.vga.cur = ctx.vga.screen;

@@ -25,6 +25,7 @@ import { highScoreScreen } from './highscores';
 import { loadScreen } from './loadscreen';
 import { newGame } from './select';
 import { setupMenu } from './setup';
+import { newSuperArcadeGame, newSuperTyrianGame, whoa } from './supermodes';
 import { stubScreen } from './stub';
 
 export const SA_DESTRUCT = 10;
@@ -187,11 +188,13 @@ export async function titleScreen(ctx: Ctx): Promise<boolean> {
               return true;
             } else if (i + 1 === SA_ENGAGE) {
               audio.playSample(V_DANGER);
-              await stubScreen(ctx, 'SuperTyrian'); // JE_whoa() + newSuperTyrianGame()
+              await whoa(ctx);
+              palette.setColors(0, 0, 0, 0, 255);
+              if (await newSuperTyrianGame(ctx)) return true;
               restart = true;
             } else {
               await fadeBlack(ctx, 10);
-              await stubScreen(ctx, assets.helpText.superShips[i + 1] ?? name); // newSuperArcadeGame(i)
+              if (await newSuperArcadeGame(ctx, i)) return true;
               restart = true;
             }
           }

@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { describe, expect, it } from 'vitest';
-import { SC, Timeline } from '../../tools/oracle/scenarios-shopc';
-import type { Ctx } from '../../src/ctx';
-import { scanForEpisodes } from '../../src/game/episodes';
-import { loadConfigurationDefaults, initPlayerData } from '../../src/game/config';
+import { SC } from '../../tools/oracle/scenarios-shopc';
 import { setSaveName } from '../../src/game/save';
 import { DIFFICULTY_EASY, DIFFICULTY_HARD, DIFFICULTY_IMPOSSIBLE, DIFFICULTY_NORMAL, DIFFICULTY_SUICIDE, DIFFICULTY_ZINGLON } from '../../src/game/world';
 import { highScoreScreen } from '../../src/screens/highscores';
@@ -11,34 +8,11 @@ import { loadScreen } from '../../src/screens/loadscreen';
 import { difficultySelect, episodeSelect, gameplaySelect, newGame } from '../../src/screens/select';
 import { setupMenu } from '../../src/screens/setup';
 import { describeData } from '../helpers/data';
-import { Stop, injectOracleInput } from '../helpers/inject';
-import { testCtx } from '../helpers/ctx';
+import { Stop } from '../helpers/inject';
+import { drive, menuCtx } from '../helpers/drive';
 
 const D = SC.Down, U = SC.Up, R = SC.Return, E = SC.Escape;
 const LSHIFT = 225, KEY_G = 10, KEY_RBRACKET = 48, KEY_L = 15, KEY_O = 18, KEY_R = 21, KEY_D = 7;
-
-function menuCtx(): Ctx {
-  const ctx = testCtx()!;
-  ctx.vga.cur = ctx.vga.screen;
-  loadConfigurationDefaults(ctx);
-  initPlayerData(ctx);
-  scanForEpisodes(ctx);
-  return ctx;
-}
-
-/** Runs `screen` while the timeline's input arrives (frame 1 on); fails (Stop) if the screen is still waiting at the end. */
-async function drive<T>(ctx: Ctx, screen: (c: Ctx) => Promise<T>, build: (t: Timeline) => void, tail = 60): Promise<T> {
-  const t = new Timeline(12); // the fade-in (10 frames) eats input
-  build(t);
-  const last = t.f + tail;
-  injectOracleInput(ctx, { keys: t.keys, text: t.text, mouse: t.mouse }, 0, () => 0, (i) => { idle = 0; if (i >= last) throw new Stop(); });
-  // a screen that is still waiting once every input has been delivered (the injector fires one entry per 2000 idle polls)
-  const budget = 2000 * (t.keys.length + t.text.length + t.mouse.length + 1) + 500;
-  let idle = 0;
-  const sleep = ctx.clock.sleep.bind(ctx.clock);
-  ctx.clock.sleep = (ms: number) => { if (++idle > budget) throw new Stop(); return sleep(ms); };
-  return screen(ctx);
-}
 
 describeData('gameplaySelect', () => {
   it('Full Game and 1 Player Arcade set the mode flags; Esc cancels', async () => {
