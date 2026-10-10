@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { decodePak } from './pak';
 
-export const DATA_URL = 'data/tyrian2000.t2kpak';
+/** `__DATA_URL__` is the content-hashed pak found in public/data at build time (vite.config.ts). */
+export const DATA_URL: string = typeof __DATA_URL__ === 'string' ? __DATA_URL__ : 'data/tyrian2000.t2kpak'; // undefined under vitest
 
 export class DataArchive {
   private readonly files = new Map<string, Uint8Array>();

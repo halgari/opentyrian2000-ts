@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Usage: pnpm data [path/to/tyrian2000.zip]
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,7 +32,12 @@ mkdirSync(dataDir, { recursive: true });
 for (const e of entries) writeFileSync(join(dataDir, e.name), e.data);
 
 const pak = gzipSync(encodePak(entries), { level: 9 });
-mkdirSync(join(ROOT, 'public', 'data'), { recursive: true });
-writeFileSync(join(ROOT, 'public', 'data', 'tyrian2000.t2kpak'), pak);
+const outDir = join(ROOT, 'public', 'data');
+mkdirSync(outDir, { recursive: true });
+for (const f of readdirSync(outDir)) if (/^tyrian2000(\.[0-9a-f]{8})?\.t2kpak$/.test(f)) rmSync(join(outDir, f));
+// Content hash in the name so the file can be served `immutable` (public/_headers).
+const hash = createHash('sha256').update(pak).digest('hex').slice(0, 8);
+const outName = `tyrian2000.${hash}.t2kpak`;
+writeFileSync(join(outDir, outName), pak);
 const raw = entries.reduce((n, e) => n + e.data.length, 0);
-console.log(`${entries.length} files, ${raw} bytes -> public/data/tyrian2000.t2kpak (${pak.length} bytes gzip)`);
+console.log(`${entries.length} files, ${raw} bytes -> public/data/${outName} (${pak.length} bytes gzip)`);

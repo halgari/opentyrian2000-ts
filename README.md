@@ -79,11 +79,33 @@ frame and STATE2 record. `session-ep1-easy` came from the discovery runner; the 
 Add `--fixture` to write `<name>.raw.frames` instead; the tests read those as fixtures
 (`demo-1 --raw 213-215 --fixture`, `demo-4 --raw 213-240 --fixture`).
 
-## Build & deploy
+## Deploy
 
-    pnpm build            # type-check, then produce a static dist/
+Nothing is deployed: this repo never deploys anything. No script in it, and no agent or CI job, ever deploys or uploads anything (a test checks that
+`package.json` has no `wrangler deploy` script). Hosting is a decision for the owner, to be taken first (see Licence below).
 
-`dist/` includes `data/tyrian2000.t2kpak`; serve it with any static host.
+    pnpm build            # type-check, then produce a static dist/ (multi-file)
+    pnpm build:single     # dist-single/tyrian.html: code, worklet and compressed game data in one file
+
+Outputs:
+
+- `dist/` - multi-file static site. The data pak has a content hash in its name (`data/tyrian2000.<hash8>.t2kpak`), so
+  `public/_headers` can serve `/assets/*` and `/data/*` as `immutable` and `index.html` as `no-cache`. `_headers` also sets a
+  Content-Security-Policy and `Permissions-Policy` (no COOP/COEP: the code uses no `SharedArrayBuffer`).
+- `dist-single/tyrian.html` - one file. It works from `file://`. Chromium shares one `localStorage` between all local files
+  (saves are shared with any other local copy); Firefox keeps one per file.
+- `wrangler.jsonc` - Cloudflare Workers static-assets config serving `./dist`, with no Worker code.
+
+Deploy command, to be run by the owner only after the licence decision below:
+
+    pnpm build && pnpm dlx wrangler deploy
+
+### Licence gate
+
+The engine code is GPL-2.0-or-later. The Tyrian 2000 data is different: the zip has no licence file, and its `readme.txt`
+says "All Rights Reserved". Serving the data from a public host, or inlining it in a file that people copy, is
+redistribution and needs the owner's decision. Do not deploy publicly, or publish the single file, until that is settled.
+`public/data/` and `data/` are git-ignored, so the data is never committed.
 
 ## Status
 

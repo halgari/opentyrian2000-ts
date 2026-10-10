@@ -1,0 +1,6 @@
+{
+  // Workers static assets. NOT deployed by any script in this repo (see README: licence gate).
+  "name": "opentyrian2000-ts",
+  "compatibility_date": "2026-10-09",
+  "assets": { "directory": "./dist" }
+}
