@@ -149,7 +149,7 @@ describe.skipIf(!available)('gamepad smoke test (Chromium, synthetic pad)', () =
     await page.close();
   });
 
-  it('shared keyboard 2P: KeyD moves ship 2, ArrowRight moves ship 1', async () => {
+  it('shared keyboard 2P: KeyJ moves ship 2, ArrowRight moves ship 1', async () => {
     const page = await browser!.newPage({ viewport: { width: 640, height: 480 } });
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
@@ -205,10 +205,10 @@ describe.skipIf(!available)('gamepad smoke test (Chromium, synthetic pad)', () =
     }
     const before = await ships();
     // The ships start linked (two-player.c): player 1's sidekick key (map A, left Ctrl) unlinks them for as long as it is held.
-    await hold(['ControlLeft', 'KeyD'], 600);
+    await hold(['ControlLeft', 'KeyJ'], 600);
     const afterD = await ships();
-    expect(afterD[1]![0], 'KeyD moved ship 2 right').toBeGreaterThan(before[1]![0]!);
-    expect(afterD[0]![0], 'KeyD left ship 1 alone').toBe(before[0]![0]);
+    expect(afterD[1]![0], 'KeyJ moved ship 2 right').toBeGreaterThan(before[1]![0]!);
+    expect(afterD[0]![0], 'KeyJ left ship 1 alone').toBe(before[0]![0]);
     const h1 = await hashCanvas(page);
     await hold(['ArrowRight'], 600);
     const afterR = await ships();

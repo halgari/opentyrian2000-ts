@@ -313,4 +313,21 @@ describe('dom-input: pointer lock ordering (M2)', () => {
     // exactly the synthetic down+up: no third event reaches the queue
     expect(drain(input)).toEqual([]);
   });
+
+  it('shared keyboard: a key bound in either map is preventDefault-ed even with Ctrl held; unbound browser shortcuts are not', () => {
+    const target = new EventTarget();
+    const input = new Input();
+    const rect = { left: 0, top: 0, width: 640, height: 400 } as DOMRect;
+    const bound = new Set([21 /* KeyR */]);
+    attachDomInput({ target, canvas: { getBoundingClientRect: () => rect }, input, onToggleFullscreen: () => {}, isBoundKey: (sc) => bound.has(sc) });
+    const ctrlR = keyEvent('keydown', { code: 'KeyR', key: 'r', ctrlKey: true });
+    target.dispatchEvent(ctrlR);
+    expect(ctrlR.defaultPrevented).toBe(true);
+    const ctrlRUp = keyEvent('keyup', { code: 'KeyR', key: 'r', ctrlKey: true });
+    target.dispatchEvent(ctrlRUp);
+    expect(ctrlRUp.defaultPrevented).toBe(true);
+    const ctrlF = keyEvent('keydown', { code: 'KeyF', key: 'f', ctrlKey: true });
+    target.dispatchEvent(ctrlF);
+    expect(ctrlF.defaultPrevented).toBe(false);
+  });
 });

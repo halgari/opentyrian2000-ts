@@ -40,11 +40,17 @@ export function attachDomInput(opts: {
   onToggleFullscreen: () => void;
   /** Defaults to `document` when present; without it pointer lock is disabled. */
   doc?: PointerLockDoc;
+  /**
+   * Web extension: true for a scancode bound in either keyboard map while the shared keyboard is on. Such a key is always
+   * preventDefault'ed, even with Ctrl/Alt/Meta held (Ctrl+F, Ctrl+R, ... would otherwise find/reload mid-game).
+   */
+  isBoundKey?: (scancode: number) => boolean;
   now?: () => number;
 }): () => void {
   const { target, canvas, input } = opts;
   const doc = opts.doc ?? (typeof document !== 'undefined' ? (document as unknown as PointerLockDoc) : undefined);
   const now = opts.now ?? (() => performance.now());
+  const isBound = (sc: number): boolean => opts.isBoundKey?.(sc) ?? false;
   const listeners: [EventTarget, string, EventListener][] = [];
   const on = <E extends Event>(t: EventTarget, type: string, fn: (e: E) => void) => {
     const l = fn as unknown as EventListener;
@@ -116,7 +122,7 @@ export function attachDomInput(opts: {
     // Shift+F11 is the game's gamma key (JE_gammaCheck); plain F11 stays the browser's fullscreen key.
     const sc = e.code === 'F11' ? SC_F11 : scancodeFromCode(e.code);
     if (sc === undefined) return;
-    if (!isBrowserShortcut(e)) e.preventDefault();
+    if (!isBrowserShortcut(e) || isBound(sc)) e.preventDefault();
     if (sc === SC_ESCAPE) {
       // The real keydown arriving just after a synthetic Esc is the same keypress.
       if (now() - lastSyntheticEsc < ESC_DEDUPE_MS) { dropEscKeyup = true; return; }
@@ -131,7 +137,7 @@ export function attachDomInput(opts: {
     const sc = e.code === 'F11' ? SC_F11 : scancodeFromCode(e.code);
     if (sc === undefined) return;
     // A bare Alt release focuses the menu bar on Windows/Linux browsers; Alt is a default sidekick key.
-    if (!isBrowserShortcut(e)) e.preventDefault();
+    if (!isBrowserShortcut(e) || isBound(sc)) e.preventDefault();
     if (sc === SC_ESCAPE && dropEscKeyup) { dropEscKeyup = false; return; }
     input.push({ type: 'keyup', scancode: sc });
   });

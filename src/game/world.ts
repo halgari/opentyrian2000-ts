@@ -198,8 +198,9 @@ export const defaultDosKeySettings: readonly number[] = [72, 80, 75, 77, 57, 28,
 export const defaultMouseSettings: readonly number[] = [1, 4, 5];
 /** config.c:60 defaultKeySettings: SDL scancodes UP DOWN LEFT RIGHT SPACE RETURN LCTRL LALT */
 export const defaultKeySettings: readonly number[] = [82, 81, 80, 79, 44, 40, 224, 226];
-/** Web extension (not in the C): keyboard map B for the shared-keyboard 2P mode. SDL scancodes W S A D, F (fire), R (change fire), G, H (sidekicks). */
-export const defaultKeySettings2: readonly number[] = [26, 22, 4, 7, 9, 21, 10, 11];
+/** Web extension (not in the C): keyboard map B for the shared-keyboard 2P mode. SDL scancodes Y H G J (up, down, left, right; a cross), B fire, V change fire, C / X sidekicks.
+ *  None of them is a Ctrl+key the browser keeps (W T N Q cannot be cancelled by a page; R F P L D reload, find, print, address bar, bookmark), because player 1's sidekick key is Ctrl. */
+export const defaultKeySettings2: readonly number[] = [28, 11, 10, 13, 5, 25, 6, 27];
 /** config.c:106 initialItemAvail (JE_byte[100]) */
 export const initialItemAvail: readonly number[] = [
   1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,

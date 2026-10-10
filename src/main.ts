@@ -82,6 +82,10 @@ async function boot(): Promise<void> {
     target: window,
     canvas,
     input: ctx.input,
+    isBoundKey: (sc) => {
+      const c = ctx.game.config;
+      return c.sharedKeyboard && (c.keySettings.includes(sc) || c.keySettings2.includes(sc));
+    },
     onToggleFullscreen: () => {
       if (document.fullscreenElement) void document.exitFullscreen();
       else void document.documentElement.requestFullscreen();

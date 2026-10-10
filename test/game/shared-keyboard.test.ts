@@ -3,7 +3,7 @@ import { loadConfigurationDefaults } from '../../src/game/config';
 import { readPlayerInput } from '../../src/game/input-level';
 import { parseOpentyrianConfig, serializeOpentyrianConfig } from '../../src/game/save';
 import { effectiveInputDevices, inputDeviceOf, nextInputDevice, normalizeInputDevices } from '../../src/game/twoplayer';
-import { defaultKeySettings2 } from '../../src/game/world';
+import { defaultKeySettings, defaultKeySettings2 } from '../../src/game/world';
 import { DEVICE_KEYBOARD_B } from '../../src/platform/input';
 import { describeData } from '../helpers/data';
 import { testCtx } from '../helpers/ctx';
@@ -85,5 +85,12 @@ describeData('shared keyboard (web extension, not in the C)', () => {
     parseOpentyrianConfig(b.game.config, JSON.stringify({ version: 1, keySettings2: [0, 999, 'x'], sharedKeyboard: 'yes' }));
     expect([...b.game.config.keySettings2]).toEqual([...defaultKeySettings2]);
     expect(b.game.config.sharedKeyboard).toBe(false);
+  });
+  it('the default map B avoids every Ctrl+key the browser keeps (W T N Q cannot be cancelled; R F P L D reload/find/print/address bar/bookmark)', () => {
+    const SC = { A: 4, D: 7, F: 9, L: 15, N: 17, P: 19, Q: 20, R: 21, T: 23, W: 26 };
+    const reserved = new Set(Object.values(SC));
+    expect(defaultKeySettings2.filter((k) => reserved.has(k))).toEqual([]);
+    expect(new Set(defaultKeySettings2).size).toBe(8);
+    for (const k of defaultKeySettings2) expect(defaultKeySettings).not.toContain(k);
   });
 });

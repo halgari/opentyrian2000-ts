@@ -213,6 +213,7 @@ async function captureKey(ctx: Ctx, s: ShopState, curSelect: number): Promise<vo
   } while (!input.newkey && !input.mousedown /* && !joydown */);
 
   if (input.newkey) {
+    const inOwnMap = keys.includes(input.lastkeyScan);
     // already used? then swap
     for (let i = 0; i < keys.length; ++i) {
       if (keys[i] === input.lastkeyScan) {
@@ -225,6 +226,11 @@ async function captureKey(ctx: Ctx, s: ShopState, curSelect: number): Promise<vo
         input.lastkeyScan !== SC_F11 &&          // reserved for gamma
         input.lastkeyScan !== SC_P) {            // reserved for pause
       ctx.audio.playSample(S_CLICK);
+      if (c.sharedKeyboard) { // a key may not be bound in both maps (both players would move together): swap with the other map
+        const other = keys === c.keySettings ? c.keySettings2 : c.keySettings;
+        const at = other.indexOf(input.lastkeyScan);
+        if (at >= 0 && !inOwnMap) other[at] = keys[curSelect - 2]!;
+      }
       keys[curSelect - 2] = input.lastkeyScan;
       ++curSelect;
     }
