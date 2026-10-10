@@ -17,6 +17,7 @@
     "oracle:discover": "tsx tools/oracle/discover.ts",
     "oracle": "pnpm oracle:build && tsx tools/oracle/run.ts all",
     "soak": "SOAK=1 vitest run test/soak",
+    "build:single": "tsx tools/build-single.ts",
     "test:e2e": "vitest run --config vitest.e2e.config.ts"
   },
   "devDependencies": {

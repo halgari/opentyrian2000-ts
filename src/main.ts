@@ -3,6 +3,7 @@ import { loadAssets } from './assets';
 import { formatBootError } from './boot-error';
 import { createCtx } from './ctx';
 import { DATA_URL, fetchArchive } from './data/archive';
+import { archiveFromInline, workletUrlFromInline } from './data/inline';
 import { runGame } from './game';
 import { BrowserClock } from './platform/clock';
 import { canvasBox } from './platform/scaling';
@@ -52,14 +53,20 @@ function exposeDebug(audio: WebAudio): void {
 
 async function boot(): Promise<void> {
   overlay.textContent = 'Loading game data…';
-  const archive = await fetchArchive(DATA_URL, (loaded, total) => {
-    overlay.textContent = total ? `Loading game data… ${Math.round((loaded / total) * 100)}%` : 'Loading game data…';
-  });
+  const archive = __SINGLE__
+    ? await archiveFromInline(document)
+    : await fetchArchive(DATA_URL, (loaded, total) => {
+      overlay.textContent = total ? `Loading game data… ${Math.round((loaded / total) * 100)}%` : 'Loading game data…';
+    });
   const assets = loadAssets(archive);
   const ac = await waitForStartGesture();
   overlay.hidden = true;
   canvas.focus();
-  const audio = await createAudioOrNull(ac, assets.music, assets.tyrianSnd, assets.voicesSnd);
+  let workletUrl: string | undefined;
+  if (__SINGLE__) {
+    try { workletUrl = workletUrlFromInline(document); } catch (err) { console.warn('Audio worklet unavailable:', err); }
+  }
+  const audio = await createAudioOrNull(ac, assets.music, assets.tyrianSnd, assets.voicesSnd, workletUrl ? { workletUrl } : {});
   audio.setVolume(191, 191); // C config default when no config file exists (volume = 191 / sample volume = 191)
   if (location.search.includes('debug') && audio instanceof WebAudio) exposeDebug(audio);
   const ctx = createCtx({

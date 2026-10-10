@@ -10,6 +10,11 @@ describe('formatBootError', () => {
   it('explains a corrupt pack', () => {
     expect(formatBootError(new Error('not a Tyrian data pack (bad magic)'))).toMatch(/pnpm data/);
   });
+  it('names a supported browser when DecompressionStream is missing', () => {
+    const out = formatBootError(new Error('This browser has no DecompressionStream, which the embedded game data needs.'));
+    expect(out).toMatch(/supported browser/);
+    expect(out).not.toMatch(/pnpm data/);
+  });
   it('falls back to the message', () => {
     expect(formatBootError('boom')).toContain('boom');
   });

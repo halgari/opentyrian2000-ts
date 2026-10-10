@@ -7,3 +7,5 @@ test-data/
 test-output/
 *.log
 .superpowers/
+dist-single/
+dist-single-tmp/
