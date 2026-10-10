@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'fflate';
+import { licenceNotice } from '../src/licence';
 import { encodePak, type PakEntry } from '../src/data/pak';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -19,7 +20,7 @@ export function escapeScript(js: string): string {
   return js.replace(/<\/script/gi, '<\\/script').replace(/<!--/g, '<\\!--');
 }
 
-export const LICENCE_NOTICE = 'Code: GPL-2.0-or-later, a port of OpenTyrian2000. Source: https://github.com/KScl/opentyrian2000\nTyrian 2000 data: freeware release; see README.';
+export const LICENCE_NOTICE = licenceNotice(process.env.OT_SOURCE_URL);
 
 function build(): void {
   rmSync(TMP, { recursive: true, force: true });
@@ -33,6 +34,7 @@ function main(): void {
     console.error('Game data not found. Run "pnpm data ~/Downloads/tyrian2000.zip" first.');
     process.exit(1);
   }
+  if (!process.env.OT_SOURCE_URL) console.warn('\n!!! WARNING: OT_SOURCE_URL is not set: the licence notice in tyrian.html says "source URL not configured". Set it before publishing. !!!\n');
   build();
   const assets = join(TMP, 'assets');
   const files = readdirSync(assets);

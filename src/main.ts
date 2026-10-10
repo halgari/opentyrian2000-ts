@@ -7,6 +7,8 @@ import { archiveFromInline, workletDataUrlFromInline, workletUrlFromInline } fro
 import { runGame } from './game';
 import { BrowserClock } from './platform/clock';
 import { canvasBox } from './platform/scaling';
+import { licenceNotice } from './licence';
+import { fullscreenSupported, isFullscreen, toggleFullscreen as toggleFs } from './platform/fullscreen';
 import { Joysticks } from './platform/gamepad';
 import { attachDomInput } from './platform/dom-input';
 import { attachPageLifecycle, attachSaveSync } from './game/save-sync';
@@ -18,9 +20,8 @@ const canvas = document.getElementById('screen') as HTMLCanvasElement;
 const overlay = document.getElementById('overlay') as HTMLDivElement;
 
 function waitForStartGesture(): Promise<AudioContext | null> {
-  // The single-file build carries its licence notice here (shown before play, not over the game).
-  const licence = __SINGLE__ ? document.getElementById('licence')?.textContent : null;
-  overlay.textContent = 'OpenTyrian2000\n\nClick or press any key to start' + (licence ? `\n\n${licence}` : '');
+  // Both builds carry the licence notice here (shown before play, not over the game).
+  overlay.textContent = `OpenTyrian2000\n\nClick or press any key to start\n\n${licenceNotice(__SOURCE_URL__)}`;
   return new Promise((resolve) => {
     const go = (e: Event) => {
       e.preventDefault();
@@ -84,18 +85,15 @@ async function boot(): Promise<void> {
   // The poll reads navigator.getGamepads() on every pass; the events are only logged (joystick.c prints on init).
   window.addEventListener('gamepadconnected', (e) => console.info(`gamepad connected: ${e.gamepad.id}`));
   window.addEventListener('gamepaddisconnected', (e) => console.info(`gamepad disconnected: ${e.gamepad.id}`));
-  attachPageLifecycle(window, document, ctx);
-  attachSaveSync(window, ctx);
+  const detachLifecycle = attachPageLifecycle(window, document, ctx);
+  const detachSaveSync = attachSaveSync(window, ctx);
   document.addEventListener('visibilitychange', () => {
     try {
       if (document.visibilityState === 'hidden') void ac?.suspend().catch(() => {});
       else void ac?.resume().catch(() => {});
     } catch { /* audio context already closed */ }
   });
-  const toggleFullscreen = (): void => {
-    if (document.fullscreenElement) void document.exitFullscreen();
-    else void document.documentElement.requestFullscreen().catch(() => {});
-  };
+  const toggleFullscreen = (): void => toggleFs(document);
   // Setup > Graphics: the canvas box follows the window (index.html's stylesheet is the fit-4-3 default until a mode is set)
   const applyScaling = (): void => {
     if (ctx.display.scalingMode === 'fit-4-3') { canvas.style.width = ''; canvas.style.height = ''; return; } // the stylesheet rule
@@ -104,8 +102,9 @@ async function boot(): Promise<void> {
     canvas.style.height = `${h}px`;
   };
   ctx.display.onScalingChange = applyScaling;
-  ctx.display.toggleFullscreen = toggleFullscreen;
-  ctx.display.isFullscreen = () => document.fullscreenElement !== null;
+  // null where the API is missing or disabled (iPhone Safari): Setup shows "Off" and the row does nothing
+  ctx.display.toggleFullscreen = fullscreenSupported(document) ? toggleFullscreen : null;
+  ctx.display.isFullscreen = () => isFullscreen(document);
   window.addEventListener('resize', () => { if (ctx.display.scalingMode !== 'fit-4-3') applyScaling(); });
   // a devicePixelRatio change (moving between monitors, page zoom) re-runs the computation; the query is re-armed each time
   const watchDpr = (): void => {
@@ -128,6 +127,8 @@ async function boot(): Promise<void> {
   } catch (err) {
     // leave the page quiet behind the error overlay: no pointer lock, no sound, no queue growing with nobody to drain it
     detachInput();
+    detachLifecycle();
+    detachSaveSync();
     try { document.exitPointerLock(); } catch { /* not locked */ }
     try { audio.stopSong(); } catch { /* ignore */ }
     void ac?.suspend().catch(() => {});

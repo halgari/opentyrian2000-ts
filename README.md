@@ -104,6 +104,10 @@ Outputs:
   (saves are shared with any other local copy); Firefox keeps one per file.
 - `wrangler.jsonc` - Cloudflare Workers static-assets config serving `./dist`, with no Worker code.
 
+Before publishing, set `OT_SOURCE_URL` to the public URL of this repository's source, for both `pnpm build` and
+`pnpm build:single` (for example `OT_SOURCE_URL=https://example.org/me/opentyrian2000-ts pnpm build`). It goes into the
+licence notice on the start screen. When it is unset the notice says "source URL not configured" and the build prints a warning.
+
 Deploy command, to be run by the owner only after the licence decision below:
 
     pnpm build && pnpm dlx wrangler deploy
@@ -150,7 +154,7 @@ Sub-project 5 (Polish/ship) - every mode except Destruct is playable:
 - Build: `pnpm build:single` makes one `tyrian.html` with the data inlined (works from `file://`); the Cloudflare config and
   cache headers are in place but nothing is deployed (see Deploy).
 
-Not ported: Destruct (the title code `DESTRUCT` shows a notice), network play, the ship editor, the graphics scaler options
+Not ported: the shop's Joystick configuration page (it stays inert with a pad connected; pads use the default mapping), Destruct (the title code `DESTRUCT` shows a notice), network play, the ship editor, the graphics scaler options
 other than the web scaling modes, and the `]V`/`]R` script reveals (no shipped script uses them). Known gaps: sound effects are
 resampled to the browser's rate, which is not sample-exact against the C; the event-66 difficulty gate cannot be tested through
 the demos. The few C reads past the end of an array that shipped data can reach are modelled as no-ops and counted

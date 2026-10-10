@@ -45,9 +45,11 @@ describe.skipIf(!built)('dist-single/tyrian.html', () => {
     expect(bytes?.[1]).toBe(0x8b);
   });
   it('shows the licence notice', () => {
-    expect(html).toContain('GPL-2.0-or-later');
-    expect(html).toContain('freeware release; see README');
+    expect(html).toContain('GPL-2.0');
+    expect(html).toContain('All Rights Reserved');
+    expect(html).toContain('freeware release');
     expect(html).toContain('https://github.com/KScl/opentyrian2000');
+    expect(html).toMatch(/Source code: GPL-2\.0(, \S+| \(source URL not configured\))/);
     expect(html).toMatch(/<div id="licence" hidden>/); // shown in the start overlay, never over the canvas
     expect(html).not.toMatch(/#licence\s*\{/);
   });

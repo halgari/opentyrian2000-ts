@@ -1,6 +1,7 @@
 // Smoke tests for the single-file build opened from file:// (Chromium). Skipped without Chromium or dist-single/tyrian.html.
 import { createHash } from 'node:crypto';
-import { existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
@@ -16,8 +17,22 @@ const hashCanvas = async (page: Page): Promise<string> =>
   createHash('sha1').update(await page.evaluate(() => (document.getElementById('screen') as HTMLCanvasElement).toDataURL())).digest('hex');
 const overlayText = (page: Page) => page.evaluate(() => document.getElementById('overlay')!.textContent ?? '');
 
+function newestMtime(dir: string): number {
+  let m = 0;
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, e.name);
+    m = Math.max(m, e.isDirectory() ? newestMtime(p) : statSync(p).mtimeMs);
+  }
+  return m;
+}
+
 let browser: Browser | null = null;
 beforeAll(async () => {
+  // never test a stale build: rebuild when the sources are newer than the single file
+  if (available && statSync(FILE).mtimeMs < Math.max(newestMtime(join(ROOT, 'src')), newestMtime(join(ROOT, 'tools')))) {
+    const r = spawnSync('pnpm', ['build:single'], { cwd: ROOT, stdio: 'inherit' });
+    if (r.status !== 0) throw new Error('pnpm build:single failed');
+  }
   if (available) browser = await chromium.launch({ executablePath: chromiumPath, args: ['--autoplay-policy=no-user-gesture-required'] });
 });
 afterAll(async () => { await browser?.close(); });
@@ -103,7 +118,8 @@ describe.skipIf(!available)('single-file smoke test (file://)', () => {
     await page.goto(URL_);
     await page.waitForFunction(() => document.getElementById('overlay')!.textContent!.includes('Click or press'), null, { timeout: 60_000 });
     const text = await overlayText(page);
-    expect(text).toContain('GPL-2.0-or-later');
+    expect(text).toContain('GPL-2.0');
+    expect(text).toContain('All Rights Reserved');
     expect(text).toContain('https://github.com/KScl/opentyrian2000');
     expect(await page.evaluate(() => (document.getElementById('licence') as HTMLElement).hidden), 'no fixed licence element over the canvas').toBe(true);
   }));
