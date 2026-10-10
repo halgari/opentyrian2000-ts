@@ -151,6 +151,37 @@ async function playLevel(lv: DemoLevel, seed: number, frames: number): Promise<{
   return { frames: n, end, immortal };
 }
 
+/** Plays episode 1 section 41 (`]e`, `]g`, the ALE galaga level) with random held keys; returns the frames played and the pickup warning count. */
+async function playGalaga(seed: number, frames: number): Promise<{ frames: number; end: string; oobPickups: number }> {
+  const r = prng(seed);
+  const ctx = newCtx();
+  initEpisode(ctx, 1);
+  ctx.game.config.mainLevel = 41;
+  const loc = await levelSetup(ctx);
+  if (loc === null) throw new Error('levelSetup returned null');
+  if (!ctx.game.config.galagaMode) throw new Error('section 41 did not arm galagaMode');
+  const held = new Set<number>();
+  let n = 0;
+  ctx.frameSink = () => {
+    if (++n % 3 === 0 && r() < 0.35) {
+      for (const [sc, p] of LEVEL_KEYS) {
+        const want = r() < p;
+        if (want && !held.has(sc)) { held.add(sc); ctx.input.push({ type: 'keydown', scancode: sc, mod: 0 }); }
+        else if (!want && held.has(sc)) { held.delete(sc); ctx.input.push({ type: 'keyup', scancode: sc }); }
+      }
+    }
+    if (n >= frames) throw new Stop();
+  };
+  let end = 'cap';
+  try {
+    while ((await levelFrame(ctx, loc)) !== 'end') { /* level_loop */ }
+    end = 'ended';
+  } catch (e) {
+    if (!(e instanceof Stop)) throw e;
+  }
+  return { frames: n, end, oobPickups: ctx.game.varz.oobPickupReads };
+}
+
 /** Walks an episode's script from level 1 with random keys: story text, shops (purchases), planet maps; every level is "won" at once. */
 async function walkScript(episode: number, seed: number, frames: number): Promise<{ frames: number; visits: number; cashMax: number }> {
   const r = prng(seed);
@@ -237,6 +268,23 @@ async function walkScript(episode: number, seed: number, frames: number): Promis
     }
     console.log(out.join('\n'));
     if (unported.length) console.log(`unported branches reached:\n${unported.map((f) => `${f.where}: ${f.what}`).join('\n')}`);
+    expect(findings.map((f) => `${f.where}: ${f.what}`)).toEqual([]);
+  }, 1_800_000);
+
+  it('plays the galaga section (ep1 section 41) with random keys; out-of-range pickups are reported, not failed', async () => {
+    findings.length = 0;
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const out: string[] = [];
+    try {
+      for (let round = 0; round < ROUNDS * 4; round++) {
+        const where = `galaga round ${round} seed ${SEED + round}`;
+        try {
+          const res = await playGalaga(SEED + round, LEVEL_FRAMES);
+          out.push(`${where}: ${res.frames} frames, ${res.end}${res.oobPickups ? `, WARNING ${res.oobPickups} out-of-range pickup(s) (C UB, modelled as no pickup)` : ''}`);
+        } catch (e) { note(where, e); }
+      }
+    } finally { spy.mockRestore(); }
+    console.log(out.join('\n'));
     expect(findings.map((f) => `${f.where}: ${f.what}`)).toEqual([]);
   }, 1_800_000);
 });

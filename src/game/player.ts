@@ -27,6 +27,7 @@ import { inputDeviceOf, linkedShip, playerLinking, scrollAnchorX } from './twopl
 import {
   FRONT_WEAPON, REAR_WEAPON, SA_LASTSHIP, SHOT_FRONT, SHOT_LEFT_SIDEKICK, SHOT_MISC, SHOT_NORTSPARKS, SHOT_P1_SUPERBOMB,
   SHOT_P2_CHARGE, SHOT_REAR, SHOT_RIGHT_SIDEKICK, SHOT_SPECIAL, SHOT_SPECIAL2, type Player,
+  type GameWorld,
 } from './world';
 
 // port of calc_purple_balls_needed (player.c:23)
@@ -756,6 +757,14 @@ export function mainGamePlayerFunctions(ctx: Ctx): void {
   }
 }
 
+/** True when the table read a pickup value of `evalue` (> 30000, no super arcade) makes in JE_playerCollide is outside its array. */
+function pickupIndexOutOfRange(g: GameWorld, evalue: number): boolean {
+  if (evalue > 32100) return evalue - 32100 >= g.items.special.length;
+  if (evalue > 32000) return evalue - 32000 >= g.items.options.length;
+  if (evalue > 31000) return evalue - 31000 >= g.items.weaponPort.length;
+  return evalue - 30000 >= g.items.weaponPort.length || evalue - 30000 - 1 >= g.tables.specialArcadeWeapon.length;
+}
+
 // port of JE_playerCollide (mainint.c:4732); playerNum is 1-based like the C.
 // Reads/writes the C globals temp/temp2/temp3/b through g.scratch (they stay clobbered for later readers, survey 5.1).
 // The network name variants are omitted (no network).
@@ -793,6 +802,16 @@ export function playerCollide(ctx: Ctx, thisPlayer: Player, playerNum: number): 
     /*Collide*/
     const evalue = e.evalue;
     if (evalue > 29999) {
+      // Ruling (C UB; no-op to keep the browser alive): a pickup value whose table index is out of range (galaga doubles the
+      // value of every enemy of a group on each kill, so 30720 happens in real play) makes the C read neighbouring memory in
+      // weaponPort[] / options[] / special[] / specialArcadeWeapon[]. Count it, warn once, free the pickup and apply nothing.
+      if (evalue > 30000 && c.superArcadeMode === 0 && pickupIndexOutOfRange(g, evalue)) {
+        if (v.oobPickupReads++ === 0) {
+          console.warn(`warning: pickup value ${evalue} indexes a table outside the array (mainint.c:4793-4917); the C reads neighbouring memory here, modelled as no pickup`);
+        }
+        enemyAvail[z] = 1;
+        continue;
+      }
       if (evalue === 30000) { // spawn dragonwing in galaga mode, otherwise just a purple ball
         thisPlayer.cash += 100;
 

@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Galaga (]g): tyrian2.c:2510-2517 setup, 376 shot gate, 645 start_level, 1147-1175 HUD block; mainint.c:4749-4762 dragonwing.
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { MersenneTwister } from '../../src/core/mtrand';
 import type { Ctx } from '../../src/ctx';
 import { initPlayerData, loadConfigurationDefaults } from '../../src/game/config';
 import { drawEnemy } from '../../src/game/enemies';
 import { initEpisode, loadItemDatIntoWorld } from '../../src/game/episodes';
+import { levelFrame, levelSetup } from '../../src/game/level';
 import { drawLevelTopBars } from '../../src/game/hud';
 import { getShipInfo } from '../../src/game/shots';
 import { playerCollide, playerMovement } from '../../src/game/player';
@@ -156,5 +157,35 @@ describeData('galaga', () => {
     p.isAlive = false; p.explodingTicks = 0; p.lives = 3; p.initialArmor = 10; p.armor = 0;
     playerMovement(ctx, p, 0, 1, g.varz.shipGr, g.varz.shipGrPtr, [0, 0] as never);
     expect([c.twoPlayerMode, c.twoPlayerLinked, p.isAlive, p.lives, p.armor, p.shield]).toEqual([false, false, true, 2, 10, 0]);
+  });
+
+  it('a doubled-value pickup (evalue 30720, ENGAGE active) is a no-op, counted, and the level keeps running (C UB)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const ctx = testCtx()!;
+      loadConfigurationDefaults(ctx); initPlayerData(ctx); initEpisode(ctx, 1);
+      ctx.game.config.mainLevel = 41; // the real section: `]e`, `]g`, then the ALE level
+      const loc = (await levelSetup(ctx))!;
+      expect(ctx.game.config.galagaMode).toBe(true);
+      const g = ctx.game, p = g.players[0];
+      const frontBefore = p.items.weapon[0].id;
+      let n = 0;
+      ctx.frameSink = () => { n++; };
+      for (let i = 0; i < 400; i++) {
+        if (i === 10) {
+          g.enemies.enemyAvail[0] = 0;
+          Object.assign(g.enemies.enemy[0]!, { ex: p.x - g.backgrounds.mapX2Ofs, ey: p.y - 2, mapoffset: g.backgrounds.mapX2Ofs, evalue: 30720, enemytype: 0, armorleft: 255, exc: 0, eyc: 0 });
+        }
+        if (await levelFrame(ctx, loc) === 'end') break;
+        if (i === 12) {
+          expect(p.isAlive).toBe(true);
+          expect(g.varz.oobPickupReads).toBeGreaterThan(0);
+          expect(g.enemies.enemyAvail[0]).toBe(1);
+          expect(p.items.weapon[0].id).toBe(frontBefore);
+        }
+      }
+      expect(n).toBeGreaterThan(100);
+      expect(warn).toHaveBeenCalledTimes(1);
+    } finally { warn.mockRestore(); }
   });
 });

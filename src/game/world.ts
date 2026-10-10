@@ -688,6 +688,8 @@ export interface VarzGroup {
   chargeWait: number; chargeLevel: number; chargeMax: number; chargeGr: number; chargeGrWait: number; // JE_byte
   neat: number;                        // JE_word
   doNotSaveBackup: boolean;
+  /** pickups whose value indexed a table outside its array (C UB, modelled as no pickup; see player.ts) */
+  oobPickupReads: number;
   specialWeaponFilter: number; specialWeaponFreq: number; // JE_shortint
   specialWeaponWpn: number;            // JE_word
   linkToPlayer: boolean;
@@ -991,7 +993,7 @@ export function createGameWorld(): GameWorld {
       optionAttachmentMove: 0, optionAttachmentLinked: false, optionAttachmentReturn: false,
       chargeWait: 0, chargeLevel: 0, chargeMax: 0, chargeGr: 0, chargeGrWait: 0,
       neat: 0,
-      doNotSaveBackup: false,
+      doNotSaveBackup: false, oobPickupReads: 0,
       specialWeaponFilter: 0, specialWeaponFreq: 0, specialWeaponWpn: 0,
       linkToPlayer: false,
       shipGr: 0, shipGr2: 0, shipGrPtr: null, shipGr2ptr: null,
