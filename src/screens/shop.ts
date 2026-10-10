@@ -5,13 +5,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Ported from: src/game_menu.c (JE_itemScreen, JE_menuFunction, JE_quitRequest)
 //
-// Shop A: the skeleton of JE_itemScreen with the menus that need nothing but the nav map and the quit dialog
-// (FULL_GAME, PLAY_NEXT_LEVEL, 1_PLAYER_ARCADE). Extension points for the other menus, all marked `// TASK 10` /
-// `// TASK 11` and all throwing `unported: shop menu N (task 10/11)` until they exist:
-//   - `PORTED_MENUS`            the outer draw step refuses every other curMenu
-//   - `menuFunction()`          per-menu Enter handler (the C's JE_menuFunction switch)
-//   - `handleMouse()/handleKey()`  per-menu branches of the C's mouse and key handlers
-//   - the inner animation loop  (data-cube reader, weapon simulator) inside `itemScreen()`
+// The skeleton of JE_itemScreen: the outer draw step, the per-menu Enter handler (`menuFunction`, the C's
+// JE_menuFunction switch), the mouse and key handlers, and the inner animation loop. Every C menu is ported;
+// `PORTED_MENUS` guards against a corrupt curMenu.
 import { S_CLICK, S_CURSOR, S_SPRING } from '../audio/ids';
 import { idiv, u16, u8 } from '../core/int';
 import type { Ctx } from '../ctx';

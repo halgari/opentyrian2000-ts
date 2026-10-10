@@ -140,12 +140,12 @@ export const POLISH_SPECS_2P: Record<string, Spec> = {
   /** Same, keys steer P1 into P2: link (within 8 px), fire with the link gun, unlink with a sidekick key. */
   'polish-2p-link': { seed: 'polish-2p', tail: 40, steps: () => [
     ...load2p(), ...play2p(),
-    { sc: RIGHT, hold: 1, after: 40 },                      // P1 (starts left of P2) drifts right into P2, who is idle on the mouse
+    { sc: RIGHT, hold: 140, after: 40 },                      // P1 (starts left of P2) drifts right into P2, who is idle on the mouse
     mouse('d', 1, undefined, 2), mouse('u', 1, undefined, 8), // a mouse event sets mouseXB/YB, which the link test compares with P2's position
     { sc: SPACE, hold: 300, after: 10 }, { sc: LEFT, hold: 20, after: 100 }, { sc: UP, hold: 20, after: 30 }, { sc: LCTRL, hold: 8, after: 40 }] },
   /** Long link-gun run: the direction word is compared bit for bit on every frame (STATE3 linkGunDirecBits). */
   'polish-2p-linkgun': { seed: 'polish-2p', tail: 40, steps: () => [
-    ...load2p(), ...play2p(), { sc: RIGHT, hold: 1, after: 40 }, { sc: SPACE, hold: 600, after: 10 }, mouse('d', 1, undefined, 2),
+    ...load2p(), ...play2p(), { sc: RIGHT, hold: 140, after: 40 }, { sc: SPACE, hold: 600, after: 10 }, mouse('d', 1, undefined, 2),
     mouse('m', 3, 0, 20), mouse('m', 0, 3, 20), mouse('m', -3, 0, 20), mouse('m', 0, -3, 20), mouse('m', 5, 5, 20), mouse('m', -5, -5, 20)] },
 };
 
@@ -169,7 +169,7 @@ export const POLISH_SPECS_2P_SCREENS: Record<string, Spec> = {
     ...load2p(), { sc: RET }, ...typed('Pat'), { sc: RET, after: 10 }, { sc: RET }, ...typed('Lee'), { sc: RET, after: 10 }, { sc: RET }, { sc: RET, idle: true }] },
   /** F1 during a 2P level: the two-player in-game help page (mainint.c:1938), Space dismisses it, the level goes on. */
   'polish-2p-help': { seed: 'polish-2p', tail: 40, extra: { saveDump: false }, steps: () => [
-    ...load2p(), ...play2p(), { sc: RIGHT, hold: 1, after: 100 }, { sc: F1, hold: 3, after: 20 }, { sc: SPACE, after: 12 }, { sc: LEFT, hold: 20, after: 30 }] },
+    ...load2p(), ...play2p(), { sc: RIGHT, hold: 20, after: 100 }, { sc: F1, hold: 3, after: 20 }, { sc: SPACE, after: 12 }, { sc: LEFT, hold: 20, after: 30 }] },
   /** The whole of level 1 with P1 weaving and firing (P2 idles and dies): the level ends with a player alive, so the 2P tally (endLevelAni) follows; a key cuts its glow, another leaves it. */
   'polish-2p-complete': { seed: 'polish-2p', tail: 40, extra: { saveDump: false }, steps: () => [...load2p(), ...play2p(), ...playHolds(11100, 4), { sc: RET, after: 400 }, { sc: RET, after: 60 }, { sc: DOWN, after: 80 }] },
   /** Load Game page 2 lists slots 12-22; page back and forth, load slot 12 into the 2P shop, open and leave the options. */
