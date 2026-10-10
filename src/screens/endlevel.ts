@@ -75,7 +75,7 @@ export async function endLevelAni(ctx: Ctx): Promise<void> {
   await outTextGlow(ctx, screen, 30, 50, `${miscText[28 - 1]} ${p0.cash}`);
 
   if (c.timedBattleMode) {
-    const x = idiv(g.varz.levelTimerCountdown, 10) * 100;
+    const x = u16(idiv(g.varz.levelTimerCountdown, 10) * 100); // JE_word x (mainint.c:2691)
     await outTextGlow(ctx, screen, 40, 75, `${miscTextB[6]} ${x}`);
     p0.cash = u32(p0.cash + x);
   }
