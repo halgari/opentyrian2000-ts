@@ -175,7 +175,7 @@ describeData('runLevel (skeleton loop)', () => {
 
   it('refuses two-player levels', async () => {
     const ctx = testCtx();
-    ctx.game.config.twoPlayerMode = true;
+    ctx.game.config.galagaMode = true;
     await expect(runLevel(ctx)).rejects.toThrow(/unported/);
   });
 });

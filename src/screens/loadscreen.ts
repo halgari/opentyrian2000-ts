@@ -182,8 +182,7 @@ export async function loadScreen(ctx: Ctx): Promise<boolean> {
         done = true;
       } else {
         const saveFileIndex = playersIndex * 11 + selectedIndex;
-        // TODO(sp5): two-player saves (slots 12-22) cannot be played yet; refuse like an empty slot rather than crash later
-        if (c.saveFiles[saveFileIndex]!.level === 0 || saveFileIndex >= 11) { // "EMPTY SLOT"
+        if (c.saveFiles[saveFileIndex]!.level === 0) { // "EMPTY SLOT"
           audio.playSample(S_CLINK);
         } else {
           audio.playSample(S_SELECT);

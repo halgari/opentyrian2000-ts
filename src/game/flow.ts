@@ -20,7 +20,7 @@ export async function jeMain(ctx: Ctx): Promise<void> {
   const v = g.varz;
   const demo = ctx.state.playDemo;
 
-  if (c.twoPlayerMode || c.galagaMode) throw new Error('unported: two-player/galaga level'); // TODO(sp5)
+  if (c.galagaMode) throw new Error('unported: galaga level'); // TODO(sp5)
 
   for (;;) {
     // start_level_first:

@@ -19,13 +19,13 @@ import { STORAGE_KEYS, bytesToBase64 } from '../../src/platform/storage';
 import { NullPresenter } from '../../src/video/presenter';
 import { Stop, installScript, type ScriptStep } from '../../test/helpers/script-input';
 import { writeScenario } from './discover';
-import type { KeyPress, Scenario, TypedChar } from './scenarios';
+import type { KeyPress, MouseEvent, Scenario, TypedChar } from './scenarios';
 import { EPISODE_END_SAVE_REL, SEEDS, buildEpisodeEndSave, buildTsSave, seedRel } from './ts-save';
 import {
   BKSP, DOWN, ESC, F2, F6, F7, LALT, LCTRL, LEFT, RET, RIGHT, SPACE, UP, type Spec,
   buyListItem, buySidekick, buyWeapon, dead, gameOver, idleKey, loadSlot, playHolds, readCube, shopBuyNextLevel, shopNextLevel, skipLevel, toLevel, typed,
 } from './ts-steps';
-import { POLISH_SPECS_CODES, POLISH_SPECS_ENGAGE, POLISH_SPECS_TIMED, registerPolishSeeds } from './ts-specs-polish';
+import { POLISH_SPECS_CODES, POLISH_SPECS_ENGAGE, POLISH_SPECS_TIMED, POLISH_SPECS_2P, registerPolishSeeds } from './ts-specs-polish';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
@@ -95,6 +95,7 @@ const SPECS: Record<string, Spec> = {
   ...POLISH_SPECS_ENGAGE,
   ...POLISH_SPECS_CODES,
   ...POLISH_SPECS_TIMED,
+  ...POLISH_SPECS_2P,
 };
 
 /** Sessions that start from episode-end.sav (a HOME-seeded save standing at the `]Q` section of an episode). */
@@ -150,13 +151,14 @@ function run(name: string, write: boolean): void {
     if (!ok) return;
     // the oracle's frame index: the key is injected after that frame is presented
     const keys: KeyPress[] = steps.flatMap((s, i) => {
-      if (s.ch !== undefined) return [];
+      if (s.ch !== undefined || s.mouse) return [];
       const frame = sr.fires[i]! - (s.idle ? 0 : 1);
       return [s.hold ? { frame, scancode: s.sc, hold: s.hold } : { frame, scancode: s.sc }];
     });
     const text: TypedChar[] = steps.flatMap((s, i) => (s.ch === undefined ? [] : [{ frame: sr.fires[i]! - 1, scancode: s.sc, char: s.ch }]));
-    const lastEnd = Math.max(...keys.map((k) => k.frame + (k.hold ?? 0)), ...text.map((t) => t.frame));
-    const sc: Scenario = { maxFrames: lastEnd + spec.tail + 1, keys, ...(text.length ? { text } : {}), hash: true, state2: true, state3: true, saveDump: true, ...(spec.seed ? { homeSeed: seedRel(spec.seed) } : {}), ...(spec.extra ?? {}) };
+    const mouseEv: MouseEvent[] = steps.flatMap((s, i) => (s.mouse ? [{ frame: sr.fires[i]! - 1, ...s.mouse }] : []));
+    const lastEnd = Math.max(...mouseEv.map((m) => m.frame), ...keys.map((k) => k.frame + (k.hold ?? 0)), ...text.map((t) => t.frame));
+    const sc: Scenario = { maxFrames: lastEnd + spec.tail + 1, keys, ...(text.length ? { text } : {}), ...(mouseEv.length ? { mouse: mouseEv } : {}), hash: true, state2: true, state3: true, saveDump: true, ...(spec.seed ? { homeSeed: seedRel(spec.seed) } : {}), ...(spec.extra ?? {}) };
     console.log(`${name}: ${JSON.stringify(sc)}`);
     if (write) writeScenario(name, sc);
   });

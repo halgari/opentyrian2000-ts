@@ -6,6 +6,10 @@ import type { Scenario } from './scenarios';
 
 export const RET = 40, RIGHT = 79, LEFT = 80, LCTRL = 224, LALT = 226, BKSP = 42, ESC = 41, SPACE = 44, DOWN = 81, UP = 82, F2 = 59, F6 = 63, F7 = 64;
 
+/** A mouse event step (relative motion 'm' (a, b), button 'd'/'u' a); fires like a key step, `sc` is unused. */
+export const mouse = (type: 'm' | 'd' | 'u', a: number, b?: number, after?: number): ScriptStep =>
+  ({ sc: 0, mouse: { type, a, ...(b !== undefined ? { b } : {}) }, ...(after !== undefined ? { after } : {}) });
+
 export const dead = (): ((c: Ctx) => boolean) => {
   let wasAlive = false; // isAlive is also false before the level starts
   return (c) => {

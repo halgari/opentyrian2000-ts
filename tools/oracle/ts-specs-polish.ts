@@ -3,7 +3,7 @@
 // the generated scenarios (polish-*) live in the `<discovered>` region of scenarios.ts and are run by test/golden/polish.test.ts.
 import type { Ctx } from '../../src/ctx';
 import { DIFFICULTY_SUICIDE, DIFFICULTY_ZINGLON } from '../../src/game/world';
-import { DOWN, ESC, RET, SPACE, UP, gameOver, idleKey, loadSlot, playHolds, skipLevel, typed, type Spec } from './ts-steps';
+import { DOWN, ESC, LCTRL, LEFT, RET, RIGHT, SPACE, UP, gameOver, idleKey, loadSlot, mouse, playHolds, skipLevel, typed, type Spec } from './ts-steps';
 import type { ScriptStep } from '../../test/helpers/script-input';
 import { defineSeed } from './ts-save';
 
@@ -29,6 +29,17 @@ export function registerPolishSeeds(): void {
     { slot: 1, name: 'TIMED SEED', episode: 1, level: 1, mutate: (ctx) => {
       for (let t = 0; t < 3; t++) for (const e of ctx.game.config.t2kHighScores[t]!) { e.score = 100 * (1 + t); e.playerName = 'NOBODY'; }
     } },
+  ]);
+  // slot 12 is the 2P save the Load Game screen's page 2 lists first; player 2 gets a front and a rear gun so both fire (the rear id
+  // must have a linkGunWeapons[] entry)
+  const twoPlayerGuns = (ctx: Ctx): void => {
+    const it = ctx.game.players[1].items;
+    it.weapon[0].id = 1; it.weapon[0].power = 2;
+    it.weapon[1].id = 9; it.weapon[1].power = 1;
+  };
+  defineSeed('polish-2p', [
+    { slot: 22, name: 'BACKUP 2P', episode: 1, level: 1, mode: 'twoPlayer', cash: 20000, mutate: twoPlayerGuns },
+    { slot: 12, name: 'TWO PLAYER EP1', episode: 1, level: 1, mode: 'twoPlayer', cash: 20000, mutate: twoPlayerGuns },
   ]);
   defineSeed('polish-engage', [
     // the backup the shop's `]b` would have written (slot 11) and the ENGAGE sections themselves
@@ -100,4 +111,26 @@ export const POLISH_SPECS_TIMED: Record<string, Spec> = {
   /** Space Station: episode 5 data, table 1; the ship dies (timed battle death straight to the title). */
   'polish-timed-station': { tail: 60, extra: { saveDump: false }, steps: () => [
     { sc: RET }, { sc: DOWN }, { sc: DOWN }, { sc: RET }, idleKey(DOWN), { sc: RET }, idleKey(), ...playHolds(450, 33), idleKey(), idleKey()] },
+};
+
+/** Title -> Load Game -> page 2 (Right) -> first slot (slot 12, the 2P save). */
+const load2p = (): ScriptStep[] => [{ sc: DOWN }, { sc: RET }, { sc: RIGHT }, { sc: RET }];
+/** The 2P shop menu (Task 6) up to the level: move to the Play row and press Return. The row index is a proposal, mirroring shopNextLevel; the authoring loop confirms it against the menu's start row (game_menu.c:2925-2958). */
+const play2p = (): ScriptStep[] => [{ sc: DOWN, after: 40 }, { sc: DOWN, after: 2 }, { sc: RET, after: 2 }, { sc: RET, after: 8 }];
+
+/** Authored here, recorded after Task 6 (the 2P shop menu): they cannot reach a level before it. */
+export const POLISH_SPECS_2P: Record<string, Spec> = {
+  /** Load slot 12: the 2P menu, Play; P1 on the keyboard (inputDevice 1), P2 on the mouse (2). Ships apart: independent movement, firing, both HUDs, map scroll on the average x. */
+  'polish-2p-level': { seed: 'polish-2p', tail: 40, steps: () => [
+    ...load2p(), ...play2p(), ...playHolds(700, 4),
+    mouse('m', 6, 0, 30), mouse('m', 0, -5, 3), mouse('d', 1, undefined, 3), mouse('m', -9, 4, 10), mouse('u', 1, undefined, 20)] },
+  /** Same, keys steer P1 into P2: link (within 8 px), fire with the link gun, unlink with a sidekick key. */
+  'polish-2p-link': { seed: 'polish-2p', tail: 40, steps: () => [
+    ...load2p(), ...play2p(),
+    { sc: RIGHT, hold: 140, after: 40 },                      // P1 (starts left of P2) drifts right into P2, who is idle on the mouse
+    { sc: SPACE, hold: 300, after: 10 }, { sc: LEFT, hold: 20, after: 30 }, { sc: UP, hold: 20, after: 30 }, { sc: LCTRL, hold: 8, after: 40 }] },
+  /** Long link-gun run: the direction word is compared bit for bit on every frame (STATE3 linkGunDirecBits). */
+  'polish-2p-linkgun': { seed: 'polish-2p', tail: 40, steps: () => [
+    ...load2p(), ...play2p(), { sc: RIGHT, hold: 140, after: 40 }, { sc: SPACE, hold: 600, after: 10 }, mouse('d', 1, undefined, 2),
+    mouse('m', 3, 0, 20), mouse('m', 0, 3, 20), mouse('m', -3, 0, 20), mouse('m', 0, -3, 20), mouse('m', 5, 5, 20), mouse('m', -5, -5, 20)] },
 };

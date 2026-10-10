@@ -23,6 +23,7 @@ import { readPlayerInput } from './input-level';
 import { drawArmor, drawOptions, drawPortConfigButtons, drawTextWindow, drawShield, HUD_SIDEKICK_Y, wipeShieldArmorBars } from './hud';
 import { playerShotCreate, portConfigs } from './shots';
 import { doSpecialShot, sfCodes } from './specials';
+import { inputDeviceOf, linkedShip, playerLinking, scrollAnchorX } from './twoplayer';
 import {
   FRONT_WEAPON, REAR_WEAPON, SA_LASTSHIP, SHOT_FRONT, SHOT_LEFT_SIDEKICK, SHOT_MISC, SHOT_NORTSPARKS, SHOT_P1_SUPERBOMB,
   SHOT_P2_CHARGE, SHOT_REAR, SHOT_RIGHT_SIDEKICK, SHOT_SPECIAL, SHOT_SPECIAL2, type Player,
@@ -57,8 +58,7 @@ export function handleGotPurpleBall(ctx: Ctx, p: Player): void {
 type MouseKeys = readonly ['mouseX', 'mouseY'] | readonly ['mouseXB', 'mouseYB'];
 
 // port of JE_playerMovement (mainint.c:3497). playerNum is 1-based like the C.
-// TODO(sp4): two-player/linked branches (mainint.c:3868-3925, 4047-4105, 4215-4230, 4355-4388) and the
-// non-demo input paths (keyboard/mouse/joystick, mainint.c:3601-3830) throw when reached.
+// TODO(sp4): the non-demo input paths (keyboard/mouse/joystick, mainint.c:3601-3830) throw when reached.
 /**
  * The scattered spawn point of the Nort ship's banking sparks (mainint.c:4250):
  * `tempW + (mt_rand() % 8) - 4, this_player->y + (mt_rand() % 8) - 4` as call arguments. GCC (x86-64) evaluates
@@ -200,7 +200,7 @@ export function playerMovement(
     sfCodes(ctx, playerNum, p.x, p.y, v[mx], v[my]);
 
     /*Linking Routines*/
-    if (c.twoPlayerMode) throw new Error('unported: mainint.c:3868 two-player linking');
+    playerLinking(ctx, p, playerNum, button);
     if (playerNum === 1 && (button[3 - 1] || button[2 - 1]) && !c.galagaMode) c.twoPlayerLinked = false;
   }
 
@@ -293,7 +293,7 @@ export function playerMovement(
         p.oldY[19] = p.y;
       }
     } else { /*twoPlayerLinked*/
-      throw new Error('unported: mainint.c:4047 linked two-player ship');
+      linkedShip(ctx, p, playerNum);
     }
   }
 
@@ -725,12 +725,14 @@ export function mainGamePlayerFunctions(ctx: Ctx): void {
 
   g.config.portConfigChange = false;
 
-  if (g.config.twoPlayerMode) throw new Error('unported: mainint.c:4676 two-player movement');
-  playerMovement(ctx, g.players[0], 0, 1, v.shipGr, v.shipGrPtr, ['mouseX', 'mouseY']);
+  playerMovement(ctx, g.players[0], inputDeviceOf(ctx, 1), 1, v.shipGr, v.shipGrPtr, ['mouseX', 'mouseY']);
+  if (g.config.twoPlayerMode) {
+    playerMovement(ctx, g.players[1], inputDeviceOf(ctx, 2), 2, v.shipGr2, v.shipGr2ptr, ['mouseXB', 'mouseYB']);
+  }
 
   /* == Parallax Map Scrolling == */
   const b = g.backgrounds;
-  const tempX = u16(g.players[0].x);
+  const tempX = u16(scrollAnchorX(g));
 
   g.scratch.tempW = u16(Math.floor(f32(f32(f32(f32(260 - (tempX - 36)) / (260 - 36)) * (24 * 3)) - 1)));
   const tempW = g.scratch.tempW;
