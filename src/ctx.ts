@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import type { Assets } from './assets';
+import { newSaveSync, type SaveSync } from './game/save-sync';
 import { createGameWorld, type GameWorld } from './game/world';
 import { MersenneTwister } from './core/mtrand';
 import { NullAudio, type Audio } from './platform/audio';
@@ -46,6 +47,8 @@ export interface Ctx {
   storage: StorageAdapter;
   /** All C gameplay globals (spec §2.1). */
   game: GameWorld;
+  /** Web-only: multi-tab tyrian.sav merge state (src/game/save-sync.ts). */
+  saveSync: SaveSync;
 }
 
 export function createCtx(opts: {
@@ -75,5 +78,6 @@ export function createCtx(opts: {
     state: { versionString: opts.versionString ?? VERSION, moveTyrianLogoUp: false, xmas: false, playDemo: false, loadDestruct: false },
     storage: opts.storage ?? memoryAdapter(),
     game,
+    saveSync: newSaveSync(),
   };
 }

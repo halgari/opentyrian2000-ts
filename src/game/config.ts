@@ -11,6 +11,7 @@ import { STORAGE_KEYS } from '../platform/storage';
 import {
   backupCorruptSav, parseCfg, parseOpentyrianConfig, parseSav, readStoredCfg, readStoredSav,
 } from './save';
+import { plainSav, snapshotPlain } from './save-sync';
 import {
   defaultDosKeySettings, FIRST_LEVEL, FRONT_WEAPON, initialItemAvail, REAR_WEAPON, SA_NONE, SAVE_FILES_SIZE,
   type ConfigGroup,
@@ -194,13 +195,13 @@ export function loadConfiguration(ctx: Ctx): void {
   let loaded = false;
   if (sav) {
     const errs = parseSav(c, sav);
-    if (errs.length === 0) loaded = true;
+    if (errs.length === 0) { loaded = true; ctx.saveSync.baseline = plainSav(sav); }
     else {
       const backup = backupCorruptSav(ctx, ctx.storage.get(STORAGE_KEYS.sav) ?? '');
       console.warn(`opentyrian: stored tyrian.sav is invalid (${errs.join('; ')}); kept a copy as "${backup}" and using defaults`);
     }
   }
-  if (!loaded) makeUpSaveDefaults(ctx);
+  if (!loaded) { makeUpSaveDefaults(ctx); ctx.saveSync.baseline = snapshotPlain(c); }
 
   initProcessorType(ctx);
   c.configurationLoaded = true;

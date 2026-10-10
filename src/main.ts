@@ -6,6 +6,7 @@ import { DATA_URL, fetchArchive } from './data/archive';
 import { runGame } from './game';
 import { BrowserClock } from './platform/clock';
 import { attachDomInput } from './platform/dom-input';
+import { attachPageLifecycle, attachSaveSync } from './game/save-sync';
 import { localStorageAdapter } from './platform/storage';
 import { WebAudio, createAudioContext, createAudioOrNull } from './platform/web-audio';
 import { CanvasPresenter } from './video/presenter';
@@ -62,6 +63,14 @@ async function boot(): Promise<void> {
   const ctx = createCtx({
     assets, clock: new BrowserClock(), presenter: new CanvasPresenter(canvas), audio,
     storage: localStorageAdapter(undefined, () => showNotice('Saving is unavailable in this browser (private mode or storage full). Progress will be lost when the page closes.')),
+  });
+  attachPageLifecycle(window, document, ctx);
+  attachSaveSync(window, ctx);
+  document.addEventListener('visibilitychange', () => {
+    try {
+      if (document.visibilityState === 'hidden') void ac?.suspend().catch(() => {});
+      else void ac?.resume().catch(() => {});
+    } catch { /* audio context already closed */ }
   });
   const detachInput = attachDomInput({
     target: window,

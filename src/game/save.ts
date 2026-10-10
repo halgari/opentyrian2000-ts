@@ -9,6 +9,7 @@ import type { Ctx } from '../ctx';
 import { u8 } from '../core/int';
 import { base64ToBytes, bytesToBase64, STORAGE_KEYS } from '../platform/storage';
 import { initEpisode } from './episodes';
+import { mergeStoredSav, noteWritten } from './save-sync';
 import {
   SA_LASTSHIP, SA_ARCADE, SA_NONE, SA_SUPERTYRIAN, SAVE_FILE_SIZE, SAVE_FILES_NUM, SIZEOF_SAVEGAMETEMP,
   defaultKeySettings, defaultMouseSettings,
@@ -197,7 +198,7 @@ function writeT2kTail(c: ConfigGroup, out: Uint8Array, p: number): number {
   return p;
 }
 
-function readT2kTail(c: ConfigGroup, b: Uint8Array, p: number): number {
+export function readT2kTail(c: ConfigGroup, b: Uint8Array, p: number): number {
   for (let z = 0; z < 20; z++) {
     for (let y = 0; y < 3; y++) {
       const e = c.t2kHighScores[z]![y]!;
@@ -320,7 +321,17 @@ export function saveConfiguration(ctx: Ctx): void {
   const c = ctx.game.config;
   // Don't save nothing
   if (!c.configurationLoaded) return;
-  ctx.storage.set(STORAGE_KEYS.sav, bytesToBase64(serializeSav(c)));
+  // Web: another tab may have saved a slot since this tab last looked; keep its changes (save-sync.ts).
+  mergeStoredSav(ctx);
+  const image = serializeSav(c);
+  if (ctx.storage.set(STORAGE_KEYS.sav, bytesToBase64(image))) noteWritten(ctx, image);
+  saveConfigFiles(ctx);
+}
+
+/** The tyrian.cfg and opentyrian.cfg writes of saveConfiguration (web: also run on pagehide). */
+export function saveConfigFiles(ctx: Ctx): void {
+  const c = ctx.game.config;
+  if (!c.configurationLoaded) return;
   ctx.storage.set(STORAGE_KEYS.cfg, bytesToBase64(serializeCfg(c)));
   ctx.storage.set(STORAGE_KEYS.opentyrianCfg, serializeOpentyrianConfig(c));
 }

@@ -25,6 +25,8 @@ const DOM_TO_SDL_BUTTON: Record<number, number> = { 0: 1, 1: 2, 2: 3 };
 export interface PointerLockDoc extends EventTarget {
   pointerLockElement: unknown;
   exitPointerLock(): void;
+  hasFocus?(): boolean;
+  visibilityState?: string;
 }
 
 /** A pointerlockchange that follows an Escape keydown by less than this is the same keypress. */
@@ -63,6 +65,7 @@ export function attachDomInput(opts: {
   let hasFocus = true;
   let pendingUnlocks = 0; // exitPointerLock() calls whose pointerlockchange has not arrived yet
   let lastEscDown = -Infinity;
+  let lastSyntheticEsc = -Infinity;
   const heldButtons = new Map<number, [number, number]>(); // SDL button -> last position, for the release on blur
 
   const tryLock = (): void => {
@@ -93,8 +96,11 @@ export function attachDomInput(opts: {
       // The browser took the lock away. On focus loss the blur path handles it; otherwise the player pressed
       // Esc (Chrome swallows that keydown while locked): deliver it as the in-game-menu key unless the
       // keydown arrived anyway (Firefox).
-      if (!hasFocus || !wantRelative) return;
+      // Decide focus at event time: Chrome may fire this before the window's blur event.
+      const windowLostFocus = doc.hasFocus?.() === false || doc.visibilityState === 'hidden';
+      if (!hasFocus || windowLostFocus || !wantRelative) return;
       if (now() - lastEscDown < ESC_DEDUPE_MS) return;
+      lastSyntheticEsc = now();
       input.push({ type: 'keydown', scancode: SC_ESCAPE, mod: 0 });
       input.push({ type: 'keyup', scancode: SC_ESCAPE });
     });
@@ -110,7 +116,11 @@ export function attachDomInput(opts: {
     const sc = e.code === 'F11' ? SC_F11 : scancodeFromCode(e.code);
     if (sc === undefined) return;
     if (!isBrowserShortcut(e)) e.preventDefault();
-    if (sc === SC_ESCAPE) lastEscDown = now();
+    if (sc === SC_ESCAPE) {
+      // The real keydown arriving just after a synthetic Esc is the same keypress.
+      if (now() - lastSyntheticEsc < ESC_DEDUPE_MS) return;
+      lastEscDown = now();
+    }
     tryLock();
     const mod = (e.shiftKey ? KMOD_LSHIFT : 0) | (e.ctrlKey ? KMOD_LCTRL : 0) | (e.altKey ? KMOD_LALT : 0);
     input.push({ type: 'keydown', scancode: sc, mod });

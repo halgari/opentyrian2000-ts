@@ -111,6 +111,8 @@ function lockSetup() {
   let locked: unknown = null;
   const canvasEl = {};
   const doc = new EventTarget() as unknown as PointerLockDoc & { exitPointerLock: ReturnType<typeof vi.fn> };
+  let focused = true;
+  doc.hasFocus = () => focused;
   Object.defineProperty(doc, 'pointerLockElement', { get: () => locked });
   doc.exitPointerLock = vi.fn(() => { locked = null; });
   const requestPointerLock = vi.fn(() => { locked = canvasEl; return undefined; });
@@ -120,7 +122,7 @@ function lockSetup() {
     target, canvas: { getBoundingClientRect: () => rect, requestPointerLock }, input, onToggleFullscreen: vi.fn(), doc, now: () => t,
   });
   const lose = (): void => { locked = null; doc.dispatchEvent(new Event('pointerlockchange')); };
-  return { target, input, doc, requestPointerLock, lose, advance: (ms: number) => { t += ms; }, isLocked: () => locked !== null };
+  return { target, input, doc, requestPointerLock, lose, setFocused: (f: boolean) => { focused = f; }, advance: (ms: number) => { t += ms; }, isLocked: () => locked !== null };
 }
 const drain = (i: Input): number[] => {
   const out: number[] = [];
@@ -271,5 +273,32 @@ describe('dom-input: window focus (Review Focus 3)', () => {
     target.dispatchEvent(new Event('blur'));
     input.serviceEvents(false);
     expect(doc.exitPointerLock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('dom-input: pointer lock ordering (M2)', () => {
+  it('lock lost BEFORE blur (Alt-Tab): no synthetic Esc, because the document no longer has focus', () => {
+    const { input, target, lose, setFocused } = lockSetup();
+    input.mouseSetRelative(true);
+    setFocused(false);
+    lose();
+    target.dispatchEvent(new Event('blur'));
+    expect(drain(input)).toEqual([]);
+  });
+  it('real Esc keydown arriving AFTER the synthetic one is dropped', () => {
+    const { input, target, lose, advance } = lockSetup();
+    input.mouseSetRelative(true);
+    lose();
+    advance(5);
+    target.dispatchEvent(keyEvent('keydown', { code: 'Escape' }));
+    expect(drain(input)).toEqual([41]);
+  });
+  it('an Esc keydown long after the synthetic one still counts', () => {
+    const { input, target, lose, advance } = lockSetup();
+    input.mouseSetRelative(true);
+    lose();
+    advance(1000);
+    target.dispatchEvent(keyEvent('keydown', { code: 'Escape' }));
+    expect(drain(input)).toEqual([41, 41]);
   });
 });
