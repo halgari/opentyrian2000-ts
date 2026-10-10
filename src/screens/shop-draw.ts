@@ -8,10 +8,12 @@
 import { u16, u8 } from '../core/int';
 import type { Ctx } from '../ctx';
 import { getCost } from '../game/economy';
-import { PlayerItems } from '../game/world';
-import { DARKEN, dString, fontCenter, textShade } from '../video/fonthand';
+import { PlayerItems, SA_LASTSHIP } from '../game/world';
+import { DARKEN, FULL_SHADE, dString, fontCenter, textShade } from '../video/fonthand';
 import { FONT_SHAPES, OPTION_SHAPES, SMALL_FONT_SHAPES, WEAPON_SHAPES, blitSprite, blitSpriteHv } from '../video/sprite';
 import { blitSprite2x2 } from '../video/sprite2';
+import { textState } from '../video/glow-text';
+import { helpBox } from './help-box';
 import type { NavState } from './shop-nav';
 
 // game_menu.c:46-62 (the menu enum)
@@ -311,4 +313,27 @@ export function drawShipIllustration(ctx: Ctx): void {
 
   // shield
   blitSpriteHv(screen, 28, 23, tables[OPTION_SHAPES]!, 26, 15, g.items.shields[items.shield]!.mpwr - 10);
+}
+
+// port of the super arcade / SuperTyrian branch of the left-side panel of JE_itemScreen (game_menu.c:659-675)
+export function drawSuperArcadePanel(ctx: Ctx, _s: ShopState): void {
+  const g = ctx.game;
+  const c = g.config;
+  const screen = ctx.vga.screen;
+  const tables = ctx.assets.shapes.tables;
+  const ts = textState(ctx);
+  const superShips = ctx.assets.helpText.superShips;
+  const SA = SA_LASTSHIP;
+  const p0 = g.players[0];
+
+  ts.helpBoxColor = 15;
+  ts.helpBoxBrightness = 4;
+  if (!c.superTyrian) helpBox(ctx, screen, 35, 25, superShips[c.superArcadeMode]!, 18);
+  else helpBox(ctx, screen, 35, 25, superShips[SA + 3]!, 18);
+  ts.helpBoxBrightness = 1;
+
+  textShade(screen, tables, 25, 50, superShips[SA + 1]!, 15, 0, FULL_SHADE);
+  helpBox(ctx, screen, 25, 60, g.items.weaponPort[p0.items.weapon[0].id]!.name, 22);
+  textShade(screen, tables, 25, 120, superShips[SA + 2]!, 15, 0, FULL_SHADE);
+  helpBox(ctx, screen, 25, 130, g.items.special[p0.items.special]!.name, 22);
 }

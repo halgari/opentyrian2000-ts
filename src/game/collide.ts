@@ -184,7 +184,6 @@ export function playerShotsPass(ctx: Ctx): void {
 
             if ((t2.enemydie > 0) &&
                 !((g.config.superArcadeMode !== SA_NONE) && (g.items.enemyDat[t2.enemydie]!.value === 30000))) {
-              if (g.config.superArcadeMode !== SA_NONE) throw new Error('unported: tyrian2.c:1629 super arcade');
               const tempB = sc.b;
               sc.tempW = t2.enemydie;
               let enemyOffset = sc.temp2 - (sc.temp2 % 25);
@@ -192,6 +191,13 @@ export function playerShotsPass(ctx: Ctx): void {
               sc.b = s16(newEnemy(ctx, enemyOffset, sc.tempW, 0));
               if (sc.b !== 0) {
                 const nb = enemy[sc.b - 1]!;
+                // port of tyrian2.c:1654-1665: super arcade power-ups cycle through five kinds
+                if ((g.config.superArcadeMode !== SA_NONE) && (nb.evalue > 30000)) {
+                  g.config.superArcadePowerUp = u8(g.config.superArcadePowerUp + 1);
+                  if (g.config.superArcadePowerUp > 5) g.config.superArcadePowerUp = 1;
+                  nb.egr[0] = 5 + g.config.superArcadePowerUp * 2;
+                  nb.evalue = 30000 + g.config.superArcadePowerUp;
+                }
                 nb.scoreitem = nb.evalue !== 0;
                 nb.ex = t2.ex;
                 nb.ey = t2.ey;

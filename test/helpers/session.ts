@@ -17,7 +17,7 @@ import { testArchive } from './data';
 import { ORACLE_DIR } from './frames';
 import { frameCrc, readHashes } from './hash-frames';
 import { Stop, injectOracleInput } from './inject';
-import { STATE2_FIELDS, readStates2, type State2Field, type State2Record } from './state-trace';
+import { STATE2_FIELDS, STATE3_FIELDS, readStates2, readStates3, type State2Field, type State2Record, type State3Record } from './state-trace';
 
 export { shopRegistry, shopMock };
 
@@ -46,13 +46,28 @@ export function state2Of(ctx: Ctx, frame: number): State2Record {
   return r as State2Record;
 }
 
-export interface SessionResult { ctx: Ctx; crcs: number[]; states: State2Record[] }
+/** The TS counterpart of write_state3 (player 2, the mode flags, galaga / timer globals). */
+export function state3Of(ctx: Ctx, frame: number): State3Record {
+  const g = ctx.game, c = g.config, v = g.varz;
+  const p1 = g.players[1];
+  return {
+    frame, p1x: p1.x >>> 0, p1y: p1.y >>> 0, p1armor: p1.armor >>> 0, p1shield: p1.shield >>> 0, p1cash: p1.cash >>> 0, p1alive: p1.isAlive ? 1 : 0,
+    flags: ((c.twoPlayerMode ? 1 : 0) | (c.twoPlayerLinked ? 2 : 0) | (c.galagaMode ? 4 : 0) | (c.timedBattleMode ? 8 : 0) |
+      (c.onePlayerAction ? 16 : 0) | (c.superTyrian ? 32 : 0) | (c.superArcadeMode << 8)) >>> 0,
+    linkGunDirecBits: new Uint32Array(new Float32Array([c.linkGunDirec]).buffer)[0]!,
+    galagaLife: v.galagaLife >>> 0, galagaShotFreq: v.galagaShotFreq >>> 0, levelTimerCountdown: v.levelTimerCountdown >>> 0,
+    p1frontId: p1.items.weapon[0].id, p1frontPower: p1.items.weapon[0].power, p1rearId: p1.items.weapon[1].id, p1ship: p1.items.ship,
+  };
+}
+
+export interface SessionResult { ctx: Ctx; crcs: number[]; states: State2Record[]; states3: State3Record[] }
 
 /** Runs `runGame` for `sc.maxFrames` presented frames. */
 export async function runSession(sc: Scenario, ctx: Ctx = sessionCtx(), frame0 = 0): Promise<SessionResult> {
   shopRegistry.current = null;
   shopRegistry.visits = 0;
   const states: State2Record[] = [];
+  const states3: State3Record[] = [];
   let lastShop: ShopState | null = null;
   const crcs = injectOracleInput(ctx, sc, frame0, frameCrc, (i) => {
     const rec = state2Of(ctx, frame0 + i);
@@ -60,6 +75,7 @@ export async function runSession(sc: Scenario, ctx: Ctx = sessionCtx(), frame0 =
     // of the visit; a fresh ShopState starts at FULL_GAME, so that one frame is not comparable (marked -999)
     if (shopRegistry.current !== lastShop) { lastShop = shopRegistry.current; if (frame0 + i > 0) rec.curMenu = -999; }
     states.push(rec);
+    states3.push(state3Of(ctx, frame0 + i));
     if (crcs.length >= sc.maxFrames - frame0) throw new Stop();
   });
   try {
@@ -67,7 +83,7 @@ export async function runSession(sc: Scenario, ctx: Ctx = sessionCtx(), frame0 =
   } catch (e) {
     if (!(e instanceof Stop)) throw e;
   }
-  return { ctx, crcs, states };
+  return { ctx, crcs, states, states3 };
 }
 
 /** First differing STATE2 field per frame, up to `max` reports (curMenu -999 and fields in `skip` are ignored). */
@@ -77,6 +93,18 @@ export function diffStates(ts: State2Record[], oracle: State2Record[], skip: rea
   for (let i = 0; i < n && out.length < max; i++) {
     for (const f of STATE2_FIELDS) {
       if (skip.includes(f) || (f === 'curMenu' && ts[i]!.curMenu === -999)) continue;
+      if (ts[i]![f] !== oracle[i]![f]) { out.push(`frame ${i} ${f}: ts ${ts[i]![f]} oracle ${oracle[i]![f]}`); break; }
+    }
+  }
+  return out;
+}
+
+/** First differing STATE3 field per frame, up to `max` reports. */
+export function diffStates3(ts: State3Record[], oracle: State3Record[], max = 12): string[] {
+  const out: string[] = [];
+  const n = Math.min(ts.length, oracle.length);
+  for (let i = 0; i < n && out.length < max; i++) {
+    for (const f of STATE3_FIELDS) {
       if (ts[i]![f] !== oracle[i]![f]) { out.push(`frame ${i} ${f}: ts ${ts[i]![f]} oracle ${oracle[i]![f]}`); break; }
     }
   }
@@ -131,13 +159,18 @@ export async function expectSessionMatches(
 ): Promise<void> {
   const hashes = readHashes(resolve(ORACLE_DIR, `${name}.hash`));
   const states = readStates2(resolve(ORACLE_DIR, `${name}.state2`));
-  if (!hashes || !states) throw new Error(`oracle files for ${name} are missing: run pnpm oracle:run ${name}`);
+  const states3 = sc.state3 ? readStates3(resolve(ORACLE_DIR, `${name}.state3`)) : null;
+  if (!hashes || !states || (sc.state3 && !states3)) throw new Error(`oracle files for ${name} are missing: run pnpm oracle:run ${name}`);
   const ctx = sessionCtx();
   opts.setup?.(ctx);
   const r = await runSession(sc, ctx);
   expect(r.crcs).toHaveLength(sc.maxFrames);
   expect(states.length, 'oracle .state2 is truncated or from another run').toBe(r.states.length);
   expect(diffStates(r.states, states)).toEqual([]);
+  if (states3) {
+    expect(states3.length, 'oracle .state3 is truncated or from another run').toBe(r.states3.length);
+    expect(diffStates3(r.states3, states3)).toEqual([]);
+  }
   expect(firstHashMismatch(r.crcs, hashes)).toBe(-1);
   if (sc.saveDump) expect(diffSaves(r.ctx, resolve(ORACLE_DIR, `${name}.save`), true)).toEqual([]);
   opts.inspect?.(r);
@@ -155,6 +188,7 @@ export function hasOracle(_name: string): boolean {
 /** The oracle files `name` must have (HASH, STATE2 and, when the scenario dumps the saves, tyrian.sav; tyrian.cfg is not written by every scenario). */
 export function missingOracleFiles(name: string, sc: Scenario): string[] {
   const files = [`${name}.hash`, `${name}.state2`];
+  if (sc.state3) files.push(`${name}.state3`);
   if (sc.saveDump) files.push(`${name}.save/tyrian.sav`);
   return files.filter((f) => !existsSync(resolve(ORACLE_DIR, f)));
 }

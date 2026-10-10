@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// ]e (ENGAGE) and ]g (GALAGA) are offered by ordinary planet menus but are not ported (sub-project 5): the session must end at the
+// ]g (GALAGA) is offered by ordinary planet menus but are not ported (sub-project 5): the session must end at the
 // title with a notice, not with a page-level crash.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { gameLoop } from '../../src/game';
@@ -22,7 +22,7 @@ vi.mock('../../src/screens/stub', () => ({
 beforeEach(() => { h.titles = 0; h.notices = []; });
 
 describeData('unavailable script modes return to the title', () => {
-  for (const cmd of [']e[ ENGAGE', ']g[ GALAGA']) {
+  for (const cmd of [']g[ GALAGA']) {
     it(`${cmd.slice(0, 2)} shows a notice and runs the title again without throwing`, async () => {
       const ctx = testCtx()!;
       loadConfigurationDefaults(ctx);

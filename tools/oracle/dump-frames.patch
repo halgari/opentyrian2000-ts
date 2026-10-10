@@ -93,10 +93,10 @@ index 9c73dda..0f6ff31 100644
  #include <stdbool.h>
 diff --git a/src/oracle.c b/src/oracle.c
 new file mode 100644
-index 0000000..ce4fd17
+index 0000000..bf17a0b
 --- /dev/null
 +++ b/src/oracle.c
-@@ -0,0 +1,465 @@
+@@ -0,0 +1,502 @@
 +/* Reference-oracle hooks for opentyrian2000-ts (not part of upstream).
 + * OT_DUMP=path       append one raw record per JE_showVGA: u32 frame, 768 palette bytes, 64000 pixels
 + * OT_RAW_EVERY=n     with OT_DUMP: only dump frames where frame % n == 0 ...
@@ -109,6 +109,7 @@ index 0000000..ce4fd17
 + * OT_SEED=n          mt_srand seed (default 1)
 + * OT_MAX_FRAMES=n    exit(0) after n frames have been dumped
 + * OT_STATE2=path     append one v2 state record per JE_showVGA: 36 x u32/s32 LE, see write_state2
++ * OT_STATE3=path     append one v3 state record per JE_showVGA: 16 x u32/s32 LE (player 2, mode flags, galaga/timer), see write_state3
 + * OT_KEYS=f:sc[:hold],...  after frame f is presented, inject key down+up (hold 0 = tap) for SDL scancode sc;
 + *                    with hold h > 0: keydown after frame f, keyup after frame f+h
 + * OT_MOUSE=f:m:dx:dy | f:d:btn | f:u:btn, ...  after frame f: relative motion / button down / button up
@@ -142,7 +143,7 @@ index 0000000..ce4fd17
 +extern Uint8 demo_num;                /* varz.c */
 +void oracle_get_palette(Uint8 out[768]);
 +
-+static FILE *dump, *hashf, *statef, *state2f;
++static FILE *dump, *hashf, *statef, *state2f, *state3f;
 +static int initialized;
 +static unsigned long frame;
 +static unsigned long max_frames;
@@ -505,6 +506,38 @@ index 0000000..ce4fd17
 +	fflush(state2f);
 +}
 +
++/* State record v3: 16 x 32-bit little-endian words (s32 where marked), in this order:
++ *  0 frame  1 player[1].x (s32)  2 player[1].y (s32)  3 player[1].armor  4 player[1].shield  5 player[1].cash (low 32 bits)
++ *  6 player[1].is_alive  7 flags: bit0 twoPlayerMode, 1 twoPlayerLinked, 2 galagaMode, 3 timedBattleMode, 4 onePlayerAction,
++ *  5 superTyrian, bits 8.. superArcadeMode   8 linkGunDirec (float bits)   9 galagaLife (s32)   10 galagaShotFreq
++ * 11 levelTimerCountdown  12 player[1] front weapon id  13 front power  14 rear weapon id  15 player[1] ship */
++static void write_state3(unsigned long f)
++{
++	Uint32 r[16];
++	union { float f; Uint32 u; } d;
++	int k = 0;
++	d.f = linkGunDirec;
++	r[k++] = (Uint32)f;
++	r[k++] = (Uint32)(Sint32)player[1].x;
++	r[k++] = (Uint32)(Sint32)player[1].y;
++	r[k++] = player[1].armor;
++	r[k++] = player[1].shield;
++	r[k++] = (Uint32)player[1].cash;
++	r[k++] = player[1].is_alive;
++	r[k++] = (twoPlayerMode ? 1 : 0) | (twoPlayerLinked ? 2 : 0) | (galagaMode ? 4 : 0) | (timedBattleMode ? 8 : 0) |
++	         (onePlayerAction ? 16 : 0) | (superTyrian ? 32 : 0) | ((Uint32)superArcadeMode << 8);
++	r[k++] = d.u;
++	r[k++] = (Uint32)galagaLife;
++	r[k++] = galagaShotFreq;
++	r[k++] = levelTimerCountdown;
++	r[k++] = player[1].items.weapon[FRONT_WEAPON].id;
++	r[k++] = player[1].items.weapon[FRONT_WEAPON].power;
++	r[k++] = player[1].items.weapon[REAR_WEAPON].id;
++	r[k++] = player[1].items.ship;
++	fwrite(r, 4, 16, state3f);
++	fflush(state3f);
++}
++
 +void oracle_frame(SDL_Surface *screen)
 +{
 +	if (!initialized)
@@ -518,6 +551,8 @@ index 0000000..ce4fd17
 +		if (path) statef = fopen(path, "wb");
 +		path = getenv("OT_STATE2");
 +		if (path) state2f = fopen(path, "wb");
++		path = getenv("OT_STATE3");
++		if (path) state3f = fopen(path, "wb");
 +		const char *m = getenv("OT_MAX_FRAMES");
 +		max_frames = m ? strtoul(m, NULL, 10) : 0;
 +		const char *e = getenv("OT_RAW_EVERY");
@@ -550,6 +585,7 @@ index 0000000..ce4fd17
 +	}
 +	if (statef) write_state(frame);
 +	if (state2f) write_state2(frame);
++	if (state3f) write_state3(frame);
 +	inject_keys(frame);
 +	idle_polls = 0;
 +	frame++;
@@ -559,6 +595,7 @@ index 0000000..ce4fd17
 +		if (hashf) fclose(hashf);
 +		if (statef) fclose(statef);
 +		if (state2f) fclose(state2f);
++		if (state3f) fclose(state3f);
 +		exit(0);
 +	}
 +}

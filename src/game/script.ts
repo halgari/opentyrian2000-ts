@@ -24,7 +24,7 @@ import { displayText } from '../video/glow-text';
 import { totalScore } from './economy';
 import { saveGame } from './save';
 import { UnavailableModeError } from './unported';
-import { DIFFICULTY_HARD, DIFFICULTY_NORMAL } from './world';
+import { DIFFICULTY_HARD, DIFFICULTY_NORMAL, DIFFICULTY_ZINGLON } from './world';
 
 const SA_NORTSHIPZ = 7;  // varz.h
 const SA_DESTRUCT = 10;
@@ -46,6 +46,32 @@ function setWarningRow(ctx: Ctx, row: number, text: string): void {
   // anything longer would corrupt the next rows.
   if (text.length > LEVEL_WARNING_COLS) throw new RangeError('unported: levelWarningText row overflow (tyrian2.c)');
   ctx.game.text.levelWarningText[row] = text;
+}
+
+// port of the `]e` command of JE_loadMap (tyrian2.c:2523-2542): the ENGAGE loadout, used for mini-games.
+// constantDie is only set by the command line (params.c) and is always false, so the TS has no such field.
+export function engageLoadout(ctx: Ctx): void {
+  const g = ctx.game;
+  const c = g.config;
+  const p0 = g.players[0];
+  g.varz.doNotSaveBackup = true;
+  c.onePlayerAction = true;
+  c.superTyrian = true;
+  c.twoPlayerMode = false;
+
+  p0.cash = 0;
+
+  p0.items.ship = 13;                    // The Stalker 21.126
+  p0.items.weapon[0].id = 39;            // Atomic RailGun
+  p0.items.weapon[1].id = 0;             // None
+  p0.items.sidekick[0] = 0;              // None
+  p0.items.sidekick[1] = 0;
+  p0.items.generator = 2;                // Advanced MR-12
+  p0.items.shield = 4;                   // Advanced Integrity Field
+  p0.items.special = 0;                  // None
+
+  p0.items.weapon[0].power = 3;
+  p0.items.weapon[1].power = 1;
 }
 
 // port of the episode-script loop of JE_loadMap (tyrian2.c:2429-3034). `s` is JE_loadMap's `char s[256]`; the
@@ -129,9 +155,9 @@ export async function runEpisodeScript(ctx: Ctx, s: Uint8Array): Promise<ScriptR
             c.extraGame = true;
             break;
 
-          case 'e':
-            // TODO(sp5): tyrian2.c:2523 ENGAGE mode / SuperTyrian
-            throw new UnavailableModeError(']e ENGAGE mode (tyrian2.c:2523)');
+          case 'e': // ENGAGE mode, used for mini-games
+            engageLoadout(ctx);
+            break;
 
           case 'J': /* section jump */
             sc.temp = u8(atoi(3));
@@ -263,8 +289,9 @@ export async function runEpisodeScript(ctx: Ctx, s: Uint8Array): Promise<ScriptR
               clearSurface(screen);
 
               if (c.superTyrian) {
-                // TODO(sp5): tyrian2.c:2670 SuperTyrian completion screens
-                throw new Error('unported: ]Q after SuperTyrian (tyrian2.c:2670)');
+                // if completed Zinglon's Revenge, show SuperTyrian and Destruct codes
+                // if completed SuperTyrian, show Nort-Ship Z code
+                c.superArcadeMode = (c.initialDifficulty === DIFFICULTY_ZINGLON) ? 8 : 1;
               }
 
               if (c.superArcadeMode < SA_ENGAGE) {
@@ -297,6 +324,14 @@ export async function runEpisodeScript(ctx: Ctx, s: Uint8Array): Promise<ScriptR
               }
 
               v.jumpSection = true;
+
+              if (c.superTyrian) {
+                await fadeBlack(ctx, 10);
+
+                // back to titlescreen
+                c.mainLevel = 0;
+                return 'return';
+              }
             }
             break;
           }

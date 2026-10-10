@@ -180,7 +180,7 @@ describeData('episode script parser: control flow', () => {
     await expect(run(t)).rejects.toThrow(/unported/);
   });
 
-  it.each([']g[', ']e[', ']V 001[', ']R 001['])('%s is unported and throws', async (cmd) => {
+  it.each([']g[', ']V 001[', ']R 001['])('%s is unported and throws', async (cmd) => {
     await expect(run(makeCtx(['*1', cmd, LEVEL]))).rejects.toThrow(/unported/);
   });
 });

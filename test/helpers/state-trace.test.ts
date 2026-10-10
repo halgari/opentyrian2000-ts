@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { STATE2_FIELDS, STATE2_RECORD_SIZE, STATE_FIELDS, STATE_RECORD_SIZE, firstState2Diff, firstStateDiff, parseStates, parseStates2 } from './state-trace';
+import { STATE3_FIELDS, STATE3_RECORD_SIZE, parseStates3, readStates3, STATE2_FIELDS, STATE2_RECORD_SIZE, STATE_FIELDS, STATE_RECORD_SIZE, firstState2Diff, firstStateDiff, parseStates, parseStates2 } from './state-trace';
 
 function encode(rows: number[][]): Uint8Array {
   const b = new Uint8Array(rows.length * STATE_RECORD_SIZE);
@@ -72,5 +75,28 @@ describe('state2 trace', () => {
   it('rejects partial records and bad frame indexes', () => {
     expect(() => parseStates2(new Uint8Array(143))).toThrow(/partial/);
     expect(() => parseStates2(enc([row2(3)]))).toThrow(/frame index/);
+  });
+});
+
+describe('state3 trace', () => {
+  it('has 16 fields and 64-byte records', () => {
+    expect(STATE3_FIELDS).toHaveLength(16);
+    expect(STATE3_RECORD_SIZE).toBe(64);
+  });
+  it('round-trips a hand-built record through readStates3', () => {
+    const rows = [0, 1].map((frame) => STATE3_FIELDS.map((_, k) => (k === 0 ? frame : k === 9 ? 0xffffff00 + frame : k * 7 + frame)));
+    const b = new Uint8Array(rows.length * STATE3_RECORD_SIZE);
+    const v = new DataView(b.buffer);
+    rows.forEach((r, i) => r.forEach((x, k) => v.setUint32(i * STATE3_RECORD_SIZE + k * 4, x, true)));
+    const dir = mkdtempSync(join(tmpdir(), 'state3-'));
+    const path = join(dir, 'x.state3');
+    writeFileSync(path, b);
+    const recs = readStates3(path)!;
+    expect(recs).toHaveLength(2);
+    expect(recs[1]).toEqual(Object.fromEntries(STATE3_FIELDS.map((f, k) => [f, rows[1]![k]])));
+    expect(recs[0]!.galagaLife).toBe(0xffffff00);
+    expect(parseStates3(b)).toEqual(recs);
+    expect(readStates3(join(dir, 'missing'))).toBeNull();
+    expect(() => parseStates3(b.slice(0, 70))).toThrow(/partial/);
   });
 });

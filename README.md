@@ -57,7 +57,8 @@ scenarios write `test-data/oracle/<name>.hash` and `.state`. To dump a raw windo
 Oracle v2 inputs and records (details in `tools/oracle/dump-frames.patch`, header of `src/oracle.c`):
 `OT_KEYS=frame:scancode[:hold]` (hold 0 = tap; hold h = keydown after frame, keyup after frame+h),
 `OT_MOUSE=frame:m:dx:dy | frame:d:btn | frame:u:btn`, `OT_STATE2` 36 x 32-bit record (layout in
-`test/helpers/state-trace.ts`), `OT_SAVEDUMP=dir` (copies `tyrian.sav`/`tyrian.cfg` at exit),
+`test/helpers/state-trace.ts`), `OT_STATE3` 16 x 32-bit record (player 2, mode flags, galaga/timer globals; scenarios
+with `state3: true`), `OT_SAVEDUMP=dir` (copies `tyrian.sav`/`tyrian.cfg` at exit),
 `OT_IDLE_POLLS` (default 2000). Screens that draw once and then block (gameplay/episode/difficulty select, load,
 high scores) never present another frame, so a key scheduled for a later frame would hang the process. If no frame
 is presented for `OT_IDLE_POLLS` delay polls, the next pending input (and all with the same frame number) is injected

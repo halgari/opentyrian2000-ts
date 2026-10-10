@@ -125,13 +125,26 @@ describeData('shop (Shop A)', () => {
     expect(q.ctx.game.config.mainLevel).toBe(0);
   });
 
-  it('two-player and SuperTyrian shops are unported (sp5)', async () => {
+  it('the two-player shop is unported (Task 6)', async () => {
     const a = shopCtx({});
     a.ctx.game.config.twoPlayerMode = true;
     await expect(itemScreen(a.ctx)).rejects.toThrow('unported: shop menu 9');
-    const b = shopCtx({});
-    b.ctx.game.config.superTyrian = true;
-    await expect(itemScreen(b.ctx)).rejects.toThrow('unported: shop menu 13');
+  });
+
+  it('the SuperTyrian shop: Next Level jumps to the planet section, Quit leaves through the title', async () => {
+    const a = shopCtx({ 3: tap(Scancode.Return) });
+    a.ctx.game.config.superTyrian = true;
+    const state = new ShopState();
+    await itemScreen(a.ctx, state);
+    expect(state.curMenu).toBe(13);
+    expect(a.ctx.game.config.mainLevel).toBe(8);
+    expect(a.ctx.game.varz.jumpSection).toBe(true);
+
+    const q = shopCtx({ 3: tap(Scancode.Down), 5: tap(Scancode.Down), 7: tap(Scancode.Down), 9: tap(Scancode.Return), 17: tap(Scancode.Return) });
+    q.ctx.game.config.superTyrian = true;
+    await itemScreen(q.ctx);
+    expect(q.ctx.game.varz.gameLoaded).toBe(true);
+    expect(q.ctx.game.config.mainLevel).toBe(0);
   });
 });
 

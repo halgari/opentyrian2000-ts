@@ -12,6 +12,7 @@ import { saveConfiguration } from './game/save';
 import { UnavailableModeError } from './game/unported';
 import { introLogos } from './screens/intro';
 import { quitScreen, stubScreen } from './screens/stub';
+import { trentWinScreen } from './screens/trent';
 import { titleScreen } from './screens/title';
 
 // port of the main() loop (opentyr.c). Quitting returns to the title instead of exiting.
@@ -42,6 +43,11 @@ export async function gameLoop(ctx: Ctx): Promise<never> {
     else {
       try {
         await jeMain(ctx); // JE_main()
+        if (ctx.game.config.trentWin) {
+          // opentyr.c:885 leaves the loop and JE_tyrianHalt prints the text; the page shows it and returns to the title
+          ctx.game.config.trentWin = false;
+          await trentWinScreen(ctx);
+        }
       } catch (e) {
         // ]e / ]g (secret modes, sub-project 5): not an error page, just back to the title like a finished session
         if (!(e instanceof UnavailableModeError)) throw e;

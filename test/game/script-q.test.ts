@@ -65,10 +65,16 @@ describeData('episode script parser: ]Q after the last episode', () => {
     expect(ink(b)).toBe(0);
   });
 
-  it('SuperTyrian completion is unported', async () => {
-    ep.jumpBack = true;
-    const ctx = makeCtx();
-    ctx.game.config.superTyrian = true;
-    await expect(runEpisodeScript(ctx, new Uint8Array(256))).rejects.toThrow(/unported/);
+  it('SuperTyrian completion (tyrian2.c:2689-2740): arcade mode from the difficulty, text, back to the title with mainLevel 0', async () => {
+    for (const [diff, mode] of [[2, 1], [8, 8], [6, 1]] as const) {
+      ep.jumpBack = true;
+      const ctx = makeCtx();
+      ctx.game.config.superTyrian = true;
+      ctx.game.config.initialDifficulty = diff;
+      expect(await runEpisodeScript(ctx, new Uint8Array(256))).toBe('return');
+      expect(ctx.game.config.superArcadeMode).toBe(mode);
+      expect(ctx.game.config.mainLevel).toBe(0);
+      expect(ctx.game.varz.jumpSection).toBe(true);
+    }
   });
 });

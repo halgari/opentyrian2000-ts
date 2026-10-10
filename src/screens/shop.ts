@@ -33,7 +33,7 @@ import {
   ITEM_AVAIL_MAP, MENU_1_PLAYER_ARCADE, MENU_2_PLAYER_ARCADE, MENU_CHOICES_DEFAULT, MENU_DATA_CUBES, MENU_DATA_CUBE_SUB,
   MENU_ESC, MENU_FULL_GAME, MENU_LIMITED_OPTIONS, MENU_LOAD_SAVE, MENU_OPTIONS, MENU_PLAY_NEXT_LEVEL, MENU_SUPER_TYRIAN,
   MENU_UPGRADES, MENU_UPGRADE_SUB, ShopState, drawMainMenuHelpText, drawMenuChoices, drawMenuHeader, drawScore,
-  drawShipIllustration, getPlayerItem,
+  drawShipIllustration, drawSuperArcadePanel, getPlayerItem,
 } from './shop-draw';
 import { NavState, PLANET_X, PLANET_Y, computeDots, updateNavScreen } from './shop-nav';
 import { Scancode } from '../platform/scancodes';
@@ -54,14 +54,14 @@ const SC_SLASH = 56; // SDL_SCANCODE_SLASH
 /** Menus whose draw step, input handling and Enter handler exist. Everything else is Task 10/11 (or sp5). */
 const PORTED_MENUS: ReadonlySet<number> = new Set([MENU_FULL_GAME, MENU_UPGRADES, MENU_PLAY_NEXT_LEVEL, MENU_UPGRADE_SUB, MENU_1_PLAYER_ARCADE,
   MENU_OPTIONS, 5 /* KEYBOARD_CONFIG */, MENU_LOAD_SAVE, MENU_DATA_CUBES, MENU_DATA_CUBE_SUB, MENU_LIMITED_OPTIONS,
-  12 /* JOYSTICK_CONFIG */, 14 /* MOUSE_CONFIG */]);
+  12 /* JOYSTICK_CONFIG */, 14 /* MOUSE_CONFIG */, MENU_SUPER_TYRIAN]);
 
 function unported(what: string): never {
   throw new Error(`unported: ${what}`);
 }
 
 function unportedMenu(menu: number): never {
-  // TODO(sp5): MENU_2_PLAYER_ARCADE (9) and MENU_SUPER_TYRIAN (13) are the two-player / SuperTyrian menus (game_menu.c:245-254).
+  // TODO(sp5): MENU_2_PLAYER_ARCADE (9) is the two-player menu (game_menu.c:245-254), Task 6.
   return unported(`shop menu ${menu}`);
 }
 
@@ -246,6 +246,27 @@ async function menuFunction(ctx: Ctx, s: ShopState, select: number): Promise<voi
       }
       break;
 
+    case MENU_SUPER_TYRIAN:
+      switch (s.curSel[s.curMenu]) {
+        case 2:
+          g.config.mainLevel = v.mapSection[v.mapPNum - 1]!;
+          v.jumpSection = true;
+          break;
+        case 3:
+          await doShipSpecs(ctx, s);
+          break;
+        case 4:
+          s.curMenu = MENU_OPTIONS;
+          break;
+        case 5:
+          if (await quitRequest(ctx)) {
+            v.gameLoaded = true;
+            g.config.mainLevel = 0;
+          }
+          break;
+      }
+      break;
+
     case MENU_UPGRADES:
       menuFunctionUpgrades(ctx, s, select);
       break;
@@ -256,7 +277,7 @@ async function menuFunction(ctx: Ctx, s: ShopState, select: number): Promise<voi
 
     default:
       // OPTIONS, KEYBOARD_CONFIG, LOAD_SAVE, DATA_CUBES, DATA_CUBE_SUB, LIMITED_OPTIONS, JOYSTICK_CONFIG, MOUSE_CONFIG: shop-options.ts
-      // TODO(sp5): 2_PLAYER_ARCADE, SUPER_TYRIAN
+      // TODO(sp5): 2_PLAYER_ARCADE
       if (!(await menuFunctionC(ctx, s, select, curSelect))) unportedMenu(s.curMenu);
   }
 
@@ -540,7 +561,7 @@ export async function itemScreen(ctx: Ctx, state: ShopState = new ShopState()): 
       if (c.twoPlayerMode) {
         unported('shop two-player scores (game_menu.c:726)'); // TODO(sp5)
       } else if (c.superArcadeMode !== SA_NONE || c.superTyrian) {
-        unported('shop super arcade ship panel (game_menu.c:735)'); // TODO(sp5)
+        drawSuperArcadePanel(ctx, s);
       } else {
         drawShipIllustration(ctx);
       }

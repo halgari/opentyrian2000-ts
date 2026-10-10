@@ -9,7 +9,8 @@ import { OUT, DATA, ROOT, runOracle } from './lib';
 import { ensureLevelDemo } from './gen-demos';
 import { INPUT_SCENARIOS } from './scenarios-input';
 import { SHOPC_SCENARIOS } from './scenarios-shopc';
-import { EPISODE_END_SAVE_REL, TS_SAVE_REL, buildEpisodeEndSave, buildTsSave } from './ts-save';
+import { SEEDS } from './ts-save';
+import { registerPolishSeeds } from './ts-specs-polish';
 import { AUDIO_SCENARIOS, LEVEL_SCENARIOS, LONG_LEVEL_SCENARIOS, SCENARIOS, type AudioScenarioName, type Scenario } from './scenarios';
 
 const RECORD = 4 + 768 + 64000;
@@ -19,9 +20,9 @@ const HASHED: Record<string, Scenario> = { ...INPUT_SCENARIOS, ...SHOPC_SCENARIO
 
 /** The HOME seeds of the `ts-save-load` / `session-ep*-end` scenarios: saves written by the TS port. */
 function writeTsSaves(): void {
+  registerPolishSeeds();
   mkdirSync(join(ROOT, 'test-data/ts-save'), { recursive: true });
-  writeFileSync(join(ROOT, EPISODE_END_SAVE_REL), buildEpisodeEndSave());
-  writeFileSync(join(ROOT, TS_SAVE_REL), buildTsSave());
+  for (const [rel, build] of Object.entries(SEEDS)) writeFileSync(join(ROOT, rel), build());
 }
 
 /** `fixture`: write <name>.raw.frames (read by tests); otherwise debug dumps go to <name>.dbg.frames so they never clobber fixtures */
@@ -33,13 +34,14 @@ function run(name: string, raw: RawOpts = {}): void {
   if (name in LEVEL_SCENARIOS || name in LONG_LEVEL_SCENARIOS) ensureLevelDemo(name);
   const rawMode = raw.frames !== undefined || raw.every !== undefined;
   // Hash/state scenarios write .hash/.state/.state2; the raw dump is then only produced on request (--raw).
-  const hashed = sc.hash === true || sc.state === true || sc.state2 === true;
+  const hashed = sc.hash === true || sc.state === true || sc.state2 === true || sc.state3 === true;
   const out = join(OUT, rawMode ? `${name}.${raw.fixture ? 'raw' : 'dbg'}.frames` : `${name}.frames`);
   const hashOut = join(OUT, `${name}.hash`);
   const stateOut = join(OUT, `${name}.state`);
   const state2Out = join(OUT, `${name}.state2`);
+  const state3Out = join(OUT, `${name}.state3`);
   const saveOut = join(OUT, `${name}.save`);
-  for (const p of [out, hashOut, stateOut, state2Out]) rmSync(p, { force: true });
+  for (const p of [out, hashOut, stateOut, state2Out, state3Out]) rmSync(p, { force: true });
   const dumpRaw = rawMode || !hashed;
   runOracle(name, sc, {
     ...(dumpRaw ? { dump: out } : {}),
@@ -47,6 +49,7 @@ function run(name: string, raw: RawOpts = {}): void {
     ...(sc.hash ? { hash: hashOut } : {}),
     ...(sc.state ? { state: stateOut } : {}),
     ...(sc.state2 ? { state2: state2Out } : {}),
+    ...(sc.state3 ? { state3: state3Out } : {}),
     ...(sc.saveDump ? { saveDump: saveOut } : {}),
   });
   if (dumpRaw && !rawMode) {
@@ -69,6 +72,11 @@ function run(name: string, raw: RawOpts = {}): void {
     const n = statSync(state2Out).size / 144;
     if (n !== sc.maxFrames) throw new Error(`oracle ${name}: expected ${sc.maxFrames} state2 records, got ${n}`);
     console.log(`oracle ${name}: ${n} state2 records -> ${state2Out}`);
+  }
+  if (sc.state3) {
+    const n = statSync(state3Out).size / 64;
+    if (n !== sc.maxFrames) throw new Error(`oracle ${name}: expected ${sc.maxFrames} state3 records, got ${n}`);
+    console.log(`oracle ${name}: ${n} state3 records -> ${state3Out}`);
   }
   if (sc.saveDump) console.log(`oracle ${name}: save dump -> ${saveOut}`);
 }

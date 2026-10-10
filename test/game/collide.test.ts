@@ -62,6 +62,34 @@ describeData('playerShotsPass', () => {
     expect(g.scratch.temp).toBe(5);
   });
 
+  it('super arcade mode: each power-up an enemy drops cycles evalue 30001..30005 (tyrian2.c:1654-1665)', () => {
+    const { ctx, g } = setup(20);
+    g.config.superArcadeMode = 1;
+    g.items.enemyDat[5] = Object.assign(newEnemyDatType(), { armor: 1, esize: 0, value: 31000, eenemydie: 0 });
+    // three linked enemies die together and each leaves the power-up enemy 5 behind
+    addEnemy(g, 30, { linknum: 5, enemydie: 5, evalue: 0 });
+    addEnemy(g, 31, { linknum: 5, enemydie: 5, evalue: 0, ex: 200, ey: 40 });
+    addEnemy(g, 32, { linknum: 5, enemydie: 5, evalue: 0, ex: 220, ey: 40 });
+    playerShotsPass(ctx);
+    const drops = g.enemies.enemy.slice(0, 25).filter((_, i) => g.enemies.enemyAvail[i] === 0);
+    expect(drops.map((d) => d.evalue)).toEqual([30001, 30002, 30003]);
+    expect(drops.map((d) => d.egr[0])).toEqual([7, 9, 11]);
+    expect(g.config.superArcadePowerUp).toBe(3);
+  });
+
+  it('super arcade power-up counter wraps from 5 to 1; outside super arcade mode the value is left alone', () => {
+    for (const [mode, start, want, wantCounter] of [[1, 5, 30001, 1], [0, 5, 31000, 5]] as const) {
+      const { ctx, g } = setup(20);
+      g.config.superArcadeMode = mode;
+      g.config.superArcadePowerUp = start;
+      g.items.enemyDat[5] = Object.assign(newEnemyDatType(), { armor: 1, esize: 0, value: 31000, eenemydie: 0 });
+      addEnemy(g, 30, { linknum: 5, enemydie: 5, evalue: 0 });
+      playerShotsPass(ctx);
+      expect(g.enemies.enemy[0]!.evalue).toBe(want);
+      expect(g.config.superArcadePowerUp).toBe(wantCounter);
+    }
+  });
+
   it('hitting an armor-255 enemy runs doSP, which clobbers scratch temp (loop counter = num)', () => {
     const { ctx, g } = setup(10);
     addEnemy(g, 0, { armorleft: 255, linknum: 9 });

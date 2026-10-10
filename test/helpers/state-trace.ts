@@ -85,3 +85,35 @@ export function firstState2Diff(a: State2Record, b: State2Record): State2Field |
   for (const f of STATE2_FIELDS) if (a[f] !== b[f]) return f;
   return null;
 }
+
+/**
+ * Field order of one OT_STATE3 record (16 x u32 LE); mirrors write_state3() in tools/oracle/dump-frames.patch: player 2, the mode
+ * flags and the galaga / timer globals that STATE2 does not cover. All words are the unsigned reading of the C values (x, y and
+ * galagaLife are signed in C: compare bit patterns). `flags`: bit0 twoPlayerMode, 1 twoPlayerLinked, 2 galagaMode, 3 timedBattleMode,
+ * 4 onePlayerAction, 5 superTyrian, bits 8.. superArcadeMode.
+ */
+export const STATE3_FIELDS = [
+  'frame', 'p1x', 'p1y', 'p1armor', 'p1shield', 'p1cash', 'p1alive', 'flags', 'linkGunDirecBits',
+  'galagaLife', 'galagaShotFreq', 'levelTimerCountdown', 'p1frontId', 'p1frontPower', 'p1rearId', 'p1ship',
+] as const;
+export type State3Field = (typeof STATE3_FIELDS)[number];
+export type State3Record = Record<State3Field, number>;
+export const STATE3_RECORD_SIZE = STATE3_FIELDS.length * 4;
+
+export function parseStates3(bytes: Uint8Array): State3Record[] {
+  if (bytes.length % STATE3_RECORD_SIZE !== 0) throw new Error('state3 file ends in a partial record');
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const out: State3Record[] = [];
+  for (let p = 0, i = 0; p < bytes.length; p += STATE3_RECORD_SIZE, i++) {
+    const rec = {} as Record<State3Field, number>;
+    STATE3_FIELDS.forEach((f, k) => { rec[f] = view.getUint32(p + k * 4, true); });
+    if (rec.frame !== i) throw new Error(`state3 file: record ${i} has frame index ${rec.frame}`);
+    out.push(rec);
+  }
+  return out;
+}
+
+/** Returns null when the oracle file is absent (golden tests then skip). */
+export function readStates3(path: string): State3Record[] | null {
+  return existsSync(path) ? parseStates3(new Uint8Array(readFileSync(path))) : null;
+}

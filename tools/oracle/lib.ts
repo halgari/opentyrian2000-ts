@@ -20,7 +20,7 @@ export const mouseEnv = (sc: Pick<Scenario, 'mouse'>): string =>
 
 export interface OraclePaths {
   /** raw frames (OT_DUMP) or undefined */ dump?: string;
-  hash?: string; state?: string; state2?: string; saveDump?: string; idleLog?: string;
+  hash?: string; state?: string; state2?: string; state3?: string; saveDump?: string; idleLog?: string;
   rawFrames?: string; rawEvery?: string;
 }
 
@@ -49,6 +49,7 @@ export function runOracle(name: string, sc: Scenario, paths: OraclePaths, timeou
       ...(paths.hash ? { OT_HASH: paths.hash } : {}),
       ...(paths.state ? { OT_STATE: paths.state } : {}),
       ...(paths.state2 ? { OT_STATE2: paths.state2 } : {}),
+      ...(paths.state3 ? { OT_STATE3: paths.state3 } : {}),
       ...(paths.saveDump ? { OT_SAVEDUMP: paths.saveDump } : {}),
       ...(paths.idleLog ? { OT_IDLELOG: paths.idleLog } : {}),
       ...(sc.demo !== undefined ? { OT_DEMO: String(sc.demo) } : {}),

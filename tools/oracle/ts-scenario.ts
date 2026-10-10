@@ -20,76 +20,17 @@ import { NullPresenter } from '../../src/video/presenter';
 import { Stop, installScript, type ScriptStep } from '../../test/helpers/script-input';
 import { writeScenario } from './discover';
 import type { KeyPress, Scenario, TypedChar } from './scenarios';
-import { EPISODE_END_SAVE_REL, buildEpisodeEndSave, buildTsSave } from './ts-save';
+import { EPISODE_END_SAVE_REL, SEEDS, buildEpisodeEndSave, buildTsSave, seedRel } from './ts-save';
+import {
+  BKSP, DOWN, ESC, F2, F6, F7, LALT, LCTRL, LEFT, RET, RIGHT, SPACE, UP, type Spec,
+  buyListItem, buySidekick, buyWeapon, dead, gameOver, idleKey, loadSlot, playHolds, readCube, shopBuyNextLevel, shopNextLevel, skipLevel, toLevel, typed,
+} from './ts-steps';
+import { POLISH_SPECS_ENGAGE, registerPolishSeeds } from './ts-specs-polish';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
-const RET = 40, RIGHT = 79, LEFT = 80, LCTRL = 224, LALT = 226, BKSP = 42, ESC = 41, SPACE = 44, DOWN = 81, UP = 82, F2 = 59, F6 = 63, F7 = 64;
-
-const dead = (): ((c: Ctx) => boolean) => {
-  let wasAlive = false; // isAlive is also false before the level starts
-  return (c) => {
-    wasAlive = wasAlive || c.game.players[0].isAlive;
-    return wasAlive && !c.game.players[0].isAlive && !c.game.varz.firstGameOver;
-  };
-};
-
-/** title -> Full Game -> episode 1 -> difficulty (after `difficultyKeys`) -> shop 1 (Next Level) -> first planet. */
-const toLevel = (difficultyKeys: number[] = []): ScriptStep[] => [
-  { sc: RET }, { sc: RET }, { sc: RET }, ...difficultyKeys.map((sc) => ({ sc })), { sc: RET },
-  { sc: DOWN, after: 12 }, { sc: DOWN, after: 1 }, { sc: DOWN, after: 1 }, { sc: DOWN, after: 1 }, { sc: RET, after: 1 }, { sc: RET, after: 4 },
-];
-const shopNextLevel = (first: number): ScriptStep[] => [
-  { sc: DOWN, after: first }, { sc: DOWN, after: 1 }, { sc: DOWN, after: 1 }, { sc: DOWN, after: 1 }, { sc: RET, after: 1 }, { sc: RET, after: 4 },
-];
-/** The F2+F6+F7 cheat: ends the level; a key cuts the tally's glow animation short, another leaves its final "Press a key". */
-const skipLevel = (wait: number): ScriptStep[] => [
-  { sc: F2, hold: 4, after: wait }, { sc: F6, hold: 4, after: 0 }, { sc: F7, hold: 4, after: 0 }, { sc: RET, after: 120 }, { sc: RET, after: 8 },
-];
-const gameOver = (): ScriptStep => ({ sc: RET, when: dead(), hold: 1 });
-
-
-/**
- * Real held input for one level: fire held for `frames`, a sweep of arrow holds (deterministic LCG pattern, overlapping holds are
- * allowed), the change-fire key tapped now and then, and the left / right sidekick keys held in bursts.
- */
-const playHolds = (frames: number, seed: number): ScriptStep[] => {
-  let r = seed >>> 0;
-  const rnd = (n: number): number => { r = (Math.imul(r, 1664525) + 1013904223) >>> 0; return (r >>> 8) % n; };
-  const out: ScriptStep[] = [{ sc: SPACE, hold: frames, after: 0 }];
-  const dirs = [LEFT, RIGHT, UP, DOWN];
-  for (let used = 0; used < frames - 120;) {
-    const gap = 1 + rnd(25), hold = 5 + rnd(50);
-    const sc = rnd(9) === 0 ? (rnd(2) ? LCTRL : LALT) : rnd(14) === 0 ? RET : dirs[rnd(4)]!;
-    out.push(sc === RET ? { sc, after: gap } : { sc, hold, after: gap });
-    used += gap;
-  }
-  return out;
-};
-const readCube = (): ScriptStep[] => [{ sc: RET, after: 60 }, { sc: ESC, after: 100 }, { sc: ESC, after: 30 }];
-/** The weapon sim: power +2 on the current weapon, Done buys. */
-const buyWeapon = (): ScriptStep[] => [
-  { sc: RIGHT, after: 40 }, { sc: RIGHT, after: 12 }, { sc: DOWN, after: 12 }, { sc: DOWN, after: 12 }, { sc: RET, after: 12 }, { sc: RET, after: 12 },
-];
-/** A list screen (shield, generator, sidekick): the entry below the current one is bought. */
-const buyListItem = (): ScriptStep[] => [{ sc: DOWN, after: 20 }, { sc: RET, after: 12 }, { sc: ESC, after: 12 }];
-/** The sidekick screen (list plus sim): the entry below the current one, Return buys and leaves for the Upgrade Ship menu. */
-const buySidekick = (): ScriptStep[] => [{ sc: UP, after: 20 }, { sc: RET, after: 20 }];
-/**
- * Shop: Upgrade Ship (the menu starts on Ship Type each visit), the sub-screen of `row` (1 front gun, 2 rear gun, 3 shield, 4 generator,
- * 5 left sidekick, 6 right sidekick) with a purchase, Esc to the main menu, then Next Level (the main menu cursor stays on Upgrade Ship).
- */
-const shopBuyNextLevel = (first: number, row = 1): ScriptStep[] => [
-  { sc: DOWN, after: first }, { sc: DOWN, after: 8 }, { sc: RET, after: 8 },
-  ...Array.from({ length: row }, () => ({ sc: DOWN, after: 12 })), { sc: RET, after: 12 },
-  ...(row <= 2 ? buyWeapon() : row <= 4 ? buyListItem() : buySidekick()),
-  { sc: ESC, after: 20 },
-  { sc: DOWN, after: 12 }, { sc: DOWN, after: 8 }, { sc: RET, after: 8 }, { sc: RET, after: 8 },
-];
-
 /** Frames of fire/arrow play per level and the seed of its pattern: levels 2-4 kill a ship that does not dodge after ~210-390 frames, so they are skipped (F2+F6+F7) before that. */
-const SEEDS = [1, 2, 3, 4], LENS = [2600, 300, 300, 300];
-interface Spec { steps: () => ScriptStep[]; tail: number; extra?: Partial<Scenario>; setup?: (ctx: Ctx) => void }
+const PLAY_SEEDS = [1, 2, 3, 4], LENS = [2600, 300, 300, 300];
 
 const SPECS: Record<string, Spec> = {
   'session-ep1-hard': { tail: 10, steps: () => [...toLevel([DOWN]), { sc: SPACE, hold: 200, after: 120 }] },
@@ -103,10 +44,10 @@ const SPECS: Record<string, Spec> = {
     tail: 40,
     steps: () => [
       { sc: RET }, { sc: RET }, { sc: RET }, { sc: RET },
-      ...shopBuyNextLevel(12, 1), ...playHolds(LENS[0]!, SEEDS[0]!), ...skipLevel(60),
-      ...readCube(), ...shopBuyNextLevel(40, 3), ...playHolds(LENS[1]!, SEEDS[1]!), ...skipLevel(60),
-      ...shopBuyNextLevel(60, 4), ...playHolds(LENS[2]!, SEEDS[2]!), ...skipLevel(60),
-      ...shopBuyNextLevel(60, 5), ...playHolds(LENS[3]!, SEEDS[3]!), ...skipLevel(60),
+      ...shopBuyNextLevel(12, 1), ...playHolds(LENS[0]!, PLAY_SEEDS[0]!), ...skipLevel(60),
+      ...readCube(), ...shopBuyNextLevel(40, 3), ...playHolds(LENS[1]!, PLAY_SEEDS[1]!), ...skipLevel(60),
+      ...shopBuyNextLevel(60, 4), ...playHolds(LENS[2]!, PLAY_SEEDS[2]!), ...skipLevel(60),
+      ...shopBuyNextLevel(60, 5), ...playHolds(LENS[3]!, PLAY_SEEDS[3]!), ...skipLevel(60),
     ],
   },
   /** Idle ship dies, any key at the game-over text, restore from the backup save, the shop, level 1 again. */
@@ -151,14 +92,8 @@ const SPECS: Record<string, Spec> = {
     steps: () => [{ sc: DOWN }, { sc: RET, after: 1 }, { sc: DOWN }, { sc: RET }, { sc: DOWN, after: 60 }, { sc: DOWN, after: 1 }],
   },
   ...episodeEnd(),
+  ...POLISH_SPECS_ENGAGE,
 };
-
-/** Typed characters of a name, one per `gap` frames (the entry loop presents frames continuously). */
-const typed = (text: string, gap = 20): ScriptStep[] => [...text].map((ch) => ({
-  sc: ch === ' ' ? SPACE : ch >= '0' && ch <= '9' ? (ch === '0' ? 39 : 30 + Number(ch) - 1) : 4 + (ch.toLowerCase().charCodeAt(0) - 97), ch, after: gap,
-}));
-const idleKey = (sc = RET): ScriptStep => ({ sc, idle: true });
-const loadSlot = (n: number): ScriptStep[] => [{ sc: DOWN }, { sc: RET }, ...Array.from({ length: n - 1 }, () => ({ sc: DOWN })), { sc: RET }];
 
 /** Sessions that start from episode-end.sav (a HOME-seeded save standing at the `]Q` section of an episode). */
 function episodeEnd(): Record<string, Spec> {
@@ -190,7 +125,13 @@ function run(name: string, write: boolean): void {
   const files = new Map<string, Uint8Array>();
   for (const f of readdirSync(dir)) files.set(f, new Uint8Array(readFileSync(join(dir, f))));
   const ctx = createCtx({ assets: loadAssets(new DataArchive(files)), clock: new VirtualClock(), presenter: new NullPresenter(), versionString: 'oracle', seed: 1 });
+  registerPolishSeeds();
   spec.setup?.(ctx);
+  if (spec.seed) {
+    const bytes = SEEDS[seedRel(spec.seed)]?.();
+    if (!bytes) throw new Error(`unknown seed ${spec.seed}`);
+    ctx.storage.set(STORAGE_KEYS.sav, bytesToBase64(bytes));
+  }
   const steps = spec.steps();
   const sr = installScript(ctx, steps, { idleLimit: 1000 });
   // run until the script is exhausted and `tail` frames have passed
@@ -203,7 +144,7 @@ function run(name: string, write: boolean): void {
     if (exhaustedAt >= 0 && sr.frames > lastKeyEnd + spec.tail) throw new Stop();
   };
   let ok = true;
-  void runGame(ctx).catch((e: unknown) => { if (!(e instanceof Stop)) { ok = false; console.error(e); } }).then(() => {
+  void runGame(ctx).catch((e: unknown) => { if (!(e instanceof Stop)) { ok = false; console.error(e); console.error(`steps fired ${sr.fires.length}/${steps.length} at frames ${sr.fires.join(',')}; ${sr.frames} frames presented`); } }).then(() => {
     if (!ok) return;
     // the oracle's frame index: the key is injected after that frame is presented
     const keys: KeyPress[] = steps.flatMap((s, i) => {
@@ -213,7 +154,7 @@ function run(name: string, write: boolean): void {
     });
     const text: TypedChar[] = steps.flatMap((s, i) => (s.ch === undefined ? [] : [{ frame: sr.fires[i]! - 1, scancode: s.sc, char: s.ch }]));
     const lastEnd = Math.max(...keys.map((k) => k.frame + (k.hold ?? 0)), ...text.map((t) => t.frame));
-    const sc: Scenario = { maxFrames: lastEnd + spec.tail + 1, keys, ...(text.length ? { text } : {}), hash: true, state2: true, saveDump: true, ...(spec.extra ?? {}) };
+    const sc: Scenario = { maxFrames: lastEnd + spec.tail + 1, keys, ...(text.length ? { text } : {}), hash: true, state2: true, state3: true, saveDump: true, ...(spec.seed ? { homeSeed: seedRel(spec.seed) } : {}), ...(spec.extra ?? {}) };
     console.log(`${name}: ${JSON.stringify(sc)}`);
     if (write) writeScenario(name, sc);
   });
