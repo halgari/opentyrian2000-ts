@@ -4,7 +4,7 @@ import type { Ctx } from '../../src/ctx';
 import type { ScriptStep } from '../../test/helpers/script-input';
 import type { Scenario } from './scenarios';
 
-export const RET = 40, RIGHT = 79, LEFT = 80, LCTRL = 224, LALT = 226, BKSP = 42, ESC = 41, SPACE = 44, DOWN = 81, UP = 82, F2 = 59, F6 = 63, F7 = 64;
+export const RET = 40, RIGHT = 79, LEFT = 80, LCTRL = 224, LALT = 226, BKSP = 42, ESC = 41, SPACE = 44, DOWN = 81, UP = 82, F1 = 58, F2 = 59, F6 = 63, F7 = 64;
 
 /** A mouse event step (relative motion 'm' (a, b), button 'd'/'u' a); fires like a key step, `sc` is unused. */
 export const mouse = (type: 'm' | 'd' | 'u', a: number, b?: number, after?: number): ScriptStep =>

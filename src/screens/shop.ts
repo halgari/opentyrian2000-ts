@@ -52,7 +52,7 @@ export { ShopState } from './shop-draw';
 
 const SC_SLASH = 56; // SDL_SCANCODE_SLASH
 
-/** Menus whose draw step, input handling and Enter handler exist. Everything else is Task 10/11 (or sp5). */
+/** Menus whose draw step, input handling and Enter handler exist. Everything else is unported and throws. */
 const PORTED_MENUS: ReadonlySet<number> = new Set([MENU_FULL_GAME, MENU_UPGRADES, MENU_PLAY_NEXT_LEVEL, MENU_UPGRADE_SUB, MENU_1_PLAYER_ARCADE,
   MENU_OPTIONS, 5 /* KEYBOARD_CONFIG */, MENU_LOAD_SAVE, MENU_DATA_CUBES, MENU_DATA_CUBE_SUB, MENU_LIMITED_OPTIONS,
   12 /* JOYSTICK_CONFIG */, 14 /* MOUSE_CONFIG */, MENU_SUPER_TYRIAN, MENU_2_PLAYER_ARCADE]);
@@ -277,7 +277,12 @@ async function menuFunction(ctx: Ctx, s: ShopState, select: number): Promise<voi
 
     default:
       // OPTIONS, KEYBOARD_CONFIG, LOAD_SAVE, DATA_CUBES, DATA_CUBE_SUB, LIMITED_OPTIONS, JOYSTICK_CONFIG, MOUSE_CONFIG: shop-options.ts
-      if (s.curMenu === MENU_2_PLAYER_ARCADE) await twoPlayerEnter(ctx, s, select);
+      if (s.curMenu === MENU_2_PLAYER_ARCADE) {
+        if (twoPlayerEnter(ctx, s) && await quitRequest(ctx)) {
+          v.gameLoaded = true;
+          g.config.mainLevel = 0;
+        }
+      }
       else if (!(await menuFunctionC(ctx, s, select, curSelect))) unportedMenu(s.curMenu);
   }
 

@@ -116,7 +116,17 @@ export function scrollAnchorX(g: GameWorld): number {
 /** `twoPlayerMode ? inputDevice[playerNum - 1] : 0` (mainint.c:4677-4687; galaga passes 0, handled by the caller). */
 export function inputDeviceOf(ctx: Ctx, playerNum: 1 | 2): number {
   const c = ctx.game.config;
-  return c.twoPlayerMode && !c.galagaMode ? c.inputDevice[playerNum - 1]! : 0;
+  return c.twoPlayerMode && !c.galagaMode ? effectiveInputDevices(ctx)[playerNum - 1]! : 0;
+}
+
+/**
+ * The device pair the game uses (Review Focus 2): the stored `inputDevice` made legal for the current joystick count.
+ * The stored bytes are never rewritten (a 0/0 pair or a pad id must survive a save, as in the C), so every use goes through here.
+ */
+export function effectiveInputDevices(ctx: Ctx): Uint8Array {
+  const d = Uint8Array.from(ctx.game.config.inputDevice);
+  normalizeInputDevices(d, joystickCount(ctx));
+  return d;
 }
 
 /** Number of joysticks (the C's `joysticks`); the gamepad layer arrives in Task 8, until then there are none. */

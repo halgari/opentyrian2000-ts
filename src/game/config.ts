@@ -12,7 +12,6 @@ import {
   backupCorruptSav, parseCfg, parseOpentyrianConfig, parseSav, readStoredCfg, readStoredSav,
 } from './save';
 import { plainSav, snapshotPlain } from './save-sync';
-import { joystickCount, normalizeInputDevices } from './twoplayer';
 import {
   defaultDosKeySettings, FIRST_LEVEL, FRONT_WEAPON, initialItemAvail, REAR_WEAPON, SA_NONE, SAVE_FILES_SIZE,
   type ConfigGroup,
@@ -188,8 +187,6 @@ export function loadConfiguration(ctx: Ctx): void {
     if (cfg) console.warn('opentyrian: invalid tyrian.cfg in storage; continuing using defaults');
     applyCfgDefaults(c);
   }
-
-  normalizeInputDevices(c.inputDevice, joystickCount(ctx)); // a stale or foreign tyrian.cfg (Review Focus 2)
 
   parseOpentyrianConfig(c, ctx.storage.get(STORAGE_KEYS.opentyrianCfg));
   applyVolumes(ctx);

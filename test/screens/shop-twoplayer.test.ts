@@ -3,11 +3,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { SC } from '../../tools/oracle/scenarios-shopc';
 import { initPlayerData, loadConfigurationDefaults } from '../../src/game/config';
 import { initEpisode } from '../../src/game/episodes';
-import { loadGame } from '../../src/game/save';
+import { loadGame, saveGame, serializeCfg, parseCfg } from '../../src/game/save';
 import { endLevelAni } from '../../src/screens/endlevel';
 import { highScoreCheck } from '../../src/screens/highscores';
 import { gameplaySelect, newGame } from '../../src/screens/select';
-import { nextInputDevice, normalizeInputDevices } from '../../src/screens/shop-twoplayer';
+import { effectiveInputDevices, inputDeviceOf, nextInputDevice, normalizeInputDevices } from '../../src/game/twoplayer';
 import { describeData } from '../helpers/data';
 import { drive, menuCtx } from '../helpers/drive';
 import { testCtx } from '../helpers/ctx';
@@ -63,15 +63,36 @@ describe('normalizeInputDevices (Review Focus 2)', () => {
 });
 
 describeData('two-player screens and saves', () => {
-  it('loadGame of a 2P slot whose devices are both 1 leaves a legal pair', () => {
+  it('a 2P slot whose devices are both 1 loads with the bytes untouched and an effective legal pair', () => {
     const ctx = menuCtx();
     const sf = ctx.game.config.saveFiles[11]!;
     sf.level = 1; sf.episode = 1; sf.input1 = 1; sf.input2 = 1;
     loadGame(ctx, 12);
     expect(ctx.game.config.twoPlayerMode).toBe(true);
-    const d = ctx.game.config.inputDevice;
+    expect([...ctx.game.config.inputDevice]).toEqual([1, 1]);
+    const d = effectiveInputDevices(ctx);
     expect(d[0]).not.toBe(d[1]);
     expect(d[0]! >= 1 && d[0]! <= 2 && d[1]! >= 1 && d[1]! <= 2).toBe(true);
+    expect([inputDeviceOf(ctx, 1), inputDeviceOf(ctx, 2)]).toEqual([d[0], d[1]]);
+    expect([...ctx.game.config.inputDevice]).toEqual([1, 1]); // resolving does not write
+  });
+
+  it('a 1P save with devices 0/0 round-trips byte for byte, and so does an out-of-range tyrian.cfg', () => {
+    const ctx = menuCtx();
+    const c = ctx.game.config;
+    c.saveFiles[0]!.level = 1; c.saveFiles[0]!.episode = 1; c.saveFiles[0]!.input1 = 0; c.saveFiles[0]!.input2 = 0;
+    loadGame(ctx, 1);
+    expect([...c.inputDevice]).toEqual([0, 0]);
+    saveGame(ctx, 2, 'RT');
+    expect([c.saveFiles[1]!.input1, c.saveFiles[1]!.input2]).toEqual([0, 0]);
+
+    c.inputDevice.set([9, 7]);
+    const bytes = serializeCfg(c);
+    c.inputDevice.set([1, 2]);
+    expect(parseCfg(c, bytes)).toBe(true);
+    expect([...c.inputDevice]).toEqual([9, 7]);
+    expect(serializeCfg(c)).toEqual(bytes);
+    expect(effectiveInputDevices(ctx)[0]).not.toBe(effectiveInputDevices(ctx)[1]);
   });
 
   it('newGame item 4 (tyrian2.c:3646): cash 0/0, Silver Ship, difficulty + 1, devices {1, 2}; a following full game clears twoPlayerMode', async () => {

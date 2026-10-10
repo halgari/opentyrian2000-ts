@@ -3,7 +3,7 @@
 // the generated scenarios (polish-*) live in the `<discovered>` region of scenarios.ts and are run by test/golden/polish.test.ts.
 import type { Ctx } from '../../src/ctx';
 import { DIFFICULTY_SUICIDE, DIFFICULTY_ZINGLON } from '../../src/game/world';
-import { DOWN, ESC, LCTRL, LEFT, RET, RIGHT, SPACE, UP, gameOver, gameOverBoth, idleKey, loadSlot, mouse, mouseIdle, playHolds, skipLevel, typed, type Spec } from './ts-steps';
+import { DOWN, ESC, F1, LCTRL, LEFT, RET, RIGHT, SPACE, UP, gameOver, gameOverBoth, idleKey, loadSlot, mouse, mouseIdle, playHolds, skipLevel, typed, type Spec } from './ts-steps';
 import type { ScriptStep } from '../../test/helpers/script-input';
 import { defineSeed } from './ts-save';
 
@@ -162,6 +162,11 @@ export const POLISH_SPECS_2P_SCREENS: Record<string, Spec> = {
   /** The end of episode 1 in a two-player game (]Q): high score entry for both players, the higher scorer first, into the two-player table. */
   'polish-2p-highscore': { seed: 'polish-2p-end', tail: 60, steps: () => [
     ...load2p(), { sc: RET }, ...typed('Pat'), { sc: RET, after: 10 }, { sc: RET }, ...typed('Lee'), { sc: RET, after: 10 }, { sc: RET }, { sc: RET, idle: true }] },
+  /** F1 during a 2P level: the two-player in-game help page (mainint.c:1938), Space dismisses it, the level goes on. */
+  'polish-2p-help': { seed: 'polish-2p', tail: 40, extra: { saveDump: false }, steps: () => [
+    ...load2p(), ...play2p(), { sc: RIGHT, hold: 20, after: 100 }, { sc: F1, hold: 3, after: 20 }, { sc: SPACE, after: 12 }, { sc: LEFT, hold: 20, after: 30 }] },
+  /** The whole of level 1 with P1 weaving and firing (P2 idles and dies): the level ends with a player alive, so the 2P tally (endLevelAni) follows; a key cuts its glow, another leaves it. */
+  'polish-2p-complete': { seed: 'polish-2p', tail: 40, extra: { saveDump: false }, steps: () => [...load2p(), ...play2p(), ...playHolds(11100, 4), { sc: RET, after: 400 }, { sc: RET, after: 60 }, { sc: DOWN, after: 80 }] },
   /** Load Game page 2 lists slots 12-22; page back and forth, load slot 12 into the 2P shop, open and leave the options. */
   'polish-2p-load': { seed: 'polish-2p', tail: 60, steps: () => [
     { sc: DOWN }, { sc: RET }, { sc: RIGHT }, { sc: DOWN, after: 8 }, { sc: UP, after: 8 }, { sc: LEFT, after: 8 }, { sc: RIGHT, after: 8 }, { sc: RET, after: 8 },

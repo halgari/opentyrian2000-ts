@@ -6,13 +6,10 @@
 // Ported from: src/game_menu.c (MENU_2_PLAYER_ARCADE: JE_itemScreen draw and input, JE_menuFunction)
 import { S_CURSOR } from '../audio/ids';
 import type { Ctx } from '../ctx';
-import { joystickCount, nextInputDevice } from '../game/twoplayer';
+import { effectiveInputDevices, joystickCount, nextInputDevice } from '../game/twoplayer';
 import { FULL_SHADE, dString, textShade } from '../video/fonthand';
 import { SMALL_FONT_SHAPES } from '../video/sprite';
-import { quitRequest } from './shop';
 import { MENU_2_PLAYER_ARCADE, MENU_OPTIONS, type ShopState } from './shop-draw';
-
-export { nextInputDevice, normalizeInputDevices } from '../game/twoplayer';
 
 /** The left panel of the two-player menus: the two cash lines (game_menu.c:645-657). */
 // port of JE_itemScreen, left side (game_menu.c:645)
@@ -31,6 +28,7 @@ export function drawTwoPlayerScores(ctx: Ctx): void {
 export function drawTwoPlayerMenu(ctx: Ctx, s: ShopState): void {
   if (s.curMenu !== MENU_2_PLAYER_ARCADE) return;
   const devices = ctx.game.config.inputDevice;
+  devices.set(effectiveInputDevices(ctx)); // the menu is only reachable in 2P mode, where the C repairs the pair here too
   const names = ctx.assets.helpText.inputDevices;
   const joysticks = joystickCount(ctx);
   for (let i = 0; i < 2; i++) {
@@ -49,9 +47,9 @@ export function twoPlayerLeftRight(ctx: Ctx, s: ShopState, dir: 1 | -1): void {
   nextInputDevice(ctx.game.config.inputDevice, (sel - 3) as 0 | 1, dir, joystickCount(ctx));
 }
 
-/** The Enter handler of MENU_2_PLAYER_ARCADE (game_menu.c:2925-2958); The mouse remap of the rows (game_menu.c:1154-1165) lives in handleMouse (shop.ts). */
+/** The Enter handler of MENU_2_PLAYER_ARCADE (game_menu.c:2925-2958); Returns true when row 6 (quit) was chosen. The mouse remap of the rows (game_menu.c:1154-1165) lives in handleMouse (shop.ts). */
 // port of JE_menuFunction, case MENU_2_PLAYER_ARCADE
-export async function twoPlayerEnter(ctx: Ctx, s: ShopState, selection: number): Promise<void> {
+export function twoPlayerEnter(ctx: Ctx, s: ShopState): boolean {
   const v = ctx.game.varz;
   switch (s.curSel[MENU_2_PLAYER_ARCADE]) {
     case 2:
@@ -67,11 +65,7 @@ export async function twoPlayerEnter(ctx: Ctx, s: ShopState, selection: number):
       s.curMenu = MENU_OPTIONS;
       break;
     case 6:
-      if (await quitRequest(ctx)) {
-        v.gameLoaded = true;
-        ctx.game.config.mainLevel = 0;
-      }
-      break;
+      return true; // the caller asks the quit dialog (quitRequest lives in shop.ts)
   }
-  void selection;
+  return false;
 }

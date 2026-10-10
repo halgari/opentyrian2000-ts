@@ -225,8 +225,9 @@ export function gameOverKeyWait(ctx: Ctx): void {
 }
 
 /**
- * The non-demo input block of JE_playerMovement (mainint.c:3679-3790): keyboard (device 0 or 1) and mouse (0 or 2);
- * the joystick path (device 0 or >= 3) is not ported yet and throws for devices >= 3 (Task 8). Moves the ship by the keyboard, fills `button[]` and
+ * The non-demo input block of JE_playerMovement (mainint.c:3679-3790): keyboard (device 0 or 1) and mouse (0 or 2).
+ * The joystick path (device 0 or >= 3) is not ported yet and throws for devices >= 3, which is unreachable until
+ * gamepads exist (effectiveInputDevices never yields one without a joystick). Moves the ship by the keyboard, fills `button[]` and
  * returns the mouse delta (mouseXC, mouseYC) that the caller clamps and applies.
  */
 export function readPlayerInput(ctx: Ctx, p: Player, inputDevice: number): { mouseXC: number; mouseYC: number } {
@@ -237,7 +238,7 @@ export function readPlayerInput(ctx: Ctx, p: Player, inputDevice: number): { mou
   let mouseXC = 0, mouseYC = 0;
 
   if (inputDevice !== 0 && inputDevice !== 1 && inputDevice !== 2) {
-    // TODO(sp5): joystick input (inputDevice >= 3), mainint.c:3679
+    // TODO(sp5): joystick input (inputDevice >= 3), mainint.c:3679; unreachable until Task 8 (no joysticks)
     throw new Error('unported: mainint.c:3679 joystick input');
   }
 
