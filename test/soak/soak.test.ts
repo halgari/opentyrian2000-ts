@@ -3,7 +3,7 @@
 // (levels are started directly from a synthetic demo header, the way the Task 3 goldens do, then handed to the bot), and walks every
 // episode's script with random keys through its shops, story screens and planet maps.
 //
-// Asserts: nothing throws (an `unported:` error is a known gap, reported rather than failed), no MegaData.oobReads (the C reads
+// Asserts: nothing throws (every `unported:` error is a finding, except the dead `]V`/`]R` reveals), no MegaData.oobReads (the C reads
 // neighbouring memory there: undefined behaviour), and the shop invariants after every presented frame (cash did not wrap, every item id
 // indexes its table).
 //
@@ -16,9 +16,13 @@ import { initPlayerData, loadConfigurationDefaults } from '../../src/game/config
 import { initEpisode, scanForEpisodes } from '../../src/game/episodes';
 import { levelFrame, levelSetup, loadMap } from '../../src/game/level';
 import { OPTION_NUM, PORT_NUM, POWER_NUM, SHIELD_NUM, SHIP_NUM, SPECIAL_NUM, DIFFICULTY_NORMAL, FIRST_LEVEL, type GameWorld } from '../../src/game/world';
+import { runGame } from '../../src/game';
+import { STORAGE_KEYS, bytesToBase64 } from '../../src/platform/storage';
 import { VirtualClock } from '../../src/platform/clock';
 import { NullPresenter } from '../../src/video/presenter';
 import { ALL_DEMO_LEVELS, FRONT_PORTS, GENERATORS, SHIELDS, SHIPS, SIDEKICKS, SPECIAL_POOL, demoBytes, type DemoLevel, type DemoLoadout } from '../../tools/oracle/demo-levels';
+import { SEEDS, seedRel } from '../../tools/oracle/ts-save';
+import { registerPolishSeeds } from '../../tools/oracle/ts-specs-polish';
 import { archiveWith } from '../golden/demo-harness';
 import { testArchive } from '../helpers/data';
 import { Stop } from '../helpers/script-input';
@@ -80,13 +84,12 @@ function oobReads(g: GameWorld): number {
 
 interface Finding { where: string; what: string }
 const knownUb: string[] = [];
-/** `unported:` errors the script walk may reach: none since every secret mode (]e, ]g) is ported. */
-const SCRIPT_UNPORTED_ALLOW: readonly RegExp[] = [];
-/** With `allow`, an `unported:` error not matching it is a finding (the script walk); without, every one is only reported. */
-const noteTo = (findings: Finding[], unported: Finding[], allow?: readonly RegExp[]) => (where: string, e: unknown): void => {
+/** Dead code, intentionally unported: no shipped script uses the `]V` / `]R` reveals. Every other `unported:` error is a finding. */
+const DEAD_UNPORTED = /unported: \](V|R) /;
+const noteTo = (findings: Finding[]) => (where: string, e: unknown): void => {
   const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
-  const isUnported = msg.includes('unported') && !(allow && !allow.some((re) => re.test(msg)));
-  (isUnported ? unported : findings).push({ where, what: msg + (e instanceof Error && !isUnported ? `\n${e.stack}` : '') });
+  if (DEAD_UNPORTED.test(msg)) return;
+  findings.push({ where, what: msg + (e instanceof Error ? `\n${e.stack}` : '') });
 };
 
 function randomLoadout(r: () => number, k: number): DemoLoadout {
@@ -182,6 +185,52 @@ async function playGalaga(seed: number, frames: number): Promise<{ frames: numbe
   return { frames: n, end, oobPickups: ctx.game.varz.oobPickupReads };
 }
 
+/**
+ * Starts a whole session (runGame) from a seeded tyrian.sav and drives it with random menu taps and held level keys, so the title,
+ * Load Game, the shop and the seeded mode's levels are all reachable. Returns the frames played and the mode flags seen.
+ */
+async function playSeed(seedPath: string, seed: number, frames: number): Promise<{ frames: number; modes: string[]; oob: number }> {
+  const r = prng(seed);
+  const ctx = newCtx();
+  ctx.storage.set(STORAGE_KEYS.sav, bytesToBase64(SEEDS[seedPath]!()));
+  const c = ctx.game.config;
+  const modes = new Set<string>();
+  const held = new Set<number>();
+  const pad = [...LEVEL_KEYS.map(([sc]) => sc), ...MENU_KEYS];
+  let n = 0;
+  const tap = (): void => {
+    const sc = pad[Math.floor(r() * pad.length)]!;
+    ctx.input.push({ type: 'keydown', scancode: sc, mod: 0 });
+    ctx.input.push({ type: 'keyup', scancode: sc });
+  };
+  // a screen that waits without presenting frames (e.g. "wait for no key held") gets the held keys released, then a tap
+  const sleep = ctx.clock.sleep.bind(ctx.clock);
+  ctx.clock.sleep = async (ms: number) => {
+    for (const sc of held) ctx.input.push({ type: 'keyup', scancode: sc });
+    held.clear();
+    if (r() < 0.2) tap();
+    return sleep(ms);
+  };
+  ctx.frameSink = () => {
+    if (c.timedBattleMode) modes.add('timed');
+    if (c.twoPlayerMode) modes.add('2p');
+    if (c.galagaMode) modes.add('galaga');
+    if (c.superTyrian) modes.add('superTyrian');
+    if (c.onePlayerAction) modes.add('arcade');
+    if (++n % 3 === 0 && r() < 0.35) {
+      for (const [sc, p] of LEVEL_KEYS) {
+        const want = r() < p;
+        if (want && !held.has(sc)) { held.add(sc); ctx.input.push({ type: 'keydown', scancode: sc, mod: 0 }); }
+        else if (!want && held.has(sc)) { held.delete(sc); ctx.input.push({ type: 'keyup', scancode: sc }); }
+      }
+    }
+    if (r() < 0.04) tap();
+    if (n >= frames) throw new Stop();
+  };
+  try { await runGame(ctx); } catch (e) { if (!(e instanceof Stop)) throw e; }
+  return { frames: n, modes: [...modes], oob: oobReads(ctx.game) + ctx.game.varz.oobPickupReads };
+}
+
 /** Walks an episode's script from level 1 with random keys: story text, shops (purchases), planet maps; every level is "won" at once. */
 async function walkScript(episode: number, seed: number, frames: number): Promise<{ frames: number; visits: number; cashMax: number }> {
   const r = prng(seed);
@@ -228,11 +277,11 @@ async function walkScript(episode: number, seed: number, frames: number): Promis
 
 (SOAK && testArchive ? describe : describe.skip)('soak (SOAK=1)', () => {
   const warns: string[] = [];
-  const findings: Finding[] = [], unported: Finding[] = [];
-  const note = noteTo(findings, unported);
-  const noteScript = noteTo(findings, unported, SCRIPT_UNPORTED_ALLOW);
+  const findings: Finding[] = [];
+  const note = noteTo(findings);
+  const noteScript = note;
   it('plays every level of every episode with random held keys', async () => {
-    findings.length = 0; unported.length = 0;
+    findings.length = 0;
     const spy = vi.spyOn(console, 'warn').mockImplementation((...a: unknown[]) => { warns.push(a.join(' ')); });
     const t0 = Date.now();
     const summary: string[] = [];
@@ -248,14 +297,13 @@ async function walkScript(episode: number, seed: number, frames: number): Promis
     spy.mockRestore();
     console.log(`soak levels: ${summary.length} runs ok in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
     console.log(summary.join('\n'));
-    if (unported.length) console.log(`unported branches reached:\n${unported.map((f) => `${f.where}: ${f.what}`).join('\n')}`);
     if (knownUb.length) console.log(`C-undefined (reported, not failed):\n${knownUb.join('\n')}`);
     expect(findings.map((f) => `${f.where}: ${f.what}`)).toEqual([]);
     expect(warns.filter((w) => w.includes('outside the array')).length > 0, 'oobReads warnings only with a known-UB level').toBe(knownUb.length > 0);
   }, 1_800_000);
 
   it('walks every episode script with random keys (shops, story, planet maps)', async () => {
-    findings.length = 0; unported.length = 0;
+    findings.length = 0;
     const out: string[] = [];
     for (let round = 0; round < ROUNDS; round++) {
       for (let ep = 1; ep <= 5; ep++) {
@@ -267,7 +315,6 @@ async function walkScript(episode: number, seed: number, frames: number): Promis
       }
     }
     console.log(out.join('\n'));
-    if (unported.length) console.log(`unported branches reached:\n${unported.map((f) => `${f.where}: ${f.what}`).join('\n')}`);
     expect(findings.map((f) => `${f.where}: ${f.what}`)).toEqual([]);
   }, 1_800_000);
 
@@ -282,6 +329,26 @@ async function walkScript(episode: number, seed: number, frames: number): Promis
           const res = await playGalaga(SEED + round, LEVEL_FRAMES);
           out.push(`${where}: ${res.frames} frames, ${res.end}${res.oobPickups ? `, WARNING ${res.oobPickups} out-of-range pickup(s) (C UB, modelled as no pickup)` : ''}`);
         } catch (e) { note(where, e); }
+      }
+    } finally { spy.mockRestore(); }
+    console.log(out.join('\n'));
+    expect(findings.map((f) => `${f.where}: ${f.what}`)).toEqual([]);
+  }, 1_800_000);
+
+  it('plays whole sessions from the polish seeds (ENGAGE, galaga, two-player) with random keys', async () => {
+    findings.length = 0;
+    registerPolishSeeds();
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const out: string[] = [];
+    try {
+      for (let round = 0; round < ROUNDS * 2; round++) {
+        for (const name of ['polish-engage', 'polish-galaga', 'polish-2p']) {
+          const where = `${name} round ${round} seed ${SEED + round}`;
+          try {
+            const res = await playSeed(seedRel(name), SEED + round, LEVEL_FRAMES);
+            out.push(`${where}: ${res.frames} frames, modes [${res.modes.join(', ')}]${res.oob ? `, WARNING ${res.oob} out-of-range read(s) (C UB, reported not failed)` : ''}`);
+          } catch (e) { note(where, e); }
+        }
       }
     } finally { spy.mockRestore(); }
     console.log(out.join('\n'));

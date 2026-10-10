@@ -406,11 +406,11 @@ export async function runEpisodeScript(ctx: Ctx, s: Uint8Array): Promise<ScriptR
           }
 
           case 'V':
-            // TODO(sp5): tyrian2.c:2819 scroll-down reveal (no shipped script uses ]V)
+            // dead: no shipped script uses ]V (survey section 7); intentionally unported (tyrian2.c:2819)
             throw new Error('unported: ]V scroll-down reveal (tyrian2.c:2819)');
 
           case 'R':
-            // TODO(sp5): tyrian2.c:2870 scroll-left reveal (no shipped script uses ]R)
+            // dead: no shipped script uses ]R (survey section 7); intentionally unported (tyrian2.c:2870)
             throw new Error('unported: ]R scroll-left reveal (tyrian2.c:2870)');
 
           case 'C':

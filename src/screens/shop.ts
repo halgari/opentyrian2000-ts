@@ -48,17 +48,13 @@ export { ShopState } from './shop-draw';
 
 const SC_SLASH = 56; // SDL_SCANCODE_SLASH
 
-/** Menus whose draw step, input handling and Enter handler exist. Everything else is unported and throws. */
+/** Menus 0..14 are all of the C's menus (MENU_MAX is 15); anything else is an internal error, never reachable. */
 const PORTED_MENUS: ReadonlySet<number> = new Set([MENU_FULL_GAME, MENU_UPGRADES, MENU_PLAY_NEXT_LEVEL, MENU_UPGRADE_SUB, MENU_1_PLAYER_ARCADE,
   MENU_OPTIONS, 5 /* KEYBOARD_CONFIG */, MENU_LOAD_SAVE, MENU_DATA_CUBES, MENU_DATA_CUBE_SUB, MENU_LIMITED_OPTIONS,
   12 /* JOYSTICK_CONFIG */, 14 /* MOUSE_CONFIG */, MENU_SUPER_TYRIAN, MENU_2_PLAYER_ARCADE]);
 
-function unported(what: string): never {
-  throw new Error(`unported: ${what}`);
-}
-
-function unportedMenu(menu: number): never {
-  return unported(`shop menu ${menu}`);
+function badMenu(menu: number): never {
+  throw new Error(`shop menu ${menu} does not exist`);
 }
 
 // JE_mousePosition(&mouseX, &mouseY) into the mouse.c globals (varz.mouseX/Y, JE_word) and the shop's mouseButton
@@ -279,7 +275,7 @@ async function menuFunction(ctx: Ctx, s: ShopState, select: number): Promise<voi
           g.config.mainLevel = 0;
         }
       }
-      else if (!(await menuFunctionC(ctx, s, select, curSelect))) unportedMenu(s.curMenu);
+      else if (!(await menuFunctionC(ctx, s, select, curSelect))) badMenu(s.curMenu);
   }
 
   s.oldItems[0].copyFrom(g.players[0].items);
@@ -506,7 +502,7 @@ export async function itemScreen(ctx: Ctx, state: ShopState = new ShopState()): 
       if (c.superTyrian) s.curMenu = MENU_SUPER_TYRIAN;
     }
 
-    if (!PORTED_MENUS.has(s.curMenu)) unportedMenu(s.curMenu);
+    if (!PORTED_MENUS.has(s.curMenu)) badMenu(s.curMenu);
 
     s.paletteChanged = false;
     s.leftPower = false;

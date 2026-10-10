@@ -145,7 +145,7 @@ export async function displayText(ctx: Ctx): Promise<void> {
   if (ts.warningRed) tempY = 2;
   for (sc.temp = 0; sc.temp < ts.levelWarningLines; sc.temp = u8(sc.temp + 1)) {
     await outCharGlow(ctx, 10, tempY, ts.levelWarningText[sc.temp] ?? '');
-    // TODO(sp5): JE_tyrianHalt(5) on haltGame is network-only
+    // Unreachable: haltGame is only set by the network code (no netplay build), so JE_tyrianHalt(5) never runs here.
     if (ts.haltGame) throw new Error('unported: JE_tyrianHalt (tyrian2.c JE_displayText)');
     tempY += 10;
   }

@@ -18,12 +18,14 @@ browser.
     pnpm test             # unit tests; data tests run if `pnpm data` was run
     pnpm oracle           # build the patched C original and record every golden (see "Regenerating the oracle outputs")
     pnpm test             # now also runs the golden comparisons
-    pnpm soak             # headless soak (opt-in, ~1 min), see below
+    pnpm soak             # headless soak (opt-in, a few minutes), see below
+    pnpm test:e2e         # headless-Chromium smoke tests of the built page (needs Chromium; skipped otherwise)
+    pnpm build:single     # dist-single/tyrian.html (one file with the data inlined); test/build checks it
 
 `pnpm oracle` needs git, gcc, make, pkg-config and the SDL2 development headers
 (SDL2_net is not needed). Golden tests skip when their oracle files (`test-data/`, gitignored) are absent.
 
-Runtime: the whole suite takes about 1 minute (98 files, ~865 tests) and `pnpm oracle` about 2 minutes (after the
+Runtime: the whole suite takes about 1 minute (119 files, ~1050 tests) and `pnpm oracle` about 2 minutes (after the
 one-off C build). The long golden `test/golden/session-long.test.ts` (episode 1, levels 1-4, ~5100 frames) takes about 2 s.
 
 ### Regenerating the oracle outputs
@@ -66,6 +68,12 @@ anyway. Concrete scenarios should use the exact last frame of the blocking scree
 
     pnpm oracle:discover tools/oracle/specs/newgame-ep1-first-shop-to-level.json   # writes scenarios.ts
     pnpm oracle:run newgame-ep1-first-shop-to-level
+
+The sub-project 5 oracle scenario families are `polish-*` (title codes, ENGAGE, timed battle, two-player, galaga, super
+arcade; `test/golden/polish.test.ts`). Each runs from a seed save written by the TS port (`SEEDS` in `tools/oracle/ts-save.ts`,
+registered by `registerPolishSeeds()` in `tools/oracle/ts-specs-polish.ts`; `homeSeed` copies it into the C's HOME and the
+test loads the same bytes into storage), compares HASH, STATE2 and STATE3 on every frame (`OT_STATE3`, `state3: true`) and the
+saved bytes. New specs: `pnpm tsx tools/oracle/ts-scenario.ts <name>`, then `pnpm oracle:run <name>`.
 
 Scenarios may also set `mouse`, `state2`, `saveDump` (-> `<name>.save/`), `homeSeed` (a `tyrian.sav` copied into the
 oracle HOME) and `dataDir` (alternate `-t` data dir).
@@ -132,8 +140,21 @@ Sub-project 4 (Game flow) - the whole story/arcade loop is playable in the brows
   held keys and walks every episode script through its shops (`pnpm soak`); a headless-Chromium smoke test (new game, buy,
   play, pause, in-game menu, quit, load the backup save, reload with the save still in localStorage) passed.
 
-Not ported yet (they throw `unported:` or are refused on the menu): two-player modes, 1 Player Timed Battle, Galaga/ENGAGE
-bonus modes, Super Arcade / SuperTyrian, network play, joystick, Destruct, the Jukebox and the graphics scaler setup.
+Sub-project 5 (Polish/ship) - every mode except Destruct is playable:
+
+- Modes: 1 Player Timed Battle, 2 Player Arcade (with linked ships), Super Arcade ships and SuperTyrian through the title codes,
+  the ENGAGE and galaga (`]e`, `]g`) bonus sections, and the Jukebox. Frame-exact against the C oracle (`polish-*` goldens).
+- Input: gamepads through the Gamepad API (joystick.c semantics, menus and in-level), and a web-only shared-keyboard
+  2-player extension (off by default).
+- Setup: a Graphics page (fullscreen, scaling mode), integer scaling in device pixels.
+- Build: `pnpm build:single` makes one `tyrian.html` with the data inlined (works from `file://`); the Cloudflare config and
+  cache headers are in place but nothing is deployed (see Deploy).
+
+Not ported: Destruct (the title code `DESTRUCT` shows a notice), network play, the ship editor, the graphics scaler options
+other than the web scaling modes, and the `]V`/`]R` script reveals (no shipped script uses them). Known gaps: sound effects are
+resampled to the browser's rate, which is not sample-exact against the C; the event-66 difficulty gate cannot be tested through
+the demos. The few C reads past the end of an array that shipped data can reach are modelled as no-ops and counted
+(`MegaData.oobReads`, `varz.oobPickupReads`); the soak reports them without failing.
 
 ### Headless soak
 
@@ -141,7 +162,9 @@ bonus modes, Super Arcade / SuperTyrian, network play, joystick, Destruct, the J
 synthetic demo header with a random loadout (all ships, weapons, sidekicks, specials), hands the ship to a bot with seeded random
 held keys (two runs in three are immortal so the late events are reached) and checks: no throws, no `MegaData.oobReads`,
 and item/cash invariants after every frame; a second test walks each episode script with random keys through its
-story screens, shops and planet maps. Knobs: `SOAK_ROUNDS`, `SOAK_SEED`, `SOAK_FRAMES` (frames per level, default 8000),
+story screens, shops and planet maps; a third plays the galaga section, and a fourth runs whole sessions from the
+`polish-engage`, `polish-galaga` and `polish-2p` seed saves. Every `unported:` error is a failure (except the dead `]V`/`]R`).
+`test/guards.test.ts` fails on any `TODO(sp5)` or undocumented `unported:` in `src`. Knobs: `SOAK_ROUNDS`, `SOAK_SEED`, `SOAK_FRAMES` (frames per level, default 8000),
 `SOAK_SCRIPT_FRAMES`. One round takes about 45 s. Known C-undefined case, reported but not failed: episode 5 level 1,
 when the level never ends (boss not killed), scrolls layer 3 past the top of its map (the C then reads neighbouring globals).
 

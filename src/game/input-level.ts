@@ -92,7 +92,7 @@ export async function mainKeyboardInput(ctx: Ctx): Promise<void> {
   if (c.superTyrian) c.youAreCheating = false;
 
   /* {DEBUG} */
-  // The FPS overlay that `debug` enables is not ported (TODO(sp5)); the toggle and its counters are, so the key combination is harmless.
+  // The FPS overlay that `debug` enables is not ported (not reachable by a player); the toggle and its counters are, so the key combination is harmless.
   if (ks[SC.F10] && ks[Scancode.Backspace]) {
     ks[SC.F10] = 0;
     v.debug = !v.debug;
